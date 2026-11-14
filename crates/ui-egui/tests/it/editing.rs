@@ -2,6 +2,7 @@
 //! save/save-as, the unsaved-changes prompt and editable document properties.
 
 use crate::support;
+use crate::support::view::{scroll_to_page_fraction, visible_page_point};
 
 use egui::accesskit::Role;
 use egui::{Key, Modifiers};
@@ -6317,23 +6318,6 @@ fn a_thumbnail_drag_that_ends_off_the_panel_or_outlives_the_pages_is_dropped() {
 /// A Pages panel thumbnail (the rightmost node with that label).
 fn panel_thumb(h: &Harness<'static, PdfCraftApp>, label: &str) -> egui::Pos2 {
     h.get_all_by_label(label).map(|n| n.rect()).max_by(|a, b| a.left().total_cmp(&b.left())).expect("the thumbnail").center()
-}
-
-/// Scrolls page `page` so the point `frac` of its height below its top is at the top of the pages
-/// area (as far as the scroll range allows), for presses on content a fit-width page would put
-/// below the bottom of the window.
-fn scroll_to_page_fraction(h: &mut Harness<'static, PdfCraftApp>, page: usize, frac: f32) {
-    h.state_mut().views[0].goto = Some((page, frac));
-    h.run_steps(3);
-}
-
-/// The middle of the part of page `page` that is inside the pages area, for a press that must land
-/// on the page and on screen (a fit-width page can run past the bottom of the window).
-fn visible_page_point(h: &Harness<'static, PdfCraftApp>, page: usize) -> egui::Pos2 {
-    let view = &h.state().views[0];
-    let visible = view.page_screen_rect(page).expect("the page is laid out").intersect(view.viewport_rect());
-    assert!(visible.is_positive(), "page {page} is on screen: {visible:?}");
-    visible.center()
 }
 
 fn right_click_at(h: &mut Harness<'static, PdfCraftApp>, at: egui::Pos2) {

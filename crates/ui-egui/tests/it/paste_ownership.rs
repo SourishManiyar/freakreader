@@ -53,36 +53,11 @@ fn harness(bytes: Vec<u8>) -> Harness<'static, PdfCraftApp> {
 }
 
 fn point(h: &Harness<'static, PdfCraftApp>, user: [f64; 2]) -> Pos2 {
-    let app = h.state();
-    let info = &app.session.get(app.views[0].id).unwrap().info.pages[0];
-    let v = info.user_to_view(user[0] as f32, user[1] as f32);
-    app.views[0].page_xform(0).unwrap().norm_to_screen(v[0] / info.width, v[1] / info.height)
-}
-
-/// `user` on screen, first scrolling it up into the pages area when the page runs below the
-/// window: at fit width the page is taller than the window, and its lower part starts off-screen.
-fn visible_point(h: &mut Harness<'static, PdfCraftApp>, user: [f64; 2]) -> Pos2 {
-    let p = point(h, user);
-    if p.y <= 700.0 {
-        return p;
-    }
-    h.hover_at(egui::pos2(p.x, 500.0));
-    h.run_steps(1);
-    h.event(egui::Event::MouseWheel {
-        unit: egui::MouseWheelUnit::Point,
-        delta: egui::vec2(0.0, 500.0 - p.y),
-        modifiers: Modifiers::NONE,
-        phase: egui::TouchPhase::Move,
-        source: egui::MouseWheelSource::Unknown,
-    });
-    crate::support::settle(h);
-    let p = point(h, user);
-    assert!(p.y <= 900.0, "{user:?} scrolled into the window: {p:?}");
-    p
+    crate::support::view::page_point(h, 0, user)
 }
 
 fn right_click(h: &mut Harness<'static, PdfCraftApp>, user: [f64; 2]) {
-    let p = visible_point(h, user);
+    let p = crate::support::view::page_point_in_view(h, 0, user);
     h.hover_at(p);
     h.run_steps(1);
     for pressed in [true, false] {
