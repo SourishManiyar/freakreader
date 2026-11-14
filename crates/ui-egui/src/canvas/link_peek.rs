@@ -9,6 +9,7 @@
 //! the document changes (its pages may be gone), when a dialog comes over the pages, and when its
 //! link's page leaves the screen.
 
+use egui::emath::GuiRounding as _;
 use egui::{Align2, Color32, CornerRadius, Pos2, Rect, Sense, Stroke, Vec2, pos2, vec2};
 use pdfcraft_engine::link_preview::{LinkPreview, link_preview};
 use pdfcraft_render::{DestView, DocInfo, LinkTarget, RenderPool, RenderRequest, Tile};
@@ -16,9 +17,13 @@ use pdfcraft_render::{DestView, DocInfo, LinkTarget, RenderPool, RenderRequest, 
 use super::DocView;
 use crate::theme::{self, Tokens};
 
-/// The tallest the picture is, as a share of the pages' height on screen: a tall `/FitR`
+/// The tallest the picture is, as a share of the pages' height on screen at 100 %: a tall `/FitR`
 /// rectangle, or a big zoom, shows smaller.
 const MAX_HEIGHT_SHARE: f32 = 0.5;
+/// The tallest it is at any size, as a share of the pages' height.
+const MAX_HEIGHT_SHARE_CAP: f32 = 0.8;
+/// Preferences ▸ Documents and view ▸ Reference preview size, in percent: what it offers.
+pub const PREVIEW_SIZES: [u16; 5] = [50, 75, 100, 125, 150];
 /// The narrowest the picture is, in points, however far the page is zoomed out.
 const MIN_WIDTH: f32 = 240.0;
 /// The space between the link and the window, and between the window and the edge of the pages.
@@ -165,6 +170,23 @@ pub(super) fn right_click(view: &mut DocView, doc: &pdfcraft_engine::Document, f
     view.link_peek.is_some()
 }
 
+/// The zoom the preview is drawn at: the link's page's (screen points per page point), but never
+/// below the viewer's 100 % ([`super::PT`]), where body text is too small to read, times
+/// Reference preview size (`size`, a factor). A page zoomed out to see more of it still gets a
+/// preview that reads.
+fn preview_zoom(page_zoom: Option<f32>, size: f32) -> f32 {
+    let page = page_zoom.filter(|z| z.is_finite() && *z > 0.0).unwrap_or(super::PT);
+    let size = if size.is_finite() && size > 0.0 { size } else { 1.0 };
+    page.max(super::PT) * size
+}
+
+/// `size` in points made a whole number of pixels at `ppp` pixels per point, so the picture
+/// rendered for it maps one texel to one screen pixel.
+fn snap(size: Vec2, ppp: f32) -> Vec2 {
+    let ppp = if ppp.is_finite() && ppp > 0.0 { ppp } else { 1.0 };
+    (size * ppp).round().max(vec2(1.0, 1.0)) / ppp
+}
+
 /// Where the window goes: below the link when it fits under it in `viewport`, else above it, else
 /// wherever it is most in view; across, centred on the link and kept inside.
 fn place(link: Rect, size: Vec2, viewport: Rect) -> Pos2 {
@@ -184,7 +206,9 @@ fn place(link: Rect, size: Vec2, viewport: Rect) -> Pos2 {
 /// Draw the open preview by its link, or close it when it no longer belongs on screen (see the
 /// module notes). `modal`: something is over the pages. A click on the picture goes to the
 /// destination and closes the preview; a right-click on the window closes it.
-pub(super) fn show(ui: &egui::Ui, view: &mut DocView, doc: &pdfcraft_engine::Document, info: &DocInfo, modal: bool) {
+/// `size`: Reference preview size, in percent ([`PREVIEW_SIZES`]; anything else is 100).
+pub(super) fn show(ui: &egui::Ui, view: &mut DocView, doc: &pdfcraft_engine::Document, info: &DocInfo, modal: bool, size: u16) {
+    let size = if PREVIEW_SIZES.contains(&size) { f32::from(size) / 100.0 } else { 1.0 };
     let Some(peek) = view.link_peek.as_mut() else { return };
     let (page, _) = peek.source;
     let xform = info.pages.get(page).and(view.screen_xforms.iter().find(|(p, _)| *p == page).map(|(_, xf)| *xf));
@@ -200,16 +224,18 @@ pub(super) fn show(ui: &egui::Ui, view: &mut DocView, doc: &pdfcraft_engine::Doc
     }
     let ctx = ui.ctx().clone();
     let t = Tokens::get(&ctx);
-    let room = vec2(viewport.width() - 2.0 * (EDGE + PAD), viewport.height() * MAX_HEIGHT_SHARE);
-    let picture = peek.picture_size(xform.map_or(1.0, |xf| xf.zoom()), room);
-    if peek.render(&ctx, picture, ctx.pixels_per_point()) {
+    let room = vec2(viewport.width() - 2.0 * (EDGE + PAD), viewport.height() * (MAX_HEIGHT_SHARE * size).min(MAX_HEIGHT_SHARE_CAP));
+    let ppp = ctx.pixels_per_point();
+    let picture = snap(peek.picture_size(preview_zoom(xform.map(|xf| xf.zoom()), size), room), ppp);
+    if peek.render(&ctx, picture, ppp) {
         ctx.request_repaint_after(std::time::Duration::from_millis(16));
     }
     let caption = crate::i18n::fmt(tl!("Go to page {p}"), &[("p", &peek.label)]);
     let caption_font = theme::medium(12.0);
     let caption_h = ctx.fonts_mut(|f| f.row_height(&caption_font));
     let size = picture + vec2(2.0 * PAD, 2.0 * PAD + caption_h + CAPTION_GAP);
-    let at = place(link, size, viewport);
+    // On whole pixels, so the picture's texels fall on the screen's.
+    let at = place(link, size, viewport).round_to_pixels(ppp);
     let mut go = false;
     let mut close = false;
     egui::Area::new(egui::Id::unique(("link-preview", view.id.0))).order(egui::Order::Foreground).fixed_pos(at).constrain(false).show(&ctx, |ui| {
@@ -228,7 +254,10 @@ pub(super) fn show(ui: &egui::Ui, view: &mut DocView, doc: &pdfcraft_engine::Doc
             let painter = ui.painter_at(rect);
             painter.rect_filled(rect, 0.0, Color32::WHITE);
             if let Some(texture) = &peek.texture {
-                painter.image(texture.id(), rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+                // At its own pixel size from a whole pixel: one texel per screen pixel, never
+                // resampled (which blurs small text). It is the picture's size within a pixel.
+                let shown = Rect::from_min_size(rect.min.round_to_pixels(ppp), texture.size_vec2() / ppp);
+                painter.image(texture.id(), shown, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
             } else {
                 let note = if peek.failed { tl!("This part of the page could not be drawn.") } else { tl!("Drawing…") };
                 painter.text(rect.center(), Align2::CENTER_CENTER, note, theme::regular(12.0), t.text_muted);
@@ -282,6 +311,21 @@ mod tests {
         assert!((peek.picture_size(0.1, room).x - MIN_WIDTH).abs() < 0.01);
         // Nonsense zoom reads as 100%.
         assert_eq!(peek.picture_size(f32::NAN, room), vec2(612.0, 245.0));
+    }
+
+    #[test]
+    fn a_zoomed_out_page_still_gets_a_readable_preview_on_whole_pixels() {
+        use super::super::PT;
+        // Zoomed out to 50 %: the preview is drawn at 100 % (actual size), times its size setting.
+        assert_eq!(preview_zoom(Some(0.5 * PT), 1.0), PT);
+        assert_eq!(preview_zoom(Some(0.5 * PT), 1.5), 1.5 * PT);
+        // Zoomed in, it follows the page.
+        assert_eq!(preview_zoom(Some(2.0 * PT), 1.0), 2.0 * PT);
+        assert_eq!(preview_zoom(None, f32::NAN), PT);
+        // Whole pixels at 1× and 1.5×.
+        assert_eq!(snap(vec2(612.4, 244.8), 1.0), vec2(612.0, 245.0));
+        let at_150 = snap(vec2(612.4, 244.8), 1.5) * 1.5;
+        assert_eq!(at_150, at_150.round());
     }
 
     #[test]

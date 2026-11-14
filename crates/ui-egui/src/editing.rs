@@ -1324,9 +1324,13 @@ impl PdfCraftApp {
                 self.paste_bookmarks(id, parent, index);
                 return;
             }
-            A::FromStructure => {
-                self.right = Some(crate::RightPanel::Bookmarks);
-                Edit::BookmarksFromStructure
+            A::CreateToc => {
+                self.create_toc(id);
+                return;
+            }
+            A::EditList => {
+                self.open_bookmark_list(id);
+                return;
             }
             // A dialog chooses the styles; it makes the edit.
             A::FromTextStyles => {

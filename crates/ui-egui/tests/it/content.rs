@@ -913,7 +913,7 @@ fn mode_tab(h: &Harness<'static, PdfCraftApp>, label: &str) -> egui::Rect {
 fn mode_tab_cursors(
     h: &mut Harness<'static, PdfCraftApp>,
     what: impl Fn(&Harness<'static, PdfCraftApp>) -> egui::Rect,
-) -> [(&'static str, egui::CursorIcon); 4] {
+) -> [(&'static str, egui::CursorIcon); 3] {
     let page = |h: &Harness<'static, PdfCraftApp>| h.state().views[0].page_screen_rect(0).expect("on screen");
     let y = what(h).center().y - page(h).top();
     let tabs = mode_tab(h, "Convert").center().y;
@@ -923,7 +923,7 @@ fn mode_tab_cursors(
     h.state_mut().views[0].goto = Some((0, (top - (tabs - y)) / page(h).height()));
     h.run_steps(4);
     let under = what(h);
-    ["All tools", "Edit", "Convert", "E-Sign"].map(|label| {
+    ["Edit", "Convert", "E-Sign"].map(|label| {
         let at = mode_tab(h, label).center();
         assert!(under.contains(at), "{under:?} lies under {label} at {at:?}");
         h.hover_at(at);
@@ -932,12 +932,8 @@ fn mode_tab_cursors(
     })
 }
 
-const HAND_ON_EVERY_TAB: [(&str, egui::CursorIcon); 4] = [
-    ("All tools", egui::CursorIcon::PointingHand),
-    ("Edit", egui::CursorIcon::PointingHand),
-    ("Convert", egui::CursorIcon::PointingHand),
-    ("E-Sign", egui::CursorIcon::PointingHand),
-];
+const HAND_ON_EVERY_TAB: [(&str, egui::CursorIcon); 3] =
+    [("Edit", egui::CursorIcon::PointingHand), ("Convert", egui::CursorIcon::PointingHand), ("E-Sign", egui::CursorIcon::PointingHand)];
 
 /// Add text, with the page scrolled up under the mode bar, leaves its tabs the hand (#2755): the
 /// tool gave them its I-beam, added text its four-way arrow, and the open editor floated over
@@ -1127,6 +1123,8 @@ fn added_picture_resizes_repeatedly_and_drags_back_from_out_of_bounds_without_sm
         _ => panic!(),
     };
     assert!(h.state_mut().apply_edit(pdfcraft_engine::Edit::UpdateContent { page: 0, index: 0, content: pdfcraft_engine::AddedContent::Image(img) }));
+    // Scroll to the page's foot (as far as it goes), so the picture's grab point is in the window.
+    h.state_mut().views[0].goto = Some((0, 1.0));
     crate::support::settle(&mut h);
     let from = item_on_screen(&h, [120.0, -30.0, 180.0, 30.0]);
     let grab = pos2(from.center().x, from.top() + 10.0);
@@ -1699,24 +1697,29 @@ fn image_context_menu_requires_visible_body_even_when_the_frame_crosses_the_page
     }
 }
 
-/// The rail's page and zoom fields are the same size, and each sits wholly inside the rail, so
-/// neither box is cut off at the edge (the page box lost its right side once the rail's contents
-/// changed width).
+/// The navigation bar's page and zoom fields keep the sizes `nav_bar` gives them (the zoom field
+/// has room for "6400%", the largest zoom), sit wholly inside the 40 pt bar under the mode bar, and
+/// the bar's controls are centred over the window.
 #[test]
-fn rail_page_and_zoom_fields_match_and_fit_the_rail() {
+fn nav_bar_page_and_zoom_fields_fit_the_bar_and_the_bar_is_centred() {
     let mut h = harness();
     h.run_steps(3);
-    // The rail is 49 pt wide at the window's right edge (1400 pt wide), inside a 1 pt border.
-    let (rail_left, rail_right) = (1400.0 - 49.0 + 1.0, 1400.0 - 1.0);
-    let rail = h.get_by_label("Bookmarks").rect();
+    // The bar runs the window's width (1400 pt) under the 38 pt tab strip and the 48 pt mode bar.
+    let (bar_top, bar_bottom) = (38.0 + 48.0, 38.0 + 48.0 + 40.0);
     let (page, zoom) = (h.get_by_label("Current page").rect(), h.get_by_label("Zoom").rect());
-    assert_eq!((page.width(), page.height()), (zoom.width(), zoom.height()), "{page:?} vs {zoom:?}");
-    // The size `RAIL_FIELD_SIZE` sets: wide enough for "6400%", the largest zoom.
-    assert_eq!((page.width(), page.height()), (42.0, 22.0), "{page:?}");
+    assert_eq!((page.width(), page.height()), (56.0, 26.0), "page field {page:?}");
+    assert_eq!((zoom.width(), zoom.height()), (64.0, 26.0), "zoom field {zoom:?}");
     for r in [page, zoom] {
-        assert!(r.left() >= rail_left && r.right() <= rail_right, "{r:?} is cut off by the rail ({rail_left}..{rail_right})");
-        assert!((r.center().x - rail.center().x).abs() < 1.0, "{r:?} is off the rail's centre ({rail:?})");
+        assert!(r.top() >= bar_top - 1.0 && r.bottom() <= bar_bottom + 1.0, "{r:?} is cut off by the bar ({bar_top}..{bar_bottom})");
+        assert!(r.left() >= 0.0 && r.right() <= 1400.0, "{r:?} is off the window");
+        assert!((r.center().y - (bar_top + bar_bottom) / 2.0).abs() < 1.0, "{r:?} is off the bar's middle");
     }
+    // Its first control (Previous view) and last (Page display) are as far from either edge.
+    let first = h.get_by_label_contains("Previous view").rect();
+    let last = h.get_by_label_contains("Page display:").rect();
+    assert!(first.left() < page.left() && zoom.right() < last.right(), "{first:?} .. {last:?} hold the fields");
+    let middle = (first.left() + last.right()) / 2.0;
+    assert!((middle - 700.0).abs() < 2.0, "the bar's controls {first:?}..{last:?} are centred at {middle}, not 700");
 }
 
 /// Added text, typed and selected with Done.

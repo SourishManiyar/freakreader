@@ -346,6 +346,7 @@ impl PdfCraftApp {
                     None => self.apply_full_screen(on),
                 }
             }
+            "view.dark_mode" => self.set_dark_documents(!self.dark_documents()),
             "view.read_mode" => self.switch_mode(if self.mode == Mode::Read { Mode::AllTools } else { Mode::Read }, false),
             "view.split" => self.toggle_split(),
             crate::viewer_prefs::TOGGLE => self.toggle_interface(),
@@ -404,7 +405,8 @@ impl PdfCraftApp {
                 }
             }
             "bookmark.add" => self.bookmark_action(crate::panels::BmAction::New),
-            "bookmark.from_structure" => self.bookmark_action(crate::panels::BmAction::FromStructure),
+            "bookmark.create_toc" => self.bookmark_action(crate::panels::BmAction::CreateToc),
+            "bookmark.edit_list" => self.bookmark_action(crate::panels::BmAction::EditList),
             "bookmark.from_text_styles" => self.bookmark_action(crate::panels::BmAction::FromTextStyles),
             "page.organize" => {
                 if let Some(v) = active.and_then(|i| self.views.get_mut(i)) {

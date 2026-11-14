@@ -145,19 +145,16 @@ fn pin_tool_dialog_workflow() {
 }
 
 #[test]
-fn sidebar_pin_toggle_unpins_and_pins() {
+fn a_pinned_tools_card_unpins_it_from_home() {
     let mut h = harness(|app| {
         app.pin_tool("redact");
     });
     h.run_steps(2);
     assert!(h.state().is_tool_pinned("redact"));
-
-    // Since redact is pinned, the pin toggle is rendered in the sidebar with "Unpin from Home"
-    let unpin_btn = h.get_by_label("Unpin from Home");
-    unpin_btn.click();
+    // A pinned tool's card on Home has its own Unpin button (with no All tools list, the only one).
+    h.get_by_label("Unpin tool").click();
     h.run_steps(3);
-
     assert!(!h.state().is_tool_pinned("redact"));
-    // Left panel did not navigate away (still AllTools)
+    // Unpinning leaves the tool closed.
     assert_eq!(h.state().left, LeftPanel::AllTools);
 }

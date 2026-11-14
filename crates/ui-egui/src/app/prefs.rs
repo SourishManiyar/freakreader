@@ -59,6 +59,30 @@ impl PdfCraftApp {
                 self.views[i].invalidate_content();
             }
         }
+        if let Some(gamma) = colors.dark_gamma() {
+            self.dark_gamma = gamma;
+        }
+    }
+
+    /// Whether the documents are shown in the dark mode (View ▸ Dark mode for documents).
+    pub fn dark_documents(&self) -> bool {
+        self.reading_colors.dark_gamma().is_some()
+    }
+
+    /// Turn the documents' dark mode on, at the last gamma chosen, or off (back to the
+    /// documents' own colours).
+    pub fn set_dark_documents(&mut self, on: bool) {
+        self.set_reading_colors(if on { pdfcraft_render::ReadingColors::dark(self.dark_gamma) } else { pdfcraft_render::ReadingColors::default() });
+    }
+
+    /// Set the dark mode's gamma (hundredths, kept to its range); the documents re-render when
+    /// they are shown dark.
+    pub fn set_dark_gamma(&mut self, gamma: u16) {
+        self.dark_gamma = gamma.clamp(pdfcraft_render::DARK_GAMMA_RANGE.0, pdfcraft_render::DARK_GAMMA_RANGE.1);
+        if let Some(mut colors) = self.reading_colors.params.filter(|p| p.gamma.is_some()) {
+            colors.gamma = Some(self.dark_gamma);
+            self.set_reading_colors(pdfcraft_render::ReadingColors { params: Some(colors) });
+        }
     }
 
     /// Enable the Linux desktop portal in a native window. Headless contexts keep
@@ -115,8 +139,12 @@ impl PdfCraftApp {
             "units": self.units,
             "language": self.language,
             "reading_colors": self.reading_colors,
+            "dark_gamma": self.dark_gamma,
             // Null follows the system's text scaling.
             "ui_scale": self.ui_scale,
+            "text_size": self.text_size,
+            "ui_font": self.ui_font,
+            "link_preview_size": self.link_preview_size,
             "flatten_fill_sign": self.flatten_fill_sign_on_save,
             "ask_to_lock_signatures": self.ask_to_lock_signatures,
             "fill_text_size": self.fill_text_size,
@@ -460,10 +488,22 @@ impl PdfCraftApp {
         // Settings are untrusted: an unreadable value (a colour that isn't three bytes, say)
         // fails to deserialize and keeps Off.
         if let Ok(colors) = serde_json::from_value::<pdfcraft_render::ReadingColors>(v["reading_colors"].clone()) {
-            self.reading_colors = colors;
+            self.reading_colors = colors.checked();
         }
+        // Settings are untrusted: a gamma out of range is kept to it.
+        self.dark_gamma = self.reading_colors.dark_gamma().unwrap_or_else(|| {
+            v["dark_gamma"].as_u64().map_or(pdfcraft_render::DARK_GAMMA_DEFAULT, |g| {
+                u16::try_from(g).unwrap_or(u16::MAX).clamp(pdfcraft_render::DARK_GAMMA_RANGE.0, pdfcraft_render::DARK_GAMMA_RANGE.1)
+            })
+        });
         // Settings are untrusted: a size out of range follows the system instead.
         self.ui_scale = v["ui_scale"].as_f64().and_then(ui_scale::valid);
+        // Settings are untrusted: a size the menus don't offer keeps 100%.
+        let offered = |key: &str, sizes: &[u16]| v[key].as_u64().and_then(|n| u16::try_from(n).ok()).filter(|n| sizes.contains(n)).unwrap_or(100);
+        self.text_size = offered("text_size", &theme::TEXT_SIZES);
+        // Settings are untrusted: an unknown face, or one this build lacks, is Inter.
+        self.ui_font = serde_json::from_value::<theme::UiFont>(v["ui_font"].clone()).ok().filter(|f| f.available()).unwrap_or_default();
+        self.link_preview_size = offered("link_preview_size", &crate::canvas::link_peek::PREVIEW_SIZES);
         // Settings are untrusted: an unusable pattern keeps the default.
         if let Some(f) = v["date_format"].as_str() {
             let _ = self.session.set_date_format(f);

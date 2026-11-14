@@ -28,7 +28,7 @@ pub(crate) fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Re
         | Edit::SetBookmarkColor { .. }
         | Edit::SetBookmarkStyle { .. }
         | Edit::ImportBookmarks { .. }
-        | Edit::BookmarksFromStructure
+        | Edit::EditBookmarks { toc: false, .. }
         | Edit::NumberPages { .. } => {
             if p.assemble() {
                 Ok(())
@@ -38,7 +38,7 @@ pub(crate) fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Re
         }
         // Creates bookmarks (assembly), and their titles are the document's text, copied out of it
         // (Table 22, bit 5), as an export of it would be.
-        Edit::BookmarksFromTextStyles { .. } => {
+        Edit::BookmarksFromTextStyles { .. } | Edit::EditBookmarks { toc: true, .. } => {
             if !p.assemble() {
                 Err(EditError::NotPermitted("page changes"))
             } else if !p.copy() {
@@ -578,13 +578,7 @@ pub(crate) fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut E
         Edit::ImportBookmarks { parent, index, bookmarks, replace } => {
             pdfcraft_organize::import_outline(doc, parent, *index, bookmarks, *replace)?;
         }
-        Edit::BookmarksFromStructure => {
-            let entries: Vec<_> = pdfcraft_a11y::headings(doc)
-                .into_iter()
-                .map(|h| pdfcraft_organize::OutlineEntry { level: h.level, title: h.title, page: h.page, element: h.obj, top: None })
-                .collect();
-            pdfcraft_organize::add_bookmark_tree(doc, "Untitled", &entries)?;
-        }
+        Edit::EditBookmarks { rows, .. } => pdfcraft_organize::rewrite_outline(doc, rows)?,
         Edit::BookmarksFromTextStyles { levels } => {
             if levels.is_empty() {
                 return Err(EditError::Invalid("choose a text style for at least one bookmark level".into()));

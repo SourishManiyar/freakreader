@@ -485,6 +485,17 @@ fn render_page<'a>(
         // A print preview shows what prints, and printing is not the View event.
         preview_settings.view_auto_state &= req.tag & PRINT_TAG == 0;
         render_into(page, cache, &preview_settings, &rs, pixels.bytes_mut());
+        // The dark mode's gamma shapes the rendered tones, but not pictures: a second pass draws
+        // only what keeps its own colours on a transparent page, and the gamma leaves alone
+        // what it covers. A gamma of 1, or a transparent page (laid over another raster), has
+        // nothing to shape.
+        if let Some(params) = reading.params.filter(|p| p.gamma.is_some_and(|g| g != 100) && !config.transparent) {
+            let mut mask = Pixels::zeroed(w.into(), h.into()).ok_or_else(|| format!("page {} is too large to render", req.page + 1))?;
+            let hide = color_replacement.map(|r| hayro::ColorReplacement { hide_paints: true, ..r });
+            let mask_settings = RenderSettings { bg_color: TRANSPARENT, color_replacement: hide, ..rs };
+            render_into(page, cache, &preview_settings, &mask_settings, mask.bytes_mut());
+            crate::reading::dark_gamma(pixels.bytes_mut(), &mask, &params);
+        }
         Ok((w.into(), h.into(), pixels, None))
     }));
     match result {

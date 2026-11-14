@@ -102,6 +102,7 @@ impl PdfCraftApp {
             // A fresh install follows the desktop's appearance (#1248); saved settings override.
             theme_preference: ThemePreference::System,
             reading_colors: Default::default(),
+            dark_gamma: pdfcraft_render::DARK_GAMMA_DEFAULT,
             show_page_edge_shadows: true,
             #[cfg(target_os = "linux")]
             desktop_theme: None,
@@ -113,6 +114,9 @@ impl PdfCraftApp {
             motion: motion::Motion::default(),
             language: i18n::AUTO.to_string(),
             ui_scale: None,
+            text_size: 100,
+            ui_font: theme::UiFont::Inter,
+            link_preview_size: 100,
             system_text_scale: 1.0,
             ui_scale_applied: None,
             flatten_fill_sign_on_save: false,
@@ -139,10 +143,6 @@ impl PdfCraftApp {
             print_tasks: print_ui::PrintTasks::default(),
             palette_open: false,
             palette_query: String::new(),
-            all_tools_expanded: false,
-            all_tools_full: false,
-            all_tools_query: String::new(),
-            all_tools_tab: (None, false),
             recent: Vec::new(),
             recent_limit: crate::RECENT_FILES_DEFAULT,
             reopen_last_session: false,
@@ -319,9 +319,11 @@ impl PdfCraftApp {
             styled: false,
             fonts_ready: false,
             fonts_cjk: theme::CjkPreference::Default,
+            fonts_ui: theme::UiFont::Inter,
             control: None,
             bookmark_rename: None,
             bookmark_clipboard: None,
+            bookmark_lists: std::collections::HashMap::new(),
             last_opened_url: None,
             community_card_closed: false,
             pending_link: None,
@@ -618,19 +620,23 @@ impl PdfCraftApp {
         let cjk = theme::CjkPreference::for_language(lang.code());
         if !self.styled {
             egui_extras::install_image_loaders(ctx);
-            theme::install_fonts_for(ctx, cjk);
-            self.fonts_cjk = cjk;
+            theme::install_fonts_for(ctx, cjk, self.ui_font);
+            (self.fonts_cjk, self.fonts_ui) = (cjk, self.ui_font);
             theme::apply(ctx, self.theme);
             self.styled = true;
         } else {
             self.fonts_ready = true;
-            if cjk != self.fonts_cjk {
+            if cjk != self.fonts_cjk || self.ui_font != self.fonts_ui {
                 // Same family names as before, so named fonts stay valid while the new set loads.
-                theme::install_fonts_for(ctx, cjk);
-                self.fonts_cjk = cjk;
+                theme::install_fonts_for(ctx, cjk, self.ui_font);
+                (self.fonts_cjk, self.fonts_ui) = (cjk, self.ui_font);
             }
         }
         self.sync_theme(ctx);
+        // A new interface text size lays the styles out again at it.
+        if theme::set_text_scale(self.text_size) {
+            theme::apply(ctx, self.theme);
+        }
         let native = ctx.native_pixels_per_point().unwrap_or(1.0);
         ui_scale::sync(ctx, ui_scale::zoom(self.ui_scale, self.system_text_scale, native), &mut self.ui_scale_applied);
         // Remember user work even if its tab is subsequently closed or Home is selected.
@@ -878,6 +884,9 @@ impl PdfCraftApp {
         if !hidden.mode_bar(self.native_menu.is_some()) {
             chrome::mode_bar(self, ui);
         }
+        if !hidden.toolbar {
+            chrome::nav_bar(self, ui);
+        }
         // Another mode or the Home tab puts the OCR Verify screen away, as Exit does; Correct
         // recognized text brings it back with its review as it was.
         if self.ocr_verify.open && (self.active.is_none() || self.ocr_verify.shown_in.is_some_and(|m| m != self.mode)) {
@@ -900,20 +909,12 @@ impl PdfCraftApp {
             }
             return;
         }
-        // Whichever way another tab came to the front, it shows instead of the expanded view.
-        if self.all_tools_full && self.all_tools_tab != self.shown_tab() {
-            self.all_tools_full = false;
-        }
         if !hidden.window_ui {
             side_panels::show(self, ui);
         }
         let t = theme::Tokens::get(&ctx);
         egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.pasteboard)).show(ui, |ui| {
-            if self.mode == Mode::AllTools && self.all_tools_full && !hidden.window_ui {
-                all_tools_ui::show(self, ui);
-            } else {
-                panes::page_area(self, ui);
-            }
+            panes::page_area(self, ui);
         });
         // FitWindow and CenterWindow, once the document just opened is laid out.
         self.window_preferences_frame(&ctx);

@@ -20,6 +20,8 @@ fn harness_sized(size: egui::Vec2, setup: impl FnOnce(&mut PdfCraftApp) + 'stati
         let mut app = PdfCraftApp::new();
         app.set_option("language", "en").unwrap();
         app.open_bytes("doc.pdf", None, FIXTURE.to_vec()).unwrap();
+        // A tool open, so the Tools pane shows: Add comments, long enough to scroll.
+        app.set_option("tool", "comment").unwrap();
         setup(&mut app);
         app
     });
@@ -39,10 +41,12 @@ fn side(h: &Harness<'static, PdfCraftApp>) -> egui::Rect {
     h.get_by_label(NO_BOOKMARKS).rect()
 }
 
-/// The Tools pane's All tools header button.
+/// The Tools pane's first row (Add comments ▸ Sticky note).
 fn tools(h: &Harness<'static, PdfCraftApp>) -> egui::Rect {
-    h.get_by_label("Expand all tools").rect()
+    h.get_by_label(TOOL_ROW).rect()
 }
+
+const TOOL_ROW: &str = "Sticky note";
 
 #[test]
 fn rail_is_outermost_then_tools_then_the_side_panel_then_the_page() {
@@ -68,7 +72,7 @@ fn read_mode_shows_the_side_panel_without_tools() {
     let mut h = harness(|app| app.set_option("panel", "bookmarks").unwrap());
     h.state_mut().set_option("mode", "read").unwrap();
     h.run_steps(4);
-    assert!(h.query_by_label("Expand all tools").is_none());
+    assert!(h.query_by_label(TOOL_ROW).is_none());
     assert!(side(&h).right() < rail(&h).left() && side(&h).left() > WIDTH / 2.0);
     // The rail closes and opens it there too.
     h.get_by_role_and_label(Role::Button, "Bookmarks").click();
@@ -128,20 +132,18 @@ fn f4_toggles_the_side_panel_and_shift_f4_the_tools_panel() {
     h.key_press_modifiers(egui::Modifiers::SHIFT, egui::Key::F4);
     h.run_steps(3);
     assert!(!h.state().left_open);
-    assert!(h.query_by_label("Expand all tools").is_none());
+    assert!(h.query_by_label(TOOL_ROW).is_none());
     // Shift+F4 leaves the side panel alone.
     h.get_by_label(NO_BOOKMARKS);
     h.key_press_modifiers(egui::Modifiers::SHIFT, egui::Key::F4);
     h.run_steps(3);
-    h.get_by_label("Expand all tools");
+    h.get_by_label(TOOL_ROW);
 }
 
 #[test]
 fn scrollbar_and_panel_resize_handle_do_not_collide_on_either_dock_side() {
     // 1. Left docking: tools panel on the left (resize handle on the right, scrollbar on the right).
-    let mut h = harness_sized(egui::vec2(1200.0, 450.0), |app| {
-        app.all_tools_expanded = true;
-    });
+    let mut h = harness_sized(egui::vec2(1200.0, 450.0), |_| {});
     h.run_steps(4);
 
     let splitters: Vec<_> = h.get_all_by_label("Resize panels").collect();
@@ -171,7 +173,7 @@ fn scrollbar_and_panel_resize_handle_do_not_collide_on_either_dock_side() {
 
     // Dragging the scrollbar down scrolls the content up without resizing the panel.
     let initial_width = h.state().side_panels.tools_width;
-    let first_row_before = h.get_by_label("Edit a PDF").rect().top();
+    let first_row_before = h.get_by_label(TOOL_ROW).rect().top();
     h.hover_at(sb_rect.center());
     h.run_steps(1);
     h.drag_at(sb_rect.center());
@@ -180,7 +182,7 @@ fn scrollbar_and_panel_resize_handle_do_not_collide_on_either_dock_side() {
     h.run_steps(1);
     h.drop_at(sb_rect.center() + egui::vec2(0.0, 60.0));
     h.run_steps(2);
-    let first_row_after = h.get_by_label("Edit a PDF").rect().top();
+    let first_row_after = h.get_by_label(TOOL_ROW).rect().top();
     assert!(first_row_after < first_row_before, "Content should scroll up when dragging scrollbar down");
     assert_eq!(h.state().side_panels.tools_width, initial_width, "Dragging scrollbar must not resize the panel");
 
@@ -201,7 +203,6 @@ fn scrollbar_and_panel_resize_handle_do_not_collide_on_either_dock_side() {
     // scrollbar (#5730).
     let mut h_right = harness_sized(egui::vec2(1200.0, 450.0), |app| {
         app.set_option("tools-side", "right").unwrap();
-        app.all_tools_expanded = true;
     });
     h_right.run_steps(4);
 
@@ -220,7 +221,10 @@ fn scrollbar_and_panel_resize_handle_do_not_collide_on_either_dock_side() {
         (right_splitter_rect.center().x - page_bar.max.x).abs() < 6.0,
         "the page's scrollbar is beside the edge: {page_bar:?} {right_splitter_rect:?}"
     );
-    let tools_bar = bars.iter().copied().find(|r| r.min.x > right_splitter_rect.center().x).expect("Tools panel scrollbar should exist");
+    // Between the pane's resize edge and the rail, whose own scrollbar shows in a window this short.
+    let rail_left = rail(&h_right).left();
+    let tools_bar =
+        bars.iter().copied().find(|r| r.min.x > right_splitter_rect.center().x && r.max.x < rail_left).expect("Tools panel scrollbar should exist");
     let initial_right_width = h_right.state().side_panels.tools_width;
 
     // All of either scrollbar is the scrollbar, not the resize edge.
@@ -249,9 +253,9 @@ fn scrollbar_and_panel_resize_handle_do_not_collide_on_either_dock_side() {
     drag(&mut h_right, egui::pos2(page_bar.max.x - 1.0, page_bar.center().y));
     assert!(page_top(&h_right) < before, "dragging the page's scrollbar scrolls the page");
     assert_eq!(h_right.state().side_panels.tools_width, initial_right_width, "Dragging scrollbar must not resize the panel");
-    let before = h_right.get_by_label("Edit a PDF").rect().top();
+    let before = h_right.get_by_label(TOOL_ROW).rect().top();
     drag(&mut h_right, egui::pos2(tools_bar.max.x - 1.0, tools_bar.center().y));
-    assert!(h_right.get_by_label("Edit a PDF").rect().top() < before, "Content should scroll up when dragging scrollbar down");
+    assert!(h_right.get_by_label(TOOL_ROW).rect().top() < before, "Content should scroll up when dragging scrollbar down");
     assert_eq!(h_right.state().side_panels.tools_width, initial_right_width, "Dragging scrollbar must not resize the panel");
 
     // Splitter is at the left boundary of the right-docked pane.

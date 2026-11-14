@@ -2450,8 +2450,10 @@ fn link_list_reports_the_address_the_viewer_opens_past_the_text_budget() {
     assert_eq!((links[last]["url"].clone(), links[last].get("resolved_url")), (json!("p.html"), None));
 }
 
+/// Create Table of Contents falls back to tagged headings when there is no contents page: each
+/// bookmark links its element, nested by heading level, as one undo step.
 #[test]
-fn bookmarks_from_structure_through_tools() {
+fn create_toc_uses_tagged_headings_without_a_contents_page() {
     let dir = workdir("bookmarks-structure");
     std::fs::write(
         dir.join("tagged.pdf"),
@@ -2471,18 +2473,14 @@ trailer << /Root 1 0 R >>
     .unwrap();
     let mut a = auto(&dir);
     let doc = ok(&mut a, "doc_open", json!({ "path": "tagged.pdf" }))["doc"].as_u64().unwrap();
-    let r = ok(&mut a, "bookmark_from_structure", json!({ "doc": doc }));
-    let top = &r["bookmarks"][0];
-    assert_eq!(
-        (top["title"].as_str(), top["children"][0]["title"].as_str(), top["children"][0]["page"].as_u64()),
-        (Some("Untitled"), Some("Report"), Some(1))
-    );
-    assert_eq!(top["children"][0]["children"][0]["title"], "Findings");
-    assert_eq!(top["children"][0]["children"][0]["path"], json!([1, 1, 1]));
-    assert_eq!(ok(&mut a, "edit_undo", json!({ "doc": doc }))["undone"], "New bookmarks from structure");
-    // An untagged document: an error that says why.
-    let plain = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
-    assert!(matches!(a.call("bookmark_from_structure", &json!({ "doc": plain })), Err(ToolError::Failed(m)) if m.contains("no tagged headings")));
+    let r = ok(&mut a, "bookmark_create_toc", json!({ "doc": doc, "apply": true }));
+    assert_eq!(r["source"], "structure");
+    let listing = ok(&mut a, "bookmark_list", json!({ "doc": doc }));
+    let top = &listing["bookmarks"][0];
+    assert_eq!((top["title"].as_str(), top["page"].as_u64()), (Some("Report"), Some(1)));
+    assert_eq!(top["children"][0]["title"], "Findings");
+    assert_eq!(top["children"][0]["path"], json!([1, 1]));
+    assert_eq!(ok(&mut a, "edit_undo", json!({ "doc": doc }))["undone"], "Create table of contents");
 }
 
 #[test]
@@ -12349,7 +12347,10 @@ fn reading_colors_through_tools() {
     assert_eq!(pixel(&page1_off, 10, 290), [255, 255, 255, 255]);
 
     let echo = ok(&mut a, "view_reading_colors", json!({ "doc": doc, "mode": "white-on-black" }));
-    assert_eq!(echo, json!({ "mode": "white-on-black", "text": "#ffffff", "background": "#000000", "only_black": false, "line_art": true }));
+    assert_eq!(
+        echo,
+        json!({ "mode": "white-on-black", "text": "#ffffff", "background": "#000000", "only_black": false, "line_art": true, "gamma": null })
+    );
 
     // The page clears to the setting's background, and the text paints with its colour.
     let page1_on = render(&mut a, 1);
@@ -12383,9 +12384,49 @@ fn reading_colors_through_tools() {
     // Back off: the render matches the original one again.
     assert_eq!(
         ok(&mut a, "view_reading_colors", json!({ "doc": doc, "mode": "off" })),
-        json!({ "mode": "off", "text": null, "background": null, "only_black": false, "line_art": false })
+        json!({ "mode": "off", "text": null, "background": null, "only_black": false, "line_art": false, "gamma": null })
     );
     assert_eq!(render(&mut a, 1), page1_off);
+}
+
+/// The dark mode through `view_reading_colors`: the page turns dark and its text light, the
+/// picture keeps its colours byte for byte, gamma changes the tones, and a bad gamma says what
+/// is allowed.
+#[test]
+fn dark_mode_through_tools() {
+    let dir = reading_colors_workdir();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let render = |a: &mut Automation, page: u64| png_pixels(&a.call("page_render", &json!({ "doc": doc, "page": page, "dpi": 72 })).unwrap()[0]);
+    let page1_off = render(&mut a, 1);
+    let page2_off = render(&mut a, 2);
+
+    let echo = ok(&mut a, "view_reading_colors", json!({ "doc": doc, "mode": "dark" }));
+    assert_eq!(echo, json!({ "mode": "dark", "text": "#e6e6e6", "background": "#1e1e1e", "only_black": false, "line_art": true, "gamma": 1.0 }));
+    let page1_dark = render(&mut a, 1);
+    assert_eq!(pixel(&page1_dark, 10, 290), [0x1e, 0x1e, 0x1e, 255], "the page is dark");
+    let (tx, ty) =
+        (20..172u32).flat_map(|x| (116..160u32).map(move |y| (x, y))).max_by_key(|&(x, y)| u32::from(pixel(&page1_dark, x, y)[0])).unwrap();
+    assert!(pixel(&page1_dark, tx, ty)[0] >= 0xe0 && pixel(&page1_off, tx, ty)[0] <= 60, "black ink turns light");
+    let page2_dark = render(&mut a, 2);
+    fn image_row(px: &[u8], y: u32) -> &[u8] {
+        let at = ((y * 200 + 122) * 4) as usize;
+        &px[at..at + 36 * 4]
+    }
+    for y in 62..98u32 {
+        assert_eq!(image_row(&page2_dark, y), image_row(&page2_off, y), "picture row {y}");
+    }
+
+    let tuned = ok(&mut a, "view_reading_colors", json!({ "doc": doc, "mode": "dark", "gamma": 1.8 }));
+    assert_eq!(tuned["gamma"], json!(1.8));
+    assert_ne!(render(&mut a, 1), page1_dark, "the gamma changes the antialiased tones");
+
+    let bad = a.call("view_reading_colors", &json!({ "doc": doc, "mode": "dark", "gamma": 9 }));
+    assert!(matches!(&bad, Err(ToolError::InvalidArgs(m)) if m.contains("0.5") && m.contains("2.5")), "{bad:?}");
+    let misplaced = a.call("view_reading_colors", &json!({ "doc": doc, "mode": "white-on-black", "gamma": 1 }));
+    assert!(matches!(&misplaced, Err(ToolError::InvalidArgs(m)) if m.contains("only applies to mode dark")), "{misplaced:?}");
+    let list = ok(&mut a, "doc_list", json!({}));
+    assert_eq!(list["documents"][0]["dirty"], json!(false), "a view setting leaves the document clean: {list}");
 }
 
 #[test]

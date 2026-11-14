@@ -80,10 +80,6 @@ impl PdfCraftApp {
                 let mode = Mode::parse(value).unwrap_or(Mode::AllTools);
                 self.mode_override = Some(mode);
                 self.mode = mode;
-                // As switch_mode: another workspace puts the expanded All tools view away.
-                if mode != Mode::AllTools {
-                    self.all_tools_full = false;
-                }
             }
             ("default-mode", _) => {
                 self.default_mode = Mode::parse(value).ok_or("default-mode must be all, read, edit, convert or sign")?;
@@ -95,12 +91,7 @@ impl PdfCraftApp {
                 self.select_tool(g.id);
             }
             ("left", _) => self.left_open = value != "closed",
-            ("home", _) => {
-                self.active = None;
-                // With no document open the expanded All tools view covers Home itself, so no
-                // other tab comes forward to put it away.
-                self.all_tools_full = false;
-            }
+            ("home", _) => self.active = None,
             ("dialog", _) => {
                 self.dialog = match value {
                     "properties" => Some(Dialog::Properties(PropsTab::Description)),
@@ -162,11 +153,6 @@ impl PdfCraftApp {
                     self.marks_draft.opened(kind);
                 }
                 dialogs::discard_inactive_password_drafts(self);
-            }
-            ("tools", _) if value == "full" => self.expand_all_tools(),
-            ("tools", _) => {
-                self.all_tools_full = false;
-                self.all_tools_expanded = value != "collapsed";
             }
             ("palette", _) => {
                 self.palette_open = true;
@@ -383,6 +369,48 @@ impl PdfCraftApp {
                 };
             }
             ("ui-scale", _) => self.ui_scale = ui_scale::parse(value)?,
+            // Appearance ▸ Interface font: inter, ubuntu, biz-udp-gothic, jetbrains-mono, hack.
+            ("ui-font", _) => {
+                let names = || {
+                    crate::theme::UiFont::offered()
+                        .iter()
+                        .map(|f| serde_json::to_value(f).ok().and_then(|v| v.as_str().map(str::to_owned)).unwrap_or_default())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                };
+                self.ui_font = serde_json::from_value::<crate::theme::UiFont>(serde_json::Value::String(value.to_owned()))
+                    .ok()
+                    .filter(|f| f.available())
+                    .ok_or_else(|| format!("ui-font must be one of {}", names()))?;
+            }
+            // Appearance ▸ Interface text size and Documents and view ▸ Reference preview size, in percent.
+            ("text-size" | "link-preview-size", _) => {
+                let sizes: &[u16] = if key == "text-size" { &crate::theme::TEXT_SIZES } else { &crate::canvas::link_peek::PREVIEW_SIZES };
+                let n = value.trim_end_matches('%').parse::<u16>().ok().filter(|n| sizes.contains(n));
+                let n = n.ok_or_else(|| format!("{key} must be one of {}", sizes.iter().map(|n| format!("{n}%")).collect::<Vec<_>>().join(", ")))?;
+                if key == "text-size" {
+                    self.text_size = n;
+                } else {
+                    self.link_preview_size = n;
+                }
+            }
+            // View ▸ Dark mode for documents, and its gamma (Preferences ▸ Reading colours).
+            ("dark-mode", _) => {
+                let on = match value {
+                    "on" | "true" => true,
+                    "off" | "false" => false,
+                    _ => return Err("dark-mode must be on or off".into()),
+                };
+                self.set_dark_documents(on);
+            }
+            ("dark-gamma", _) => {
+                let (lo, hi) = (pdfcraft_render::DARK_GAMMA_RANGE.0, pdfcraft_render::DARK_GAMMA_RANGE.1);
+                let gamma = value.parse::<f64>().ok().filter(|g| g.is_finite() && (f64::from(lo) / 100.0..=f64::from(hi) / 100.0).contains(g));
+                let gamma =
+                    gamma.ok_or_else(|| format!("dark-gamma must be a number from {} to {}", f64::from(lo) / 100.0, f64::from(hi) / 100.0))?;
+                // Within 0.5..=2.5 by the filter, so hundredths fit a u16.
+                self.set_dark_gamma((gamma * 100.0).round() as u16);
+            }
             // `--secured-notice false`: no notice above the pages that a document is secured.
             ("secured-notice", _) => {
                 self.show_secured_notice = match value {

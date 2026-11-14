@@ -8533,6 +8533,60 @@ fn reading_colors_map_solid_paints_and_leave_images() {
     assert_eq!(pixel(&on, 150, 55), &[255, 255, 255, 255], "the image's white quadrant stays white");
 }
 
+/// Dark mode: the page clears dark, black ink turns light, a red line stays red (its lightness
+/// turned over, not its hue, as a plain inversion would make it cyan) and the picture's pixels
+/// are byte-identical to the plain render.
+#[test]
+fn dark_mode_turns_ink_over_keeps_hues_and_leaves_pictures() {
+    let content = "0 0 0 rg 10 10 30 20 re f\n1 0 0 rg 10 35 30 10 re f\nq 20 0 0 10 60 20 cm /Im Do Q";
+    let pdf = format!(
+        "%PDF-1.4\n\
+             1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n\
+             2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n\
+             3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 100 50] /Contents 4 0 R /Resources << /XObject << /Im 6 0 R >> >> >> endobj\n\
+             4 0 obj << /Length {} >> stream\n{content}\nendstream endobj\n\
+             6 0 obj << /Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length 25 >> stream\nFF000000FF00000000FFFFFFFF>\nendstream endobj\n\
+             trailer << /Root 1 0 R >>\n%%EOF",
+        content.len()
+    )
+    .into_bytes();
+    let req = RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: 0, preview: false };
+    let render = |reading_colors: ReadingColors| {
+        let mut r = PageRenderer::new(Arc::new(pdf.clone()), RenderConfig { reading_colors, ..Default::default() });
+        let page = r.render(req);
+        assert!(page.error.is_none(), "{:?}", page.error);
+        page
+    };
+    let off = render(ReadingColors::default());
+    let dark = render(ReadingColors::dark(crate::DARK_GAMMA_DEFAULT));
+    fn pixel(page: &RenderedPage, x: u32, y: u32) -> [u8; 4] {
+        let p = &page.rgba[((y * page.width + x) * 4) as usize..][..4];
+        [p[0], p[1], p[2], p[3]]
+    }
+    assert_eq!(pixel(&dark, 5, 5), [0x1e, 0x1e, 0x1e, 255], "the page is dark");
+    assert_eq!(pixel(&dark, 50, 60), [0xe6, 0xe6, 0xe6, 255], "black ink is light");
+    let red = pixel(&dark, 50, 20);
+    assert!(red[0] > red[1].saturating_add(60) && red[0] > red[2].saturating_add(60), "the red line is still red: {red:?}");
+    for y in 44..56u32 {
+        for x in 124..156u32 {
+            assert_eq!(pixel(&dark, x, y), pixel(&off, x, y), "picture pixel {x},{y}");
+        }
+    }
+    // Gamma shapes the tones between page and text: the ends are the same at any gamma, a
+    // higher one brightens what lies between (the red, and antialiased edges) and a lower one
+    // dims it, and the picture is the same at every gamma.
+    let (bold, thin) = (render(ReadingColors::dark(250)), render(ReadingColors::dark(50)));
+    for p in [&bold, &thin] {
+        assert_eq!((pixel(p, 5, 5), pixel(p, 50, 60)), (pixel(&dark, 5, 5), pixel(&dark, 50, 60)));
+        for y in 44..56u32 {
+            for x in 124..156u32 {
+                assert_eq!(pixel(p, x, y), pixel(&off, x, y), "picture pixel {x},{y}");
+            }
+        }
+    }
+    assert!(pixel(&bold, 50, 20)[0] > red[0] && pixel(&thin, 50, 20)[0] < red[0], "{:?} {red:?} {:?}", pixel(&bold, 50, 20), pixel(&thin, 50, 20));
+}
+
 /// #2975: a stencil mask (`/ImageMask true`) is painted in the fill colour at the fill
 /// opacity, once: at `ca 0.5` it is as opaque as a rectangle filled at `ca 0.5` beside it
 /// (it was a quarter as opaque, the opacity applied by both the image's group and its paint).

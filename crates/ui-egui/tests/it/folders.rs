@@ -272,6 +272,8 @@ fn a_long_pdf_name_is_cut_before_its_date_and_size() {
     let mut h = harness(move |app| {
         app.pin_folder(&folder);
     });
+    // Narrower than the name: Home has the window's whole width now that no Tools pane sits beside it.
+    h.set_size(egui::vec2(1000.0, 1400.0));
     h.run_steps(2);
     let text: Vec<(String, bool, egui::Rect)> = h
         .output()

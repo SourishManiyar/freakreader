@@ -60,12 +60,15 @@ fn settle(h: &mut Harness<'static, PdfCraftApp>) {
 }
 
 /// Which of the toolbar (the command search), the menu (the menu bar's File menu) and the window
-/// controls (the rail's fit button) are on screen.
+/// controls (the rail's dock button) are on screen. The navigation bar under the menus is part of
+/// the toolbar: it goes with it.
 fn shown(h: &Harness<'static, PdfCraftApp>) -> (bool, bool, bool) {
+    let toolbar = h.query_by_label("Find tools and commands").is_some();
+    assert_eq!(h.query_by_label("Toggle fit page / fit width").is_some(), toolbar, "the navigation bar goes with the toolbar");
     (
-        h.query_by_label("Find tools and commands").is_some(),
+        toolbar,
         h.query_by(|n| n.role() == egui::accesskit::Role::MenuItem && n.label().as_deref() == Some("File")).is_some(),
-        h.query_by_label("Toggle fit page / fit width").is_some(),
+        h.query_by_label_contains("Dock navigation rail on").is_some(),
     )
 }
 

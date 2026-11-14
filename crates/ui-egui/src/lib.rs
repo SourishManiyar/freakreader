@@ -133,7 +133,6 @@ use dialogs::word_count_ui;
 pub use home::folders_ui;
 pub use hooks::{FailedInbox, HostDirtyFn, HostSaveFn, Inbox, OsEvent, OsEventsFn};
 use menus::tab_context;
-use panels::all_tools_ui;
 use panels::comments_panel;
 use panels::format_text_ui;
 use panels::organize_panel;
@@ -375,6 +374,9 @@ pub struct PdfCraftApp {
     /// The reading-colours preference (Preferences ▸ Reading colours): applied to every open
     /// document, and documents open with it (Acrobat's Replace Document Colors).
     pub reading_colors: pdfcraft_render::ReadingColors,
+    /// The documents' dark mode's gamma in hundredths (Preferences ▸ Reading colours), kept
+    /// while the dark mode is off so turning it back on brings the same tones.
+    pub dark_gamma: u16,
     /// App-wide page decoration only; never part of a PDF edit or render request.
     pub show_page_edge_shadows: bool,
     /// The Linux portal is enabled only by the native host, and starts on the first System choice.
@@ -395,6 +397,14 @@ pub struct PdfCraftApp {
     pub language: String,
     /// Preferences ▸ Interface size as a factor, or `None` to follow [`Self::system_text_scale`].
     pub ui_scale: Option<f32>,
+    /// Preferences ▸ Appearance ▸ Interface text size, in percent ([`theme::TEXT_SIZES`]): the
+    /// text alone, where Interface size zooms everything.
+    pub text_size: u16,
+    /// Preferences ▸ Appearance ▸ Interface font ([`theme::UiFont`]).
+    pub ui_font: theme::UiFont,
+    /// Preferences ▸ Documents and view ▸ Reference preview size, in percent
+    /// ([`canvas::link_peek::PREVIEW_SIZES`]).
+    pub link_preview_size: u16,
     /// The desktop's text scaling (GNOME's text scaling factor), which the desktop app reads at
     /// launch. 1.0 elsewhere, so tests and screenshots don't depend on the machine.
     pub system_text_scale: f32,
@@ -452,13 +462,6 @@ pub struct PdfCraftApp {
     pub(crate) print_tasks: print_ui::PrintTasks,
     pub palette_open: bool,
     pub palette_query: String,
-    pub all_tools_expanded: bool,
-    /// The All tools view fills the workspace (its sidebar's expand button).
-    pub all_tools_full: bool,
-    pub all_tools_query: String,
-    /// The tab that showed when the expanded All tools view opened ([`Self::shown_tab`]). Another
-    /// tab coming to the front (Home, a document, Combine files) puts the view away.
-    all_tools_tab: (Option<DocId>, bool),
     pub recent: Vec<RecentFile>,
     /// How many recent files to keep, 0 for no list (Preferences ▸ Documents and view, #5572).
     pub recent_limit: usize,
@@ -784,6 +787,8 @@ pub struct PdfCraftApp {
     fonts_ready: bool,
     /// The CJK fallback order the installed fonts follow (see `theme::installed_font_definitions`).
     fonts_cjk: theme::CjkPreference,
+    /// The interface face installed with them.
+    fonts_ui: theme::UiFont,
     /// The window title last sent to the platform.
     pub window_title: String,
     /// The web page's title last set: the window title, but always with the file's name.
@@ -795,6 +800,9 @@ pub struct PdfCraftApp {
     /// Bookmarks copied or cut in the Bookmarks panel, with their subtrees, ready to paste into
     /// any document. Destinations are page indices.
     pub bookmark_clipboard: Option<Vec<pdfcraft_engine::OutlineNode>>,
+    /// The Bookmarks panel's list editors (Edit bookmarks as a list, Create table of contents),
+    /// one per document, kept across tab switches until applied or cancelled.
+    pub bookmark_lists: std::collections::HashMap<pdfcraft_engine::DocId, crate::panels::BookmarkList>,
     /// Number pages dialog settings (1-based pages).
     pub number_draft: NumberDraft,
     pub(crate) word_count_draft: word_count_ui::Draft,

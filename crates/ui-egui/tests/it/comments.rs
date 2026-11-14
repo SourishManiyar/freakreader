@@ -31,7 +31,21 @@ fn harness(setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> Harness<'static, P
 }
 
 fn harness_with_bytes(bytes: Vec<u8>, setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> Harness<'static, PdfCraftApp> {
-    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+    sized_harness(egui::vec2(1400.0, 900.0), bytes, setup)
+}
+
+/// A window tall enough to show the whole of page 1 at fit width while no Tools pane narrows the
+/// pages, for tests that draw or drag near its bottom edge.
+fn tall_harness(setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> Harness<'static, PdfCraftApp> {
+    tall_harness_with_bytes(TEXT_FIXTURE.to_vec(), setup)
+}
+
+fn tall_harness_with_bytes(bytes: Vec<u8>, setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> Harness<'static, PdfCraftApp> {
+    sized_harness(egui::vec2(1400.0, 1100.0), bytes, setup)
+}
+
+fn sized_harness(size: egui::Vec2, bytes: Vec<u8>, setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> Harness<'static, PdfCraftApp> {
+    let mut h = Harness::builder().with_size(size).build_eframe(move |_cc| {
         let mut app = PdfCraftApp::new();
         app.set_option("language", "en").unwrap();
         app.open_bytes("text.pdf", None, bytes).expect("opens");
@@ -250,7 +264,7 @@ fn the_quick_bar_colour_changes_the_selected_arrow() {
     use pdfcraft_ui_egui::comments::CommentTool;
 
     // Arrows are saved as Line annotations; the Arrow tool's colour must still reach them.
-    let mut h = harness(|app| app.set_option("quick", "arrow").unwrap());
+    let mut h = tall_harness(|app| app.set_option("quick", "arrow").unwrap());
     drag_pt(&mut h, (20.0, 20.0), (120.0, 30.0));
     assert_eq!(comments(&h)[0].subtype, "Line");
     assert_eq!(h.state().quick_tool, QuickTool::Comment(CommentTool::Arrow), "the arrow tool is still active");
@@ -684,7 +698,7 @@ fn selection_note_posts_highlight_and_hovers_author_and_comment() {
 
 #[test]
 fn shapes_and_ink_are_drawn_by_dragging() {
-    let mut h = harness(|app| app.set_option("quick", "square").unwrap());
+    let mut h = tall_harness(|app| app.set_option("quick", "square").unwrap());
     drag_pt(&mut h, (40.0, 100.0), (140.0, 40.0));
     h.state_mut().set_option("quick", "ink").unwrap();
     drag_pt(&mut h, (160.0, 100.0), (260.0, 40.0));
@@ -1012,7 +1026,7 @@ fn a_dragged_text_box_wraps_inside_its_border() {
 
 #[test]
 fn comments_are_selected_moved_and_deleted_with_the_select_tool() {
-    let mut h = harness(|app| app.set_option("quick", "square").unwrap());
+    let mut h = tall_harness(|app| app.set_option("quick", "square").unwrap());
     drag_pt(&mut h, (40.0, 100.0), (140.0, 40.0));
     h.state_mut().set_option("quick", "select").unwrap();
     // Click away, then on the rectangle's border area.
@@ -1188,7 +1202,7 @@ fn the_rubber_band_shows_the_closing_side_with_shift_held() {
 /// Shift they go where the pointer is.
 #[test]
 fn shift_holds_new_lines_and_sides_level_or_plumb() {
-    let mut h = harness(|app| app.set_option("quick", "line").unwrap());
+    let mut h = tall_harness(|app| app.set_option("quick", "line").unwrap());
     let shift = |h: &mut Harness<'static, PdfCraftApp>, on: bool| {
         h.event(egui::Event::ModifiersChanged(if on { egui::Modifiers::SHIFT } else { egui::Modifiers::NONE }));
         h.run_steps(1);
@@ -4356,7 +4370,7 @@ fn shows_text(n: &egui_kittest::kittest::AccessKitNode<'_>, text: &str) -> bool 
 /// screen and shows the size it was dragged to.
 #[test]
 fn a_pop_up_resized_on_a_turned_page_stays_in_place() {
-    let mut h = harness_with_bytes(BLUE_NOTE_WITH_OPEN_POP_UP.to_vec(), |app| app.views[0].rotation = 90);
+    let mut h = tall_harness_with_bytes(BLUE_NOTE_WITH_OPEN_POP_UP.to_vec(), |app| app.views[0].rotation = 90);
     let (_, window) = h.state().views[0].comments.popup_rects.first().copied().expect("the pop-up is open");
     let corner = window.right_bottom() - egui::vec2(3.0, 3.0);
     drag(&mut h, corner, corner + egui::vec2(80.0, 60.0));
@@ -4981,7 +4995,7 @@ fn other_edit_composers_keep_trimming_trailing_whitespace() {
 /// Delete removes every selected comment as one undo step.
 #[test]
 fn ctrl_click_selects_several_comments_and_delete_removes_them_all() {
-    let mut h = harness(|app| app.set_option("quick", "square").unwrap());
+    let mut h = tall_harness(|app| app.set_option("quick", "square").unwrap());
     for (a, b) in [((20.0, 20.0), (60.0, 60.0)), ((100.0, 20.0), (140.0, 60.0)), ((180.0, 20.0), (220.0, 60.0))] {
         drag_pt(&mut h, a, b);
     }
@@ -5022,7 +5036,7 @@ fn ctrl_click_selects_several_comments_and_delete_removes_them_all() {
 /// grabbed one takes the handles and the one that had them stays selected.
 #[test]
 fn dragging_any_selected_comment_moves_the_whole_selection() {
-    let mut h = harness(|app| app.set_option("quick", "square").unwrap());
+    let mut h = tall_harness(|app| app.set_option("quick", "square").unwrap());
     for (a, b) in [((20.0, 20.0), (60.0, 60.0)), ((100.0, 20.0), (140.0, 60.0)), ((180.0, 20.0), (220.0, 60.0))] {
         drag_pt(&mut h, a, b);
     }

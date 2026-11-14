@@ -129,9 +129,15 @@ pub enum Edit {
         bookmarks: Vec<pdfcraft_organize::OutlineNode>,
         replace: bool,
     },
-    /// Bookmarks for the tagged headings (H, H1–H6), nested by level under a new first
-    /// "Untitled" bookmark (New Bookmarks from Structure).
-    BookmarksFromStructure,
+    /// Write the whole outline from a list, as the Bookmarks panel's list editor and Create Table
+    /// of Contents do: rows naming an existing bookmark keep everything the row doesn't change
+    /// (see [`pdfcraft_organize::rewrite_outline`]), and bookmarks no row names are removed.
+    /// `toc` names the step "Create table of contents"; its titles are the document's own text,
+    /// so it also needs the permission to copy text.
+    EditBookmarks {
+        rows: Vec<pdfcraft_organize::OutlineRow>,
+        toc: bool,
+    },
     /// Bookmarks for the lines set in `levels`' styles (the first is level 1, the next nests
     /// under it, …), under a new first "Untitled" bookmark (#1693; see [`crate::text_style_bookmarks`]).
     BookmarksFromTextStyles {

@@ -1823,6 +1823,13 @@ impl Renderer {
         }
     }
 
+    /// PdfCraft patch (32): whether `paint` is one [`ColorReplacement::hide_paints`] took out,
+    /// which is then not drawn at all.
+    fn hidden(&self, paint: &Paint<'_>) -> bool {
+        self.color_replacement.is_some_and(|r| r.hide_paints)
+            && matches!(paint, Paint::Color(c) if c.to_rgba().to_rgba8()[3] == 0)
+    }
+
     /// The device-space area a shading painted on `path` covers: the path's bounding box, with
     /// the stroke width around it for a stroke, on the canvas.
     fn shading_bbox(&self, path: &BezPath, is_stroke: bool) -> Rect {
@@ -2141,6 +2148,9 @@ impl Renderer {
 
         // PdfCraft patch: apply the reading-colours mapping before painting.
         let paint = self.replaced(paint, is_text);
+        if self.hidden(&paint) {
+            return;
+        }
         let PaintSetup::Clip(clip_path) = self.set_paint(&paint, path, true) else { return };
         if let Some(clip_path) = clip_path.as_ref() {
             self.push_clip_path_inner(clip_path, FillRule::NonZero);
@@ -2170,6 +2180,9 @@ impl Renderer {
 
         // PdfCraft patch: apply the reading-colours mapping before painting.
         let paint = self.replaced(paint, is_text);
+        if self.hidden(&paint) {
+            return;
+        }
         let PaintSetup::Clip(clip_path) = self.set_paint(&paint, path, false) else { return };
         if let Some(clip_path) = clip_path.as_ref() {
             self.push_clip_path_inner(clip_path, fill_rule);
@@ -2756,6 +2769,9 @@ impl<'a> Device<'a> for Renderer {
 
                 // PdfCraft patch: apply the reading-colours mapping before painting.
                 let paint = self.replaced(paint, false);
+                if self.hidden(&paint) {
+                    return;
+                }
                 let PaintSetup::Clip(clip_path) = self.set_paint(&paint, &path, false) else { return };
                 if let Some(clip_path) = clip_path.as_ref() {
                     self.push_clip_path_inner(clip_path, *fill_rule);

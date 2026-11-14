@@ -80,6 +80,12 @@ pub enum OutlineError {
     TooDeep(usize),
     #[error("at most {0} bookmarks can be added at once")]
     TooManyBookmarks(usize),
+    /// A row of a list edit ([`crate::rewrite_outline`]) that can't be written: its 1-based number
+    /// and why.
+    #[error("row {0}: {1}")]
+    Row(usize, String),
+    #[error("the outline nests deeper than {0} levels, so it can't be edited as a list: edit those bookmarks one at a time")]
+    Unlisted(usize),
     #[error("{0}")]
     Organize(#[from] OrganizeError),
     #[error("{0}")]
@@ -88,7 +94,7 @@ pub enum OutlineError {
 
 type Result<T> = std::result::Result<T, OutlineError>;
 
-fn outline_root(doc: &Document) -> Option<ObjRef> {
+pub(crate) fn outline_root(doc: &Document) -> Option<ObjRef> {
     let root = doc.root()?;
     doc.get(root).as_dict()?.reference(b"Outlines")
 }
@@ -422,7 +428,7 @@ pub(crate) fn container(doc: &mut Document, parent_path: &[usize]) -> Result<Obj
 }
 
 /// Set `key` on the dictionary `r` (or remove it with `None`) only if it changes.
-fn put(doc: &mut Document, r: ObjRef, key: &[u8], value: Option<Object>) -> Result<()> {
+pub(crate) fn put(doc: &mut Document, r: ObjRef, key: &[u8], value: Option<Object>) -> Result<()> {
     let current = doc.get(r).as_dict().and_then(|d| d.get(key).cloned());
     if current == value {
         return Ok(());
@@ -532,7 +538,7 @@ fn destination_at(doc: &Document, page: usize, left: Option<f64>, top: Option<f6
 /// reader's zoom; a coordinate that is left out keeps the reader's position. With neither,
 /// `/XYZ null null null` goes to the page, keeping the reader's zoom (what Acrobat writes for a
 /// new bookmark when the view has no specific position).
-fn go_to_at(page: ObjRef, left: Option<f64>, top: Option<f64>) -> Object {
+pub(crate) fn go_to_at(page: ObjRef, left: Option<f64>, top: Option<f64>) -> Object {
     let coordinate = |v: Option<f64>| v.map_or(Object::Null, Object::Real);
     Object::Array(vec![Object::Ref(page), Object::name("XYZ"), coordinate(left), coordinate(top), Object::Null])
 }

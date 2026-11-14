@@ -139,6 +139,10 @@ fn organize_page_range_rejects_invalid_input_and_escape_cancels_without_clearing
 fn organize_tool_opens_the_overview_directly_and_can_be_reentered() {
     let mut h = harness(12, |_| {});
     assert!(!h.state().views[0].organize);
+    // No tool list stays open beside the pages any more: Organize pages is a row of the Edit panel.
+    support::outside_menus(&h, "Edit").click();
+    h.run_steps(3);
+    assert!(!h.state().views[0].organize, "the Edit panel alone does not open the grid");
     h.get_by_label("Organize pages").click();
     h.run_steps(3);
     assert!(h.state().views[0].organize);
@@ -2522,9 +2526,12 @@ fn split_from_organize_grid_context_menu() {
 #[test]
 fn split_from_pages_panel_context_menu() {
     let mut h = harness(4, |app| app.right = Some(pdfcraft_ui_egui::RightPanel::Pages));
-    let thumb = h.get_all_by_label("Page 3").max_by(|a, b| a.rect().left().total_cmp(&b.rect().left())).unwrap();
-    thumb.click_button(egui::PointerButton::Secondary);
-    h.run_steps(2);
+    let thumb = h.get_all_by_label("Page 3").map(|n| n.rect()).max_by(|a, b| a.left().total_cmp(&b.left())).unwrap();
+    // The navigation bar pushes the panel down, so page 3's thumbnail runs past the bottom of the
+    // window: press its top, which is on screen, rather than its centre, which is not.
+    let at = thumb.center_top() + egui::vec2(0.0, 30.0);
+    assert!(at.y < h.ctx.content_rect().bottom(), "the press is on screen: {at:?}");
+    right_click_at(&mut h, at);
     h.get_all_by_label("Split document…").last().unwrap().click();
     h.run_steps(3);
     assert_eq!(h.state().dialog, Some(pdfcraft_ui_egui::Dialog::Split));
@@ -3518,6 +3525,10 @@ fn deleting_a_draft_does_not_show_the_original_text_underneath() {
     let mut h = harness(1, |_| {});
     assert!(h.state_mut().execute("edit.edit_text"));
     h.run_steps(2);
+    // The fit-width page puts its text line at the bottom of the window, under the notice Edit text
+    // shows there ("Click text or an image to edit it"), whose pixels the check below would read:
+    // scroll the line up into the clear first.
+    scroll_to_page_fraction(&mut h, 0, 0.3);
     let r = h.state().views[0].page_screen_rect(0).unwrap();
     let at = egui::pos2(r.left() + 40.0 / 200.0 * r.width(), r.top() + 142.0 / 300.0 * r.height());
     h.hover_at(at);
@@ -4274,42 +4285,22 @@ fn the_read_mode_command_applies_an_open_paragraph_and_puts_edit_text_down() {
     assert_edit_text_put_down_and_the_paragraph_applied(h.state());
 }
 
-/// The Edit panel's back arrow (it has one when opened from All tools; the Edit tab is its own way
-/// back) leaves for All tools as the mode bar does: Edit text & images is put down and a paragraph
-/// still open in the editor is applied, instead of every paragraph keeping its box, and the editor
-/// staying open, under All tools.
+/// The Edit a PDF tool's Close (the tool opened from View ▸ Tools, the command search or Home, not
+/// the Edit tab) puts the tool away as the mode bar does: Edit text & images is put down and a
+/// paragraph still open in the editor is applied, instead of every paragraph keeping its box.
 #[test]
-fn the_edit_panel_back_arrow_applies_an_open_paragraph_and_puts_edit_text_down() {
+fn closing_the_edit_tool_applies_an_open_paragraph_and_puts_edit_text_down() {
     use pdfcraft_ui_egui::{LeftPanel, Mode, QuickTool};
     let mut h = harness(1, |_| {});
-    // All tools ▸ Edit a PDF ▸ Edit text & images: the Edit panel, under All tools.
+    // Edit a PDF ▸ Edit text & images, as a tool.
     assert!(h.state_mut().execute("edit.edit_text"));
     h.run_steps(3);
     assert_eq!((h.state().mode, h.state().quick_tool), (Mode::AllTools, QuickTool::EditText));
     open_the_first_line(&mut h);
-    h.get_by_label("Back to all tools").click();
+    h.get_by_label("Close panel").click();
     h.run_steps(3);
     assert_eq!((h.state().mode, h.state().left), (Mode::AllTools, LeftPanel::AllTools));
     assert_edit_text_put_down_and_the_paragraph_applied(h.state());
-}
-
-/// Organize pages, opened under the Edit tab, leaves Edit the same way through its own back arrow.
-#[test]
-fn the_organize_back_arrow_applies_an_open_paragraph_and_puts_edit_text_down() {
-    use pdfcraft_ui_egui::{LeftPanel, Mode};
-    let mut h = harness(1, |_| {});
-    edit_tab_with_an_open_paragraph(&mut h);
-    // What the Edit panel's Organize pages row runs.
-    assert!(h.state_mut().execute("page.organize"));
-    h.run_steps(3);
-    assert!(h.state().views[0].organize, "the page grid opens");
-    assert!(h.state().views[0].line_editor.is_some(), "the paragraph is still open behind the grid");
-    h.get_by_label("Back to all tools").click();
-    h.run_steps(3);
-    let s = h.state();
-    assert_eq!((s.mode, s.left), (Mode::AllTools, LeftPanel::AllTools));
-    assert!(!s.views[0].organize, "the grid closes");
-    assert_edit_text_put_down_and_the_paragraph_applied(s);
 }
 
 #[test]
@@ -4487,6 +4478,8 @@ fn add_text_places_a_box_on_a_picture_and_beside_a_paragraph() {
     let mut h = harness(2, |_| {});
     h.state_mut().quick_tool = pdfcraft_ui_egui::QuickTool::AddText;
     h.run_steps(2);
+    // The fit-width page runs past the bottom of the window, its paragraph with it: scroll it in.
+    scroll_to_page_fraction(&mut h, 0, 0.3);
     let id = h.state().views[0].id;
     let block = h.state().session.get(id).unwrap().text_blocks(0)[0].clone();
     let r = h.state().views[0].page_screen_rect(0).expect("on screen");
@@ -4506,6 +4499,8 @@ fn add_text_opens_a_paragraph_from_just_inside_its_edge() {
     let mut h = harness(2, |_| {});
     h.state_mut().quick_tool = pdfcraft_ui_egui::QuickTool::AddText;
     h.run_steps(2);
+    // The fit-width page runs past the bottom of the window, its paragraph with it: scroll it in.
+    scroll_to_page_fraction(&mut h, 0, 0.3);
     let id = h.state().views[0].id;
     let block = h.state().session.get(id).unwrap().text_blocks(0)[0].clone();
     let r = h.state().views[0].page_screen_rect(0).expect("on screen");
@@ -4529,6 +4524,8 @@ fn add_text_finishes_a_paragraph_drag_that_leaves_its_box() {
     let mut h = harness(2, |_| {});
     h.state_mut().quick_tool = pdfcraft_ui_egui::QuickTool::AddText;
     h.run_steps(2);
+    // The fit-width page runs past the bottom of the window, its paragraph with it: scroll it in.
+    scroll_to_page_fraction(&mut h, 0, 0.35);
     let id = h.state().views[0].id;
     let before = h.state().session.get(id).unwrap().text_blocks(0)[0].rect;
     let r = h.state().views[0].page_screen_rect(0).expect("on screen");
@@ -4723,8 +4720,10 @@ fn check_existing_artwork(name: &'static str, bytes: Vec<u8>) {
     assert!(h.state_mut().execute("edit.edit_text"));
     h.run_steps(2);
     let r = h.state().views[0].page_screen_rect(0).expect("on screen");
-    // Select it, then drag it a quarter of the page to the right.
-    let c = r.center();
+    // Select it, then drag it a quarter of the page to the right. The fit-width page's centre is at
+    // the bottom of the window, under the notice Edit text shows there, so press the middle of the
+    // part of the page that is on screen.
+    let c = visible_page_point(&h, 0);
     h.hover_at(c);
     h.run_steps(1);
     h.drag_at(c);
@@ -4827,8 +4826,9 @@ fn default_page_context_menu_when_not_in_edit_mode() {
     h.run_steps(4);
     assert_eq!(h.state().quick_tool, pdfcraft_ui_egui::QuickTool::Select);
 
-    let r = h.state().views[0].page_screen_rect(0).expect("on screen");
-    let c = r.center();
+    // At fit width the page is taller than the window, so its centre can be below it: aim at the
+    // middle of the part of the page that is on screen.
+    let c = visible_page_point(&h, 0);
     // Right click on page in Select mode
     h.hover_at(c);
     h.run_steps(1);
@@ -4878,8 +4878,9 @@ fn page_context_menu_items_disabled_on_protected_pdf() {
     assert!(!doc.allows_assembly());
     assert!(!doc.allows_annotation());
 
-    let r = h.state().views[0].page_screen_rect(0).expect("on screen");
-    let c = r.center();
+    // At fit width the page is taller than the window, so its centre can be below it: aim at the
+    // middle of the part of the page that is on screen.
+    let c = visible_page_point(&h, 0);
     // Right click on page in Select mode
     h.hover_at(c);
     h.run_steps(1);
@@ -5007,9 +5008,13 @@ fn text_selection_action_icons() {
     // Dragging selects only once the page's text layer is in, and it comes from the render pool
     // in the background: under load a fixed number of frames was sometimes not enough.
     support::wait_until(&mut h, "page 1's text layer", |app| app.views[0].has_page_text(0));
+    // With no tool pane beside it the fit-width page is taller than the window and its text line
+    // is below the bottom edge: scroll it into view first.
+    scroll_to_page_fraction(&mut h, 0, 0.3);
     let r = h.state().views[0].page_screen_rect(0).expect("on screen");
     let p0 = egui::pos2(r.left() + 40.0 / 200.0 * r.width(), r.top() + (300.0 - 158.0) / 300.0 * r.height());
     let p1 = egui::pos2(r.left() + 100.0 / 200.0 * r.width(), r.top() + (300.0 - 158.0) / 300.0 * r.height());
+    assert!(h.state().views[0].viewport_rect().contains(p0), "the drag starts on screen: {p0:?}");
 
     // Drag to select text
     h.hover_at(p0);
@@ -6240,8 +6245,10 @@ fn dragging_pages_panel_thumbnails_reorders_pages() {
     let thumb = |h: &Harness<'static, PdfCraftApp>, label: &str| {
         h.get_all_by_label(label).map(|n| n.rect()).max_by(|a, b| a.left().total_cmp(&b.left())).expect("the thumbnail")
     };
-    // Grab page 3 (page 4 is below the window) and drop it above page 1.
-    let (from, to) = (thumb(&h, "Page 3").center(), thumb(&h, "Page 1").center_top() + egui::vec2(0.0, 4.0));
+    // Grab page 3 (page 4 is below the window) and drop it above page 1. The navigation bar pushes
+    // the panel down, so page 3's thumbnail runs past the bottom of the window: grab its top part.
+    let (from, to) = (thumb(&h, "Page 3").center_top() + egui::vec2(0.0, 30.0), thumb(&h, "Page 1").center_top() + egui::vec2(0.0, 4.0));
+    assert!(from.y < h.ctx.content_rect().bottom(), "the grab is on screen: {from:?}");
     drag(&mut h, from, to);
     h.run_steps(4);
     let after = page_texts(h.state());
@@ -6294,6 +6301,23 @@ fn a_thumbnail_drag_that_ends_off_the_panel_or_outlives_the_pages_is_dropped() {
 /// A Pages panel thumbnail (the rightmost node with that label).
 fn panel_thumb(h: &Harness<'static, PdfCraftApp>, label: &str) -> egui::Pos2 {
     h.get_all_by_label(label).map(|n| n.rect()).max_by(|a, b| a.left().total_cmp(&b.left())).expect("the thumbnail").center()
+}
+
+/// Scrolls page `page` so the point `frac` of its height below its top is at the top of the pages
+/// area (as far as the scroll range allows), for presses on content a fit-width page would put
+/// below the bottom of the window.
+fn scroll_to_page_fraction(h: &mut Harness<'static, PdfCraftApp>, page: usize, frac: f32) {
+    h.state_mut().views[0].goto = Some((page, frac));
+    h.run_steps(3);
+}
+
+/// The middle of the part of page `page` that is inside the pages area, for a press that must land
+/// on the page and on screen (a fit-width page can run past the bottom of the window).
+fn visible_page_point(h: &Harness<'static, PdfCraftApp>, page: usize) -> egui::Pos2 {
+    let view = &h.state().views[0];
+    let visible = view.page_screen_rect(page).expect("the page is laid out").intersect(view.viewport_rect());
+    assert!(visible.is_positive(), "page {page} is on screen: {visible:?}");
+    visible.center()
 }
 
 fn right_click_at(h: &mut Harness<'static, PdfCraftApp>, at: egui::Pos2) {
@@ -8099,6 +8123,9 @@ fn in_crop_mode_a_right_click_on_another_picture_selects_it() {
     h.run_steps(4);
     assert!(h.state_mut().execute("edit.edit_text"));
     h.run_steps(4);
+    // The other picture sits near the page's foot, which the fit-width page now puts below the
+    // window: scroll the lower part of the page into view before starting the crop.
+    scroll_to_page_fraction(&mut h, 0, 0.4);
     let id = h.state().views[0].id;
     let rect = h.state().session.get(id).unwrap().page_images(0)[0].rect;
     let mut selection = pdfcraft_ui_egui::ImageSelection::at(0, 0);
@@ -8298,6 +8325,8 @@ fn point_on(h: &Harness<'static, PdfCraftApp>, x: f64, y: f64) -> egui::Pos2 {
 #[test]
 fn a_click_on_a_paragraph_released_just_below_it_opens_it() {
     let mut h = edit_page(pdfcraft_ui_egui::QuickTool::EditText);
+    // The fit-width page runs past the bottom of the window, its paragraph with it: scroll it in.
+    scroll_to_page_fraction(&mut h, 0, 0.3);
     let id = h.state().views[0].id;
     let block = h.state().session.get(id).unwrap().text_blocks(0)[0].clone();
     // The box reaches 2 px below the text: pressed 1 px inside it, released 3 px below it.
@@ -8330,6 +8359,8 @@ fn a_click_on_added_text_released_just_beside_it_selects_it() {
 #[test]
 fn an_add_text_click_pressed_beside_a_paragraph_starts_a_box_there() {
     let mut h = edit_page(pdfcraft_ui_egui::QuickTool::AddText);
+    // The fit-width page runs past the bottom of the window, its paragraph with it: scroll it in.
+    scroll_to_page_fraction(&mut h, 0, 0.3);
     let id = h.state().views[0].id;
     let block = h.state().session.get(id).unwrap().text_blocks(0)[0].clone();
     // The box reaches 2 px past the text: pressed 2 px left of it, released 2 px inside it.
@@ -8348,6 +8379,8 @@ fn an_add_text_click_pressed_beside_a_paragraph_starts_a_box_there() {
 fn a_paragraph_drag_ends_when_the_window_loses_focus() {
     for tool in [pdfcraft_ui_egui::QuickTool::EditText, pdfcraft_ui_egui::QuickTool::AddText] {
         let mut h = edit_page(tool);
+        // The fit-width page runs past the bottom of the window, its paragraph with it: scroll it in.
+        scroll_to_page_fraction(&mut h, 0, 0.3);
         let id = h.state().views[0].id;
         let before = h.state().session.get(id).unwrap().text_blocks(0)[0].rect;
         let from = point_on(&h, (before[0] + before[2]) / 2.0, (before[1] + before[3]) / 2.0);
@@ -10038,6 +10071,12 @@ fn a_paragraph_running_off_its_page_edits_without_covering_the_next_page() {
     h.run_steps(4);
     let rects =
         |h: &Harness<'static, PdfCraftApp>| (h.state().views[0].page_screen_rect(0).unwrap(), h.state().views[0].page_screen_rect(1).unwrap());
+    // Choosing Edit text opens the Edit tool's pane, which pushes the pages right by its width (and
+    // shrinks them to fit what is left): that move is the pane's, not Edit text's. So the reference
+    // is taken with that pane already open and the Select tool still in hand.
+    h.state_mut().left = pdfcraft_ui_egui::LeftPanel::Tool("edit");
+    h.run_steps(4);
+    assert_eq!(h.state().quick_tool, pdfcraft_ui_egui::QuickTool::Select, "Edit text isn't chosen yet");
     // The same pages without Edit text, so without the paragraph's outline: what the gap looks
     // like there, pixel by pixel (review on #3070: it isn't one colour on every platform).
     let (first, second) = rects(&h);

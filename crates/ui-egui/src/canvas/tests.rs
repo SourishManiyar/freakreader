@@ -1194,7 +1194,9 @@ fn a_press_on_a_page_ends_select_all_of_the_document() {
     h.state_mut().quick_tool = crate::QuickTool::Hand;
     h.state_mut().views[0].select_all();
     assert!(h.state().views[0].all_text);
-    let at = r.center();
+    // On the page and in the window: at fit width the page runs below the window (900 pt tall),
+    // so its centre can be off-screen; at most the window's middle, where the dialog sits below.
+    let at = egui::pos2(r.center().x, r.center().y.min(450.0));
     h.event(egui::Event::PointerMoved(at));
     h.event(egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed: true, modifiers: egui::Modifiers::NONE });
     h.run_steps(1);

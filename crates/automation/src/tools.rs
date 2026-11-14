@@ -482,11 +482,59 @@ pub fn tools() -> Vec<ToolDef> {
             &["doc", "path"],
         )),
         t(
-            "bookmark_from_structure",
-            "New bookmarks from structure",
-            "Make bookmarks from the document's tagged headings (H, H1-H6), nested by level under a new first bookmark titled \"Untitled\". Fails if the document has no tagged headings. Returns the first page of the bookmark tree (see bookmark_list). Undoable.",
+            "bookmark_rows",
+            "List bookmarks as rows",
+            "The whole outline as a flat list in outline order, for bookmark_edit_rows: each row's level (1 = top level), path (1-based, what bookmark_edit_rows takes as from), title, page (1-based, null when it goes nowhere in this document), destination ({fit, left, top, zoom} in points from the top-left of the displayed page, as bookmark_list gives it) and its colour and bold or italic style when set. Fails when bookmarks nest deeper than 33 levels (they can't be edited as a list).",
         )
+        .ro()
         .with(schema(json!({ "doc": doc() }), &["doc"])),
+        t(
+            "bookmark_edit_rows",
+            "Edit bookmarks as a list",
+            "Write the whole outline from a list, as one undo step (\"Edit bookmarks\"). Give rows or text. rows: the new outline in order, each {level, title, page?, top?, left?, from?}: level 1 is the top level and a row is at most one level deeper than the row before; page is 1-based (null for nowhere); top and left are points from the top-left of the displayed page (left out keeps the reader's position that way); from is the 1-based path of the existing bookmark the row stands for (from bookmark_rows), which keeps its colour, style, action and other data, and a page left out then keeps its destination. Bookmarks no row names are removed. text: a plain-text outline, one bookmark per line, nested by indentation (a tab is four spaces), Markdown # marks or, without indentation, numbering such as 1.2; bullets are dropped and a number at the end of a line (after a space, tab or dot leader) is its page; roman numerals and labels name pages by their page labels. With text, keep puts the new bookmarks after the existing ones instead of replacing them, and printed maps the numbers as printed page numbers the way bookmark_create_toc does (lines whose page can't be found go nowhere and are listed in unplaced, 1-based). Every row is checked before anything is written; an error names the row (1-based) and what is wrong.",
+        )
+        .cmd("bookmark.edit_list")
+        .destructive()
+        .with(schema(
+            json!({
+                "doc": doc(),
+                "rows": {
+                    "type": "array",
+                    "maxItems": 100000,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "level": { "type": "integer", "minimum": 1 },
+                            "title": { "type": "string" },
+                            "page": { "type": ["integer", "null"], "minimum": 1 },
+                            "top": { "type": ["number", "null"] },
+                            "left": { "type": ["number", "null"] },
+                            "from": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1 }
+                        },
+                        "required": ["level", "title"]
+                    }
+                },
+                "text": { "type": "string", "description": "A plain-text outline (at most 4 MB)." },
+                "keep": { "type": "boolean", "description": "With text: add after the existing bookmarks (default false: replace them)." },
+                "printed": { "type": "boolean", "description": "With text: the page numbers are printed page numbers (default false: 1-based page numbers)." }
+            }),
+            &["doc"],
+        )),
+        t(
+            "bookmark_create_toc",
+            "Create table of contents",
+            "Find bookmarks in the document's own structure, for review: its table of contents (contents pages near the front or back found from the text layer: a Contents heading, or rows ending in page numbers after dot leaders; two-column and multi-page tables, wrapped titles, nesting by numbering such as 1.2.3 or by indent), else its tagged headings, else headings found by how they look (larger or bold rows, nested by numbering or style). Printed page numbers are mapped to pages by finding each title as a heading, by page labels, and by the offset the evidence agrees on (front matter, unnumbered pages). Returns source (contents, structure or headings), toc_pages (1-based), entries ({level, title, page, top, printed, verified}: page 1-based or null when it couldn't be placed, top in points from the top of the displayed page when the heading was found, printed as the table gives it, verified when the title was found on that page), unverified and unplaced counts. Nothing changes unless apply is true: then the entries replace the outline (or with keep come after the existing bookmarks) as one undo step (\"Create table of contents\"); to edit them first, pass them to bookmark_edit_rows instead. Needs the permissions to change pages and to copy text (titles are the document's text). Reads at most 80 pages looking for the table, 1500 checking pages and 1500 for headings.",
+        )
+        .cmd("bookmark.create_toc")
+        .destructive()
+        .with(schema(
+            json!({
+                "doc": doc(),
+                "apply": { "type": "boolean", "description": "Write the entries as the outline (default false: only report them)." },
+                "keep": { "type": "boolean", "description": "With apply: keep the existing bookmarks before the new ones (default false: replace them)." }
+            }),
+            &["doc"],
+        )),
         t(
             "text_styles",
             "List text styles",
@@ -1090,16 +1138,17 @@ pub fn tools() -> Vec<ToolDef> {
         t("comments_hide", "Hide all comments", "Hide or show every comment on the page (fields and links still draw). A view setting: the file doesn't change.")
             .cmd("comment.hide_all")
             .with(schema(json!({ "doc": doc(), "hidden": { "type": "boolean", "description": "Default true." } }), &["doc"])),
-        t("view_reading_colors", "Set reading colours", "Set the document's reading colours (Acrobat's Replace Document Colors, in the Reading Options): solid text and line-art paints are remapped for readability and the page clears to the background colour in page_render. A view setting: the file doesn't change. mode is one of: off, black-on-white, white-on-black, yellow-on-black, green-on-black, or custom (which takes text and background as #RRGGBB). only_black maps only near-black paints (default false) and line_art also maps line-art paints (default true); both override the mode's preset. A flag that differs from the mode's preset default makes the returned mode read custom, because the resulting params no longer match any preset. Returns the resulting setting.")
+        t("view_reading_colors", "Set reading colours", "Set the document's reading colours (Acrobat's Replace Document Colors, in the Reading Options): solid text and line-art paints are remapped for readability and the page clears to the background colour in page_render. A view setting: the file doesn't change. mode is one of: off, dark (the dark mode: every paint keeps its hue and only its lightness turns over, light text on a dark page, while pictures, shadings and comments keep their own colours; gamma from 0.5 to 2.5, default 1, shapes the rendered tones between page and text outside pictures, higher making text bolder and brighter, and text and background, when given, replace its two ends), black-on-white, white-on-black, yellow-on-black, green-on-black, or custom (which takes text and background as #RRGGBB). only_black maps only near-black paints (default false) and line_art also maps line-art paints (default true); both override the mode's preset. A flag that differs from the mode's preset default makes the returned mode read custom, because the resulting params no longer match any preset. Returns the resulting setting.")
             .cmd("a11y.reading_options")
             .with(schema(
                 json!({
                     "doc": doc(),
-                    "mode": { "type": "string", "enum": ["off", "black-on-white", "white-on-black", "yellow-on-black", "green-on-black", "custom"] },
+                    "mode": { "type": "string", "enum": ["off", "dark", "black-on-white", "white-on-black", "yellow-on-black", "green-on-black", "custom"] },
                     "text": { "type": "string", "description": "With mode custom: the text colour, #RRGGBB." },
                     "background": { "type": "string", "description": "With mode custom: the background colour, #RRGGBB." },
                     "only_black": { "type": "boolean", "description": "Map only near-black paints. Default false." },
                     "line_art": { "type": "boolean", "description": "Also map line-art paints. Default true." },
+                    "gamma": { "type": "number", "minimum": 0.5, "maximum": 2.5, "description": "With mode dark: shapes the rendered tones between page and text, pictures aside, 0.5 to 2.5 (default 1; higher makes text bolder and brighter)." },
                 }),
                 &["doc", "mode"],
             )),

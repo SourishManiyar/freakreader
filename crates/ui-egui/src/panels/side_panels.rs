@@ -379,8 +379,11 @@ fn state_of(panels: &SidePanels, pane: Pane) -> PaneState {
 /// The panes that show this frame, outermost first on a shared edge.
 fn open_panes(app: &PdfCraftApp) -> Vec<Pane> {
     let mut open = Vec::new();
-    // Read mode hides the tools, not the navigation panes.
-    if app.left_open && app.mode != Mode::Read {
+    // Read mode hides the tools, not the navigation panes. With no tool chosen there is nothing
+    // to show in the Tools pane (the tools are in View ▸ Tools, the command search and Home),
+    // unless the page grid shows, which brings Organize pages' panel.
+    let has_tool = app.left != crate::LeftPanel::AllTools || (app.active.is_some() && crate::organize_panel::showing(app));
+    if app.left_open && app.mode != Mode::Read && has_tool {
         open.push(Pane::Tools);
     }
     // Home and Combine files have no side panel; the choice is kept for the next document.
@@ -423,10 +426,6 @@ pub fn show(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
     // The rail first: it is the outermost panel on the right.
     if app.active.is_some() {
         crate::chrome::right_rail(app, ui);
-    }
-    // The expanded All tools view covers the panes.
-    if app.mode == Mode::AllTools && app.all_tools_full {
-        return;
     }
     let open = open_panes(app);
     if open.is_empty() {

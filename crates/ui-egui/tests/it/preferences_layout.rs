@@ -251,3 +251,48 @@ fn search_scrolls_option_only_and_theme_card_matches_into_visible_viewport() {
         "Dark theme card scrolled into visible viewport: {dark_card:?} between title {title:?} and OK {ok:?}"
     );
 }
+
+/// Appearance ▸ Interface text size and font, and Documents and view ▸ Reference preview size, are in the
+/// dialog, saved and restored; a saved size the dialog doesn't offer is 100% again.
+#[test]
+fn text_size_preview_size_and_font_are_offered_saved_and_checked() {
+    let h = harness(2000.0);
+    h.get_by_label("Interface text size");
+    h.get_by_label("Reference preview size");
+    h.get_by_label("Interface font");
+    for face in ["Inter", "Ubuntu Light", "JetBrains Mono", "Hack"] {
+        assert!(h.query_all_by_label(face).next().is_some(), "{face} is offered");
+    }
+    for percent in ["90%", "130%", "50%", "150%"] {
+        assert!(h.query_all_by_label(percent).next().is_some(), "{percent} is offered");
+    }
+    let mut app = PdfCraftApp::new();
+    (app.text_size, app.link_preview_size, app.ui_font) = (120, 150, pdfcraft_ui_egui::theme::UiFont::Ubuntu);
+    let saved = app.persist();
+    let mut restored = PdfCraftApp::new();
+    restored.restore(&saved);
+    assert_eq!((restored.text_size, restored.link_preview_size, restored.ui_font), (120, 150, pdfcraft_ui_egui::theme::UiFont::Ubuntu));
+    let hostile = saved
+        .replace("\"text_size\":120", "\"text_size\":400")
+        .replace("\"link_preview_size\":150", "\"link_preview_size\":-3")
+        .replace("\"ui_font\":\"ubuntu\"", "\"ui_font\":\"comic-sans\"");
+    assert_ne!(hostile, saved, "the saved settings name both");
+    let mut checked = PdfCraftApp::new();
+    checked.restore(&hostile);
+    assert_eq!((checked.text_size, checked.link_preview_size, checked.ui_font), (100, 100, pdfcraft_ui_egui::theme::UiFont::Inter));
+}
+
+/// The same three as view options (the command line and the control channel), checked.
+#[test]
+fn text_size_preview_size_and_font_are_view_options() {
+    let mut app = PdfCraftApp::new();
+    app.set_option("ui-font", "hack").unwrap();
+    app.set_option("text-size", "110%").unwrap();
+    app.set_option("link-preview-size", "75").unwrap();
+    assert_eq!((app.ui_font, app.text_size, app.link_preview_size), (pdfcraft_ui_egui::theme::UiFont::Hack, 110, 75));
+    for (key, bad) in [("ui-font", "comic-sans"), ("text-size", "115"), ("link-preview-size", "500%")] {
+        let e = app.set_option(key, bad).unwrap_err();
+        assert!(e.contains("must be one of"), "{key}: {e}");
+    }
+    assert_eq!((app.ui_font, app.text_size, app.link_preview_size), (pdfcraft_ui_egui::theme::UiFont::Hack, 110, 75), "a refusal changes nothing");
+}

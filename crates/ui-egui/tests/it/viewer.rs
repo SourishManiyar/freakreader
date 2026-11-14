@@ -464,6 +464,9 @@ fn layouts_fit_height_labels_and_system_theme() {
     h.run_steps(4);
     let (a, b) = (h.state().views[0].page_screen_rect(0).unwrap(), h.state().views[0].page_screen_rect(1).unwrap());
     assert!((a.top() - b.top()).abs() < 1.0 && b.left() > a.right(), "side by side");
+    // Small enough that the second row is on screen too: at fit width a page is taller than the
+    // window.
+    h.state_mut().set_option("zoom", "50").unwrap();
     h.state_mut().views[0].cover = true;
     h.run_steps(4);
     let (a, b, c) = (
@@ -1057,6 +1060,9 @@ fn drag(h: &mut Harness<'static, PdfCraftApp>, a: egui::Pos2, b: egui::Pos2) {
 fn marquee_zoom_and_snapshot() {
     let mut h = harness();
     let i = h.state().active.unwrap();
+    // The whole page in view: at fit width the text line is below the window.
+    h.state_mut().views[i].fit = pdfcraft_ui_egui::canvas::Fit::Page;
+    h.run_steps(4);
     // Text "Page 2 pages PAGE" sits at y 150 (of 300) from x 20.
     let r = h.state().views[i].page_screen_rect(0).expect("on screen");
     let at = |x: f32, y: f32| egui::pos2(r.left() + x / 200.0 * r.width(), r.top() + (300.0 - y) / 300.0 * r.height());
@@ -1083,6 +1089,9 @@ fn a_snapshot_area_prints_alone_or_saves_as_an_image() {
     use pdfcraft_ui_egui::PrintWhich;
     let mut h = harness();
     let i = h.state().active.unwrap();
+    // The whole page in view: at fit width the text line is below the window.
+    h.state_mut().views[i].fit = pdfcraft_ui_egui::canvas::Fit::Page;
+    h.run_steps(4);
     let r = h.state().views[i].page_screen_rect(0).expect("on screen");
     let at = |x: f32, y: f32| egui::pos2(r.left() + x / 200.0 * r.width(), r.top() + (300.0 - y) / 300.0 * r.height());
     h.state_mut().system_clipboard = false;
@@ -2003,6 +2012,9 @@ fn a_short_page_gone_to_from_the_pages_panel_stays_current() {
 #[test]
 fn pages_panel_thumbnails_have_a_context_menu() {
     let mut h = pages_panel_harness(&[(200, 300); 4]);
+    // The panel's list starts under the navigation bar, so page 3 may need scrolling into view.
+    h.get_all_by_label("Page 3").find(|n| n.rect().left() > 1000.0).expect("the Pages panel thumbnail").scroll_to_me();
+    h.run_steps(3);
     let at = thumbnail(&h, "Page 3");
     press(&mut h, at, egui::PointerButton::Secondary);
     h.run_steps(2);
@@ -2372,6 +2384,9 @@ fn a_picture_inside_form_artwork_under_text_is_selected_and_copied() {
     crate::support::settle(&mut h);
     h.state_mut().system_clipboard = false;
     let i = h.state().active.unwrap();
+    // The whole page in view: at fit width the caption is below the window.
+    h.state_mut().views[i].fit = pdfcraft_ui_egui::canvas::Fit::Page;
+    h.run_steps(4);
     let r = h.state().views[i].page_screen_rect(0).expect("on screen");
     // On the caption ("WWWWWWW" at y 130–170 of 300, from x 15).
     let at = egui::pos2(r.left() + 60.0 / 200.0 * r.width(), r.top() + (300.0 - 145.0) / 300.0 * r.height());
@@ -2390,9 +2405,9 @@ fn a_picture_inside_form_artwork_under_text_is_selected_and_copied() {
 }
 
 /// A picture in Edit text & images, right-clicked so its menu is open (in a tall window, so the
-/// whole menu is on screen).
+/// whole menu is on screen, and a narrow one, so the page at fit width is shorter than the menu).
 fn picture_menu() -> (image::RgbaImage, Harness<'static, PdfCraftApp>) {
-    let (px, mut h) = picture_harness_sized(egui::vec2(1400.0, 1500.0));
+    let (px, mut h) = picture_harness_sized(egui::vec2(1100.0, 1500.0));
     h.state_mut().set_option("quick", "edit-text").unwrap();
     h.run_steps(3);
     let i = h.state().active.unwrap();

@@ -684,6 +684,21 @@ fn card_appearance(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, ctx: &m
     if ctx.checkbox(ui, &mut app.show_page_edge_shadows, tl!("Show Page Edge Shadows"), t).changed() {
         ui.ctx().request_repaint();
     }
+    ui.add_space(6.0);
+    ui.horizontal(|ui| {
+        ctx.label_primary(ui, tl!("Interface text size"), t);
+        let sizes: Vec<(u16, String)> = crate::theme::TEXT_SIZES.iter().map(|p| (*p, format!("{p}%"))).collect();
+        let options: Vec<(u16, &str)> = sizes.iter().map(|(p, l)| (*p, l.as_str())).collect();
+        ctx.pill_choice(ui, t, &mut app.text_size, &options);
+    });
+    ctx.label_secondary(ui, tl!("The size of the interface's text alone; Interface size zooms everything."), t);
+    ui.add_space(6.0);
+    ui.horizontal(|ui| {
+        ctx.label_primary(ui, tl!("Interface font"), t);
+        let options: Vec<(crate::theme::UiFont, &str)> = crate::theme::UiFont::offered().into_iter().map(|f| (f, f.label())).collect();
+        ctx.pill_choice(ui, t, &mut app.ui_font, &options);
+    });
+    ctx.label_secondary(ui, tl!("Fonts that come with PdfCraft. Characters a font lacks are drawn in Inter."), t);
     ui.add_space(4.0);
     crate::appearance::preferences_section_with_context(ui, app, t, ctx);
     ui.add_space(8.0);
@@ -754,7 +769,7 @@ fn card_documents_and_view(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens,
             t,
             &mut app.default_mode,
             &[
-                (crate::Mode::AllTools, tl!("All tools")),
+                (crate::Mode::AllTools, tl!("View")),
                 (crate::Mode::Read, tl!("Read")),
                 (crate::Mode::Edit, tl!("Edit")),
                 (crate::Mode::Convert, tl!("Convert")),
@@ -843,6 +858,14 @@ fn card_documents_and_view(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens,
         );
     });
     ctx.label_secondary(ui, tl!("For page sizes and margins."), t);
+    ui.add_space(6.0);
+    ui.horizontal(|ui| {
+        ctx.label_primary(ui, tl!("Reference preview size"), t);
+        let sizes: Vec<(u16, String)> = crate::canvas::link_peek::PREVIEW_SIZES.iter().map(|p| (*p, format!("{p}%"))).collect();
+        let options: Vec<(u16, &str)> = sizes.iter().map(|(p, l)| (*p, l.as_str())).collect();
+        ctx.pill_choice(ui, t, &mut app.link_preview_size, &options);
+    });
+    ctx.label_secondary(ui, tl!("How large the preview a right-click on a link shows is: 100% draws it at the page's zoom."), t);
     ui.add_space(6.0);
     scrolling(ui, app, t, ctx);
 }
@@ -1015,6 +1038,7 @@ fn reading_colours_section(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens,
     ui.horizontal_wrapped(|ui| {
         for (name, label, colors) in [
             ("off", "Off", pdfcraft_render::ReadingColors::default()),
+            ("dark", "Dark mode", pdfcraft_render::ReadingColors::dark(app.dark_gamma)),
             ("black-on-white", "Black on white", pdfcraft_render::ReadingColors::BLACK_ON_WHITE),
             ("white-on-black", "White on black", pdfcraft_render::ReadingColors::WHITE_ON_BLACK),
             ("yellow-on-black", "Yellow on black", pdfcraft_render::ReadingColors::YELLOW_ON_BLACK),
@@ -1025,6 +1049,7 @@ fn reading_colours_section(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens,
                 background: [255, 255, 255],
                 only_black: false,
                 line_art: true,
+                gamma: None,
             });
             ui.vertical(|ui| {
                 ui.set_width(100.0);
@@ -1043,6 +1068,23 @@ fn reading_colours_section(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens,
         }
     });
     ui.add_space(4.0);
+    if mode == "dark" {
+        ui.horizontal(|ui| {
+            let label = ctx.label_primary(ui, tl!("Gamma"), t);
+            let (lo, hi) = pdfcraft_render::DARK_GAMMA_RANGE;
+            let mut gamma = f32::from(app.dark_gamma) / 100.0;
+            let slider = egui::Slider::new(&mut gamma, f32::from(lo) / 100.0..=f32::from(hi) / 100.0).step_by(0.05).fixed_decimals(2);
+            if ui.add(slider).labelled_by(label.id).changed() {
+                // Within the slider's range, so hundredths fit a u16.
+                app.set_dark_gamma((gamma * 100.0).round() as u16);
+            }
+        });
+        ctx.label_secondary(
+            ui,
+            tl!("Text and drawings turn light on a dark page and keep their hues; pictures keep their own colours. A higher gamma makes text bolder and brighter, a lower one thinner and dimmer."),
+            t,
+        );
+    }
     if let Some(params) = app.reading_colors.params {
         let text = Color32::from_rgb(params.text[0], params.text[1], params.text[2]);
         let background = Color32::from_rgb(params.background[0], params.background[1], params.background[2]);

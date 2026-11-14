@@ -212,6 +212,8 @@ pub const COMMANDS: &[CommandSpec] = &[
     c("view.layout.two_up", "Two-page view", None, None, Document, "columns-2"),
     c("view.continuous", "Continuous scrolling", None, None, Document, "arrow-up-down"),
     c("view.page_gaps", "Show gaps between pages", None, None, Document, "arrow-up-down"),
+    // Light text on a dark page, pictures in their own colours (reading colours' dark mode).
+    c("view.dark_mode", "Dark mode for documents", None, None, Nothing, "moon"),
     c("view.layout.cover", "Show cover page in two-page view", None, None, TwoPageView, "bookmark"),
     // Acrobat's view modes, a page display and a zoom at once (the rail's Page display menu).
     c("view.fit_width_scrolling", "Fit to width scrolling", None, None, Document, "arrow-left-right"),
@@ -404,7 +406,12 @@ pub const COMMANDS: &[CommandSpec] = &[
     c("protect.properties", "Security properties…", FILE, None, Document, "shield-check"),
     c("page.organize", "Organize pages", PAGES, None, Document, "layout-grid"),
     c("bookmark.add", "New bookmark", PAGES, Some(Shortcut::cmd("B")), Assembly, "bookmark-plus"),
-    c("bookmark.from_structure", "New bookmarks from structure", PAGES, None, Assembly, "list"),
+    // Bookmarks from the document's own table of contents (else its tags, else its headings by
+    // how they look), reviewed in the Bookmarks panel's list editor before they are written.
+    c("bookmark.create_toc", "Create table of contents…", PAGES, None, Assembly, "list-ordered"),
+    // The whole outline as a list: titles, nesting and destinations edited together, applied as
+    // one step.
+    c("bookmark.edit_list", "Edit bookmarks as a list", PAGES, None, Assembly, "list"),
     // Bookmarks from the lines set in chosen text styles, for headings that aren't tagged (#1693).
     c("bookmark.from_text_styles", "New bookmarks from text styles…", PAGES, None, Assembly, "list"),
     c("page.rotate", "Rotate pages clockwise", PAGES, None, Assembly, "rotate-cw"),
