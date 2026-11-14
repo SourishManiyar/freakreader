@@ -2069,6 +2069,8 @@ fn buttons_take_presses_as_the_scripts_show_them() {
         let mut app = PdfCraftApp::new();
         app.set_option("language", "en").unwrap();
         app.open_bytes("frames.pdf", None, SHOWN_BY_SCRIPT.to_vec()).expect("opens");
+        // Both buttons on screen: at fit width the page is taller than the window.
+        app.set_option("zoom", "100").unwrap();
         app
     });
     h.run_steps(2);

@@ -878,6 +878,9 @@ impl PdfCraftApp {
         if !hidden.mode_bar(self.native_menu.is_some()) {
             chrome::mode_bar(self, ui);
         }
+        if !hidden.toolbar {
+            chrome::nav_bar(self, ui);
+        }
         // Another mode or the Home tab puts the OCR Verify screen away, as Exit does; Correct
         // recognized text brings it back with its review as it was.
         if self.ocr_verify.open && (self.active.is_none() || self.ocr_verify.shown_in.is_some_and(|m| m != self.mode)) {

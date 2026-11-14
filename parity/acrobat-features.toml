@@ -1158,6 +1158,22 @@ evidence = ["crates/ui-egui/tests/it/control.rs::state_and_view_options", "crate
 notes = "in two-page view, next and previous page move a whole spread (with or without a cover page); → / ← turn pages in every layout (on a page wider than the window, a plan zoomed in, they scroll sideways a line first and turn the page at its edge; ⌘→ / ⌘← turn at once), ↓ / ↑ scroll a line and Page Down / Page Up a screen (the page in single-page view), as in Acrobat; in single-page view ↓ / ↑ turn the page once there is nothing left to scroll that way, like the wheel; Home shows the first page's top and End the end of the document, the last page down to its bottom edge; Shift+Ctrl (Shift+⌘ on macOS) with ↑ / ↓ or Page Up / Page Down do the same as Home and End (Shift+Ctrl+Page Up / Page Down used to turn one page, like Ctrl+Page Up / Page Down)"
 
 [[feature]]
+id = "view.navigation-bar"
+title = "Page navigation bar under the menus"
+area = "B"
+tier = "P2"
+milestone = "M3"
+status = "shipped"
+commands = []
+tools = []
+evidence = [
+    "crates/ui-egui/tests/it/content.rs::nav_bar_page_and_zoom_fields_fit_the_bar_and_the_bar_is_centred",
+    "crates/ui-egui/tests/it/viewer_prefs.rs::each_preference_hides_its_own_part",
+    "crates/ui-egui/tests/it/ui.rs::short_window_rail_buttons_scroll_clear_of_the_dock_button",
+]
+notes = "A bar under the menus and mode tabs, centred over the window as other readers have it: previous and next view, previous page, the page field with 'of N', next page, zoom out, the zoom field, zoom in, fit page / fit width, rotate view and page display. With a document open, not in full screen, and hidden with the toolbar when a document asks (HideToolbar). The right rail keeps the side panels' buttons and its dock button."
+
+[[feature]]
 id = "view.goto-page-label"
 title = "Go to a page by its label (logical page numbers)"
 area = "B"
