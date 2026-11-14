@@ -11769,3 +11769,23 @@ fn a_to_unicode_cmap_reads_its_mappings_past_a_token_it_cannot_parse() {
     let unclosed = format!("{body}{}{}", "(".repeat(4096), "x".repeat(1 << 16));
     assert!(CMap::parse(unclosed.as_bytes(), |_| None).is_some_and(|c| c.lookup_bf_string(0x48).is_some()));
 }
+
+/// A companion pool renders the same document on its own thread: its request is not dropped when
+/// its parent's queue is replaced, and a tile of the page comes back at the size asked for.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_companion_pool_renders_the_same_document_apart_from_its_parent() {
+    let parent = RenderPool::new(Arc::new(ONE_PAGE.to_vec()), 1, RenderConfig::default());
+    let companion = parent.companion();
+    assert!(!companion.is_inline());
+    let tile = super::Tile { x: 10, y: 5, w: 40, h: 20 };
+    companion.set_queue(vec![RenderRequest { tag: 5, scale: 1.0, tile: Some(tile), ..Default::default() }]);
+    parent.set_queue(Vec::new());
+    let page = receive_before_deadline(&companion);
+    assert!(page.error.is_none(), "{:?}", page.error);
+    assert_eq!((page.width, page.height, page.request.tag), (40, 20, 5));
+    assert_eq!(companion.threads(), 1);
+    // An inline parent has an inline companion, which renders as it is asked.
+    let inline = RenderPool::new_inline(Arc::new(ONE_PAGE.to_vec()), RenderConfig::default()).companion();
+    assert!(inline.is_inline());
+}

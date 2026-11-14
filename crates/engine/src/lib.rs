@@ -36,6 +36,7 @@ pub mod find_replace;
 mod history;
 pub mod js;
 mod layers;
+pub mod link_preview;
 pub mod links;
 mod live_scripts;
 pub mod model3d;

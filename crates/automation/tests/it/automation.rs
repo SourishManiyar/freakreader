@@ -2141,6 +2141,72 @@ fn destinations_are_listed_with_their_position() {
     assert_eq!((links["links"][2]["url"].clone(), links["links"][2].get("destination")), (json!("https://example.com"), None));
 }
 
+/// link_preview renders where an in-document link goes, as the viewer's reference preview shows
+/// it: the band of the target page from just above the destination, and says which page and area;
+/// a link through a named destination previews the same place, and a web link has no preview.
+#[test]
+fn link_preview_renders_the_band_a_link_points_at() {
+    let dir = workdir("link-preview");
+    // Page 2 has a black bar 20 points tall, its top 10 points below the destination's line.
+    let bar = "0 g 100 470 200 20 re f";
+    let objs: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R /Names << /Dests << /Names [(thm) [4 0 R /XYZ 72 500 0]] >> >> >>".into(),
+        "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 /MediaBox [0 0 612 792] >>".into(),
+        "<< /Type /Page /Parent 2 0 R /Annots [6 0 R 7 0 R 8 0 R] >>".into(),
+        "<< /Type /Page /Parent 2 0 R /Contents 5 0 R >>".into(),
+        format!("<< /Length {} >>\nstream\n{bar}\nendstream", bar.len()),
+        "<< /Type /Annot /Subtype /Link /Rect [72 700 300 716] /Border [0 0 0] /Dest [4 0 R /XYZ 72 500 0] >>".into(),
+        "<< /Type /Annot /Subtype /Link /Rect [72 670 300 686] /Border [0 0 0] /Dest (thm) >>".into(),
+        "<< /Type /Annot /Subtype /Link /Rect [72 640 300 656] /Border [0 0 0] /A << /S /URI /URI (https://example.com) >> >>".into(),
+    ];
+    let mut pdf = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(pdf.len());
+        pdf.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+    }
+    let xref = pdf.len();
+    pdf.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offsets {
+        pdf.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    pdf.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+    std::fs::write(dir.join("refs.pdf"), pdf).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "refs.pdf" }))["doc"].as_u64().unwrap();
+    for index in [1, 2] {
+        let out = a.call("link_preview", &json!({ "doc": doc, "page": 1, "index": index, "dpi": 72 })).unwrap();
+        let (Content::Png { data, width, height }, Content::Json(place)) = (&out[0], &out[1]) else { panic!("a picture, then where it is: {out:?}") };
+        // 792 − 500 = 292 points from the top, the band starting 14 points above it, 0.4 of the
+        // page's width tall.
+        assert_eq!((place["page"].clone(), place["label"].clone()), (json!(2), json!("2")), "link {index}: {place}");
+        let area: Vec<f64> = place["area"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect();
+        assert!((area[1] - 278.0).abs() < 0.01 && (area[3] - (278.0 + 612.0 * 0.4)).abs() < 0.01 && area[2] == 612.0, "{area:?}");
+        assert_eq!((*width, *height), (612, 245), "link {index}");
+        // The bar is 24 to 44 pixels down the picture and 100 to 300 across.
+        let mut decoder = png::Decoder::new(std::io::Cursor::new(data.clone())).read_info().unwrap();
+        let mut pixels = vec![0; decoder.output_buffer_size().unwrap()];
+        let frame = decoder.next_frame(&mut pixels).unwrap();
+        let channels = frame.color_type.samples();
+        let dark = |x: usize, y: usize| pixels[(y * frame.width as usize + x) * channels] < 64;
+        assert!(dark(200, 34) && dark(110, 26) && dark(290, 42), "the bar is in the picture");
+        assert!(!dark(200, 10) && !dark(200, 60) && !dark(50, 34), "and nothing else is");
+    }
+    match err(&mut a, "link_preview", json!({ "doc": doc, "page": 1, "index": 3 })) {
+        ToolError::InvalidArgs(m) => assert!(m.contains("does not go to a page of this document"), "{m}"),
+        e => panic!("{e}"),
+    }
+    match err(&mut a, "link_preview", json!({ "doc": doc, "page": 2, "index": 1 })) {
+        ToolError::InvalidArgs(m) => assert!(m.contains("has no link 1"), "{m}"),
+        e => panic!("{e}"),
+    }
+    for bad in [json!({ "index": 0 }), json!({ "index": 1, "dpi": 0 }), json!({ "index": 1, "dpi": 601 })] {
+        let mut args = json!({ "doc": doc, "page": 1 });
+        args.as_object_mut().unwrap().extend(bad.as_object().unwrap().clone());
+        assert!(matches!(a.call("link_preview", &args), Err(ToolError::InvalidArgs(_))), "{args}");
+    }
+}
+
 /// Web, `www.` and email addresses written as plain page text, which the viewer opens on a click
 /// (#4207), are listed by link_list with text_links: true; one under a link annotation is not.
 #[test]

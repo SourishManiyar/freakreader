@@ -35,6 +35,15 @@ impl PdfCraftApp {
         {
             return;
         }
+        // Escape closes a link's preview before anything else it does on the pages.
+        let keys = self.page_keys;
+        if let Some(view) = self.active.and_then(|i| self.views.get_mut(i))
+            && view.link_peek.is_some()
+            && keys.take(ctx, Key::Escape)
+        {
+            view.link_peek = None;
+            return;
+        }
         // The in-window menu bar holds the keys while one of its menus is open or it has the
         // keyboard (Alt, F10); a command shortcut has left it already (`logic`) and runs. The
         // chords wait meanwhile: the registered commands', Select all and the view's.

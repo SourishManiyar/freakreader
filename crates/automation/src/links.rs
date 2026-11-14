@@ -364,3 +364,70 @@ fn dest_view_value(view: DestView) -> Value {
         DestView::FitR { rect } => json!({ "kind": "fit_r", "rect": rect }),
     }
 }
+
+impl Automation {
+    /// `link_preview`: what an in-document link points at, as the viewer's reference preview
+    /// shows it (a right-click on the link with the Select tool): a PNG of the target page's area,
+    /// then { page, label, area, warnings? }, the page 1-based and the area in points from its
+    /// top-left. Does not modify the document.
+    pub(crate) fn link_preview(&mut self, a: &Args) -> Result<Vec<crate::Content>> {
+        use crate::pages::{DEFAULT_DPI, MAX_DPI, rendered_content};
+        let id = self.doc(a)?.id;
+        let page = self.page(a)?;
+        let number = a.int("index")?;
+        let index = usize::try_from(number)
+            .ok()
+            .and_then(|n| n.checked_sub(1))
+            .ok_or_else(|| ToolError::InvalidArgs("index must be a positive link index from link_list".into()))?;
+        let dpi = a.opt_num("dpi")?.unwrap_or(DEFAULT_DPI);
+        if !(1.0..=MAX_DPI).contains(&dpi) {
+            return Err(ToolError::InvalidArgs(format!("dpi must be between 1 and {MAX_DPI}")));
+        }
+        let doc = self.doc(a)?;
+        let Some(preview) = pdfcraft_engine::link_preview::link_preview(&doc.info, page, index) else {
+            let exists = doc.info.links.iter().any(|l| l.page == page && l.index == index);
+            return Err(ToolError::InvalidArgs(if exists {
+                format!(
+                    "link {number} on page {} does not go to a page of this document; only links that link_list gives a to_page have a preview",
+                    page + 1
+                )
+            } else {
+                format!("page {} has no link {number} (see link_list)", page + 1)
+            }));
+        };
+        let label = doc.info.pages.get(preview.page).map(|p| p.label.clone()).unwrap_or_default();
+        let scale = (dpi / 72.0) as f32;
+        let [x0, y0, x1, y1] = preview.area;
+        let tile = pdfcraft_render::Tile {
+            x: (x0 * scale).floor().max(0.0) as u32,
+            y: (y0 * scale).floor().max(0.0) as u32,
+            w: ((x1 - x0) * scale).ceil().max(1.0) as u32,
+            h: ((y1 - y0) * scale).ceil().max(1.0) as u32,
+        };
+        // The renderer draws at most this many pixels a side in one tile, and cuts a larger one short.
+        const MAX_TILE_SIDE: u32 = 4096;
+        if tile.w > MAX_TILE_SIDE || tile.h > MAX_TILE_SIDE {
+            return Err(ToolError::InvalidArgs(format!(
+                "at {dpi} dpi the preview would be {}×{} pixels, more than {MAX_TILE_SIDE} a side: use a lower dpi",
+                tile.w, tile.h
+            )));
+        }
+        let request = pdfcraft_render::RenderRequest { page: preview.page, tile: Some(tile), scale, ..Default::default() };
+        let out = self.renderer(id)?.render(request);
+        if let Some(e) = out.error {
+            return Err(failed(format!("page {} could not be rendered: {e}", preview.page + 1)));
+        }
+        let mut content = rendered_content(&out, preview.page)?;
+        let place = json!({ "page": preview.page + 1, "label": label, "area": preview.area });
+        // One JSON part: the render's warnings, when there are any, join the place.
+        match content.last_mut() {
+            Some(crate::Content::Json(v)) => {
+                if let (Some(v), Value::Object(place)) = (v.as_object_mut(), place) {
+                    v.extend(place);
+                }
+            }
+            _ => content.push(crate::Content::Json(place)),
+        }
+        Ok(content)
+    }
+}
