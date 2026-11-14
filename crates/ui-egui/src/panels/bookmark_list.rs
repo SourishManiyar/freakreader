@@ -1218,9 +1218,10 @@ impl crate::PdfCraftApp {
                 }
             }
             ListAction::Apply => {
-                let Some(info) = self.session.get(id).map(|d| d.info.clone()) else { return };
+                // Borrowed, not copied: the description holds every page, and this is per click.
+                let Some(doc) = self.session.get(id) else { return };
                 let Some(list) = self.bookmark_lists.get_mut(&id) else { return };
-                let rows = match list.outline_rows(&info) {
+                let rows = match list.outline_rows(&doc.info) {
                     Ok(rows) => rows,
                     Err((i, why)) => {
                         list.selected = i;
@@ -1401,5 +1402,56 @@ mod tests {
         empty.move_row(0, true);
         empty.move_block_to(0, 3);
         assert!(empty.rows.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod apply_cost {
+    use crate::PdfCraftApp;
+
+    /// A document of `pages` empty pages, each with its own page object.
+    fn pdf(pages: usize) -> Vec<u8> {
+        let kids: Vec<String> = (0..pages).map(|i| format!("{} 0 R", i + 3)).collect();
+        let mut out = format!(
+            "%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [{}] /Count {pages} /MediaBox [0 0 300 400] >> endobj\n",
+            kids.join(" ")
+        );
+        for i in 0..pages {
+            out.push_str(&format!("{} 0 obj << /Type /Page /Parent 2 0 R >> endobj\n", i + 3));
+        }
+        out.push_str("trailer << /Root 1 0 R >>\n%%EOF");
+        out.into_bytes()
+    }
+
+    /// Apply on a list with a row that needs fixing (an empty title), best of five rounds, on a
+    /// document of `pages` pages: everything Apply does before the edit.
+    fn held_apply(pages: usize) -> std::time::Duration {
+        let mut app = PdfCraftApp::new();
+        app.open_bytes("pages.pdf", None, pdf(pages)).expect("opens");
+        let id = app.active_ids().expect("active").1;
+        app.open_bookmark_list(id);
+        let list = app.bookmark_lists.get_mut(&id).expect("list editor");
+        list.add_after(None, Some(0), None);
+        list.rows[0].title.clear();
+        let mut best = std::time::Duration::MAX;
+        for _ in 0..5 {
+            let start = std::time::Instant::now();
+            for _ in 0..20 {
+                app.bookmark_list_action(id, super::ListAction::Apply);
+            }
+            best = best.min(start.elapsed() / 20);
+        }
+        assert!(app.bookmark_lists.get(&id).and_then(|l| l.message.as_ref()).is_some(), "Apply was held back");
+        best
+    }
+
+    /// Apply reads the document's pages where they are: what it does before the edit costs the
+    /// same on a long document (it copied the whole document description each click).
+    #[test]
+    fn apply_costs_the_same_on_a_long_document() {
+        let small = held_apply(10);
+        let large = held_apply(20_000);
+        eprintln!("list Apply before the edit: 10 pages {small:?}, 20000 pages {large:?}");
+        assert!(large < small * 2 + std::time::Duration::from_micros(50), "10 pages {small:?}, 20000 pages {large:?}");
     }
 }
