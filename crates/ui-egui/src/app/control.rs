@@ -80,10 +80,6 @@ impl PdfCraftApp {
                 let mode = Mode::parse(value).unwrap_or(Mode::AllTools);
                 self.mode_override = Some(mode);
                 self.mode = mode;
-                // As switch_mode: another workspace puts the expanded All tools view away.
-                if mode != Mode::AllTools {
-                    self.all_tools_full = false;
-                }
             }
             ("default-mode", _) => {
                 self.default_mode = Mode::parse(value).ok_or("default-mode must be all, read, edit, convert or sign")?;
@@ -95,12 +91,7 @@ impl PdfCraftApp {
                 self.select_tool(g.id);
             }
             ("left", _) => self.left_open = value != "closed",
-            ("home", _) => {
-                self.active = None;
-                // With no document open the expanded All tools view covers Home itself, so no
-                // other tab comes forward to put it away.
-                self.all_tools_full = false;
-            }
+            ("home", _) => self.active = None,
             ("dialog", _) => {
                 self.dialog = match value {
                     "properties" => Some(Dialog::Properties(PropsTab::Description)),
@@ -162,11 +153,6 @@ impl PdfCraftApp {
                     self.marks_draft.opened(kind);
                 }
                 dialogs::discard_inactive_password_drafts(self);
-            }
-            ("tools", _) if value == "full" => self.expand_all_tools(),
-            ("tools", _) => {
-                self.all_tools_full = false;
-                self.all_tools_expanded = value != "collapsed";
             }
             ("palette", _) => {
                 self.palette_open = true;

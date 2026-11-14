@@ -59,8 +59,6 @@ impl PdfCraftApp {
     /// Enter a tool from the catalogue, Home, palette or control channel. Organize is a
     /// workspace, so opening its panel also opens the page grid (without toggling it off).
     pub(crate) fn select_tool(&mut self, id: &'static str) {
-        // The tool's panel shows, not the expanded All tools view over it.
-        self.all_tools_full = false;
         // Edit a PDF turns on Edit text & images at once, as the Edit tab does (`enter_mode`), so
         // the page is editable without a second click. Leaving it for another tool from All tools
         // puts editing down again; under the Edit tab the workspace keeps it, as before. Read mode
@@ -110,10 +108,6 @@ impl PdfCraftApp {
     /// Edit puts the editing tools down again and applies a paragraph still open in the editor.
     pub(crate) fn enter_mode(&mut self, mode: Mode) {
         self.mode = mode;
-        // Another workspace puts the expanded All tools view away.
-        if mode != Mode::AllTools {
-            self.all_tools_full = false;
-        }
         if mode == Mode::Edit {
             self.quick_tool = QuickTool::EditText;
         } else if matches!(self.quick_tool, QuickTool::EditText | QuickTool::AddText) {
@@ -124,21 +118,6 @@ impl PdfCraftApp {
         if mode == Mode::Read {
             self.quick_tool = QuickTool::Select;
         }
-    }
-
-    /// Fill the workspace with the expanded All tools view, entering All tools the way the mode
-    /// bar does: leaving Read restores its right panel and leaving Edit puts the editing tool down.
-    pub(crate) fn expand_all_tools(&mut self) {
-        if self.mode != Mode::AllTools {
-            self.switch_mode(Mode::AllTools, true);
-        }
-        self.all_tools_full = true;
-        self.all_tools_tab = self.shown_tab();
-    }
-
-    /// The tab at the front: the active document, or else whether Combine files shows over Home.
-    pub(super) fn shown_tab(&self) -> (Option<DocId>, bool) {
-        (self.active.and_then(|i| self.views.get(i)).map(|v| v.id), self.combine_showing())
     }
 
     /// Back to the Select tool from an editing tool. A paragraph still open in the editor is

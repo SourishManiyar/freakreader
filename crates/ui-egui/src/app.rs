@@ -139,10 +139,6 @@ impl PdfCraftApp {
             print_tasks: print_ui::PrintTasks::default(),
             palette_open: false,
             palette_query: String::new(),
-            all_tools_expanded: false,
-            all_tools_full: false,
-            all_tools_query: String::new(),
-            all_tools_tab: (None, false),
             recent: Vec::new(),
             recent_limit: crate::RECENT_FILES_DEFAULT,
             reopen_last_session: false,
@@ -903,20 +899,12 @@ impl PdfCraftApp {
             }
             return;
         }
-        // Whichever way another tab came to the front, it shows instead of the expanded view.
-        if self.all_tools_full && self.all_tools_tab != self.shown_tab() {
-            self.all_tools_full = false;
-        }
         if !hidden.window_ui {
             side_panels::show(self, ui);
         }
         let t = theme::Tokens::get(&ctx);
         egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.pasteboard)).show(ui, |ui| {
-            if self.mode == Mode::AllTools && self.all_tools_full && !hidden.window_ui {
-                all_tools_ui::show(self, ui);
-            } else {
-                panes::page_area(self, ui);
-            }
+            panes::page_area(self, ui);
         });
         // FitWindow and CenterWindow, once the document just opened is laid out.
         self.window_preferences_frame(&ctx);

@@ -437,10 +437,6 @@ impl PdfCraftApp {
         {
             view.open_organize();
         }
-        // The document shows, not the expanded All tools view over it (whichever workspace opens).
-        if activate {
-            self.all_tools_full = false;
-        }
         if activate && let Some(mode) = self.mode_override {
             // Explicit mode options do not reset independent --tool / --left choices.
             self.mode = mode;

@@ -283,7 +283,8 @@ fn control_button_focus_preserves_document_undo_redo_shortcuts() {
     let (mut h, c) = harness_pages(2);
     ok(&mut h, &c, "ui.focus", json!({"label": "Convert"}));
     ok(&mut h, &c, "ui.key", json!({"key": "Enter"}));
-    ok(&mut h, &c, "ui.click", json!({"label": "All tools"}));
+    // A click on the chosen tab puts the workspace away.
+    ok(&mut h, &c, "ui.click", json!({"label": "Convert"}));
     assert!(h.ctx.egui_wants_keyboard_input());
     assert!(!h.ctx.text_edit_focused());
     ok(&mut h, &c, "ui.command", json!({"id": "page.insert_blank"}));
@@ -1021,7 +1022,7 @@ fn japanese_controls_and_search_keep_command_ids() {
     }
     assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["documents"][0]["name"], "doc.pdf");
     ok(&mut h, &c, "ui.set", json!({ "key": "language", "value": "en" }));
-    ok(&mut h, &c, "ui.click", json!({ "label": "All tools" }));
+    ok(&mut h, &c, "ui.set", json!({ "key": "mode", "value": "all" }));
     assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["mode"], "AllTools");
 }
 
@@ -1290,8 +1291,9 @@ fn inspect_and_click_by_label_and_id() {
     ok(&mut h, &c, "ui.click", json!({ "label": "Convert" }));
     assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["mode"], "Convert");
 
-    let all = ok(&mut h, &c, "ui.inspect", json!({ "query": "all tools" }));
-    let id = all["widgets"].as_array().unwrap().iter().find(|w| w["label"] == "All tools" && w["clickable"] == true).unwrap()["id"].clone();
+    // By id: the chosen tab again puts the workspace away.
+    let tabs = ok(&mut h, &c, "ui.inspect", json!({ "query": "convert" }));
+    let id = tabs["widgets"].as_array().unwrap().iter().find(|w| w["label"] == "Convert" && w["clickable"] == true).unwrap()["id"].clone();
     ok(&mut h, &c, "ui.click", json!({ "id": id }));
     assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["mode"], "AllTools");
 

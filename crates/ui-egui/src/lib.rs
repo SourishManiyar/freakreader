@@ -133,7 +133,6 @@ use dialogs::word_count_ui;
 pub use home::folders_ui;
 pub use hooks::{FailedInbox, HostDirtyFn, HostSaveFn, Inbox, OsEvent, OsEventsFn};
 use menus::tab_context;
-use panels::all_tools_ui;
 use panels::comments_panel;
 use panels::format_text_ui;
 use panels::organize_panel;
@@ -452,13 +451,6 @@ pub struct PdfCraftApp {
     pub(crate) print_tasks: print_ui::PrintTasks,
     pub palette_open: bool,
     pub palette_query: String,
-    pub all_tools_expanded: bool,
-    /// The All tools view fills the workspace (its sidebar's expand button).
-    pub all_tools_full: bool,
-    pub all_tools_query: String,
-    /// The tab that showed when the expanded All tools view opened ([`Self::shown_tab`]). Another
-    /// tab coming to the front (Home, a document, Combine files) puts the view away.
-    all_tools_tab: (Option<DocId>, bool),
     pub recent: Vec<RecentFile>,
     /// How many recent files to keep, 0 for no list (Preferences ▸ Documents and view, #5572).
     pub recent_limit: usize,
