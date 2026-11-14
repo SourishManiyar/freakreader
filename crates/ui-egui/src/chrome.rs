@@ -598,7 +598,12 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 ui.spacing_mut().item_spacing.x = 2.0;
                 // The menus, unless the native macOS menu bar has them or the document hides them.
                 if app.native_menu.is_none() && !hidden.menubar {
-                    app.menu_bar_ui(ui);
+                    // Menu titles sit closer than buttons, as a menu bar's do, so they stay in the
+                    // row (rather than folding into "⋯") in a narrow window.
+                    ui.scope(|ui| {
+                        ui.spacing_mut().button_padding.x = 8.0;
+                        app.menu_bar_ui(ui);
+                    });
                     ui.add_space(6.0);
                     ui.painter().vline(ui.cursor().left(), ui.max_rect().y_range().shrink(12.0), Stroke::new(1.0, t.divider));
                     ui.add_space(10.0);
@@ -662,7 +667,7 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                         }
                     });
                     ui.add_space(8.0);
-                    let search_w = (left - MODE_BAR_RIGHT).clamp(0.0, 260.0);
+                    let search_w = (left - MODE_BAR_RIGHT).clamp(0.0, 300.0);
                     let opened = if search_w >= MODE_BAR_SEARCH_MIN {
                         widgets::search_box(ui, tl!("Find tools and commands"), search_w).clicked()
                     } else {
@@ -680,6 +685,9 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
 /// The size of the rail's page and zoom fields: wide enough for "6400%", the largest zoom, in the
 /// 12 pt font, and inside the 45 pt the rail leaves.
 const RAIL_FIELD_SIZE: [f32; 2] = [42.0, 22.0];
+/// The rail fields' text size, on the ramp's 12 pt caption step (`theme::ui_size`): the next step
+/// up would not fit "6400%" in [`RAIL_FIELD_SIZE`].
+const RAIL_FIELD_FONT: f32 = 11.5;
 /// Padding inside the rail's page and zoom fields.
 const RAIL_FIELD_MARGIN: egui::Vec2 = egui::vec2(1.0, 4.0);
 
@@ -790,7 +798,7 @@ pub fn right_rail(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 let edit = egui::TextEdit::singleline(&mut typed)
                     .id(id)
                     .align(egui::Align2::CENTER_CENTER)
-                    .font(theme::medium(12.0))
+                    .font(theme::medium(RAIL_FIELD_FONT))
                     .text_color(t.text)
                     .frame(egui::Frame::NONE)
                     .margin(RAIL_FIELD_MARGIN);
@@ -855,7 +863,7 @@ pub fn right_rail(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 let edit = egui::TextEdit::singleline(&mut view.page_input)
                     .id(page_input_id)
                     .align(egui::Align2::CENTER_CENTER)
-                    .font(theme::medium(12.0))
+                    .font(theme::medium(RAIL_FIELD_FONT))
                     .frame(egui::Frame::NONE)
                     .margin(RAIL_FIELD_MARGIN);
                 let r = rail_field(ui, &t, edit)

@@ -211,14 +211,15 @@ pub(crate) fn panel(
     let position = siblings.iter().position(|sibling| sibling.object == tag.object);
     let before = position.and_then(|position| position.checked_sub(1)).map(|position| siblings[position]);
     let after = position.and_then(|position| siblings.get(position + 1)).copied();
-    ui.horizontal(|ui| {
+    // The rows wrap, so a narrow panel or a long translation keeps every button inside it.
+    ui.horizontal_wrapped(|ui| {
         save = ui.add_enabled(can_edit && !state.draft.kind.is_empty() && edit.is_some(), egui::Button::new(tl!("Save tag properties"))).clicked();
         if ui.add_enabled(dirty, egui::Button::new(tl!("Revert changes"))).clicked() {
             state.draft = Draft::from_tag(tag);
         }
     });
     let (mut earlier, mut later, mut artifact) = (false, false, false);
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         earlier = ui.add_enabled(can_edit && !dirty && before.is_some(), egui::Button::new(tl!("Move tag earlier"))).clicked();
         later = ui.add_enabled(can_edit && !dirty && after.is_some(), egui::Button::new(tl!("Move tag later"))).clicked();
         artifact = ui
