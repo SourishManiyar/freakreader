@@ -684,6 +684,21 @@ fn card_appearance(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, ctx: &m
     if ctx.checkbox(ui, &mut app.show_page_edge_shadows, tl!("Show Page Edge Shadows"), t).changed() {
         ui.ctx().request_repaint();
     }
+    ui.add_space(6.0);
+    ui.horizontal(|ui| {
+        ctx.label_primary(ui, tl!("Interface text size"), t);
+        let sizes: Vec<(u16, String)> = crate::theme::TEXT_SIZES.iter().map(|p| (*p, format!("{p}%"))).collect();
+        let options: Vec<(u16, &str)> = sizes.iter().map(|(p, l)| (*p, l.as_str())).collect();
+        ctx.pill_choice(ui, t, &mut app.text_size, &options);
+    });
+    ctx.label_secondary(ui, tl!("The size of the interface's text alone; Interface size zooms everything."), t);
+    ui.add_space(6.0);
+    ui.horizontal(|ui| {
+        ctx.label_primary(ui, tl!("Interface font"), t);
+        let options: Vec<(crate::theme::UiFont, &str)> = crate::theme::UiFont::offered().into_iter().map(|f| (f, f.label())).collect();
+        ctx.pill_choice(ui, t, &mut app.ui_font, &options);
+    });
+    ctx.label_secondary(ui, tl!("Fonts that come with PdfCraft. Characters a font lacks are drawn in Inter."), t);
     ui.add_space(4.0);
     crate::appearance::preferences_section_with_context(ui, app, t, ctx);
     ui.add_space(8.0);
@@ -843,6 +858,14 @@ fn card_documents_and_view(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens,
         );
     });
     ctx.label_secondary(ui, tl!("For page sizes and margins."), t);
+    ui.add_space(6.0);
+    ui.horizontal(|ui| {
+        ctx.label_primary(ui, tl!("Reference preview size"), t);
+        let sizes: Vec<(u16, String)> = crate::canvas::link_peek::PREVIEW_SIZES.iter().map(|p| (*p, format!("{p}%"))).collect();
+        let options: Vec<(u16, &str)> = sizes.iter().map(|(p, l)| (*p, l.as_str())).collect();
+        ctx.pill_choice(ui, t, &mut app.link_preview_size, &options);
+    });
+    ctx.label_secondary(ui, tl!("How large the preview a right-click on a link shows is: 100% draws it at the page's zoom."), t);
     ui.add_space(6.0);
     scrolling(ui, app, t, ctx);
 }

@@ -383,6 +383,31 @@ impl PdfCraftApp {
                 };
             }
             ("ui-scale", _) => self.ui_scale = ui_scale::parse(value)?,
+            // Appearance ▸ Interface font: inter, ubuntu, biz-udp-gothic, jetbrains-mono, hack.
+            ("ui-font", _) => {
+                let names = || {
+                    crate::theme::UiFont::offered()
+                        .iter()
+                        .map(|f| serde_json::to_value(f).ok().and_then(|v| v.as_str().map(str::to_owned)).unwrap_or_default())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                };
+                self.ui_font = serde_json::from_value::<crate::theme::UiFont>(serde_json::Value::String(value.to_owned()))
+                    .ok()
+                    .filter(|f| f.available())
+                    .ok_or_else(|| format!("ui-font must be one of {}", names()))?;
+            }
+            // Appearance ▸ Interface text size and Documents and view ▸ Reference preview size, in percent.
+            ("text-size" | "link-preview-size", _) => {
+                let sizes: &[u16] = if key == "text-size" { &crate::theme::TEXT_SIZES } else { &crate::canvas::link_peek::PREVIEW_SIZES };
+                let n = value.trim_end_matches('%').parse::<u16>().ok().filter(|n| sizes.contains(n));
+                let n = n.ok_or_else(|| format!("{key} must be one of {}", sizes.iter().map(|n| format!("{n}%")).collect::<Vec<_>>().join(", ")))?;
+                if key == "text-size" {
+                    self.text_size = n;
+                } else {
+                    self.link_preview_size = n;
+                }
+            }
             // `--secured-notice false`: no notice above the pages that a document is secured.
             ("secured-notice", _) => {
                 self.show_secured_notice = match value {
