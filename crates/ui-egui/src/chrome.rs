@@ -709,6 +709,8 @@ pub fn nav_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
     let Some(doc) = app.session.get(id) else { return };
     let page_count = doc.info.pages.len();
     let labels: Vec<String> = doc.info.pages.iter().map(|p| p.label.clone()).collect();
+    let dark = app.dark_documents();
+    let mut toggle_dark = false;
     let Some(view) = app.views.get_mut(index) else { return };
     let mut page_display = None;
     egui::Panel::top("nav_bar")
@@ -834,12 +836,18 @@ pub fn nav_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                         rail_view_menu(ui, view)
                     })
                     .and_then(|r| r.inner);
+                // The documents' dark mode: light text on a dark page, pictures as they are.
+                let tip = if dark { tl!("Show documents in their own colours") } else { tl!("Dark mode for documents") };
+                toggle_dark = icons::button(ui, "moon", 30.0, dark, tip).clicked();
                 ui.cursor().left() - start
             });
             ui.data_mut(|d| d.insert_temp(width_id, row.inner));
         });
     if let Some(id) = page_display {
         app.execute(id);
+    }
+    if toggle_dark {
+        app.set_dark_documents(!dark);
     }
 }
 

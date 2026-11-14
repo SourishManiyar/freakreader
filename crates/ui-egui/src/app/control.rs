@@ -383,6 +383,23 @@ impl PdfCraftApp {
                 };
             }
             ("ui-scale", _) => self.ui_scale = ui_scale::parse(value)?,
+            // View ▸ Dark mode for documents, and its gamma (Preferences ▸ Reading colours).
+            ("dark-mode", _) => {
+                let on = match value {
+                    "on" | "true" => true,
+                    "off" | "false" => false,
+                    _ => return Err("dark-mode must be on or off".into()),
+                };
+                self.set_dark_documents(on);
+            }
+            ("dark-gamma", _) => {
+                let (lo, hi) = (pdfcraft_render::DARK_GAMMA_RANGE.0, pdfcraft_render::DARK_GAMMA_RANGE.1);
+                let gamma = value.parse::<f64>().ok().filter(|g| g.is_finite() && (f64::from(lo) / 100.0..=f64::from(hi) / 100.0).contains(g));
+                let gamma =
+                    gamma.ok_or_else(|| format!("dark-gamma must be a number from {} to {}", f64::from(lo) / 100.0, f64::from(hi) / 100.0))?;
+                // Within 0.5..=2.5 by the filter, so hundredths fit a u16.
+                self.set_dark_gamma((gamma * 100.0).round() as u16);
+            }
             // `--secured-notice false`: no notice above the pages that a document is secured.
             ("secured-notice", _) => {
                 self.show_secured_notice = match value {

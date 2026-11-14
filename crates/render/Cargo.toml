@@ -43,3 +43,5 @@ pdfcraft-content = { workspace = true }
 pdfcraft-testkit = { workspace = true }
 # Builds the decompression-bomb streams in the raster tests.
 flate2 = { workspace = true }
+# Reads and writes saved reading-colour settings in the reading tests.
+serde_json = { workspace = true }

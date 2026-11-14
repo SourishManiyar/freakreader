@@ -346,6 +346,7 @@ impl PdfCraftApp {
                     None => self.apply_full_screen(on),
                 }
             }
+            "view.dark_mode" => self.set_dark_documents(!self.dark_documents()),
             "view.read_mode" => self.switch_mode(if self.mode == Mode::Read { Mode::AllTools } else { Mode::Read }, false),
             "view.split" => self.toggle_split(),
             crate::viewer_prefs::TOGGLE => self.toggle_interface(),

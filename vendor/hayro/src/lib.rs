@@ -107,6 +107,16 @@ pub struct ColorReplacement {
     pub only_black: bool,
     /// When `true`, line-art paints are mapped in addition to text paints.
     pub line_art: bool,
+    /// PdfCraft patch (32): paints keep their hue and colourfulness and only their lightness is
+    /// turned over (the document's dark mode): white goes to `background`, black to `text`, and
+    /// the lightness in between in proportion, in OKLab, so a red line stays red and a pale blue
+    /// box becomes a dark blue one. `false` keeps the two-colour mapping above.
+    pub invert_lightness: bool,
+    /// PdfCraft patch (32): every paint the mapping would change is drawn fully transparent,
+    /// and not drawn at all, so what is left on a transparent page is what keeps its own
+    /// colours (images, shadings, patterns, annotations): the pass that finds where those are,
+    /// so the dark mode's gamma can leave them alone.
+    pub hide_paints: bool,
 }
 
 impl ColorReplacement {
@@ -121,6 +131,13 @@ impl ColorReplacement {
         let t = (0.2126 * f32::from(r) + 0.7152 * f32::from(g) + 0.0722 * f32::from(b)) / 255.0;
         if self.only_black && t > 0.10 {
             return rgba8;
+        }
+        if self.hide_paints {
+            return [0, 0, 0, 0];
+        }
+        if self.invert_lightness {
+            let [r, g, b] = invert_lightness([r, g, b], self.text, self.background);
+            return [r, g, b, a];
         }
         let [text_r, text_g, text_b] = self.text;
         let [background_r, background_g, background_b] = self.background;
@@ -137,6 +154,94 @@ impl ColorReplacement {
             a,
         ]
     }
+}
+
+/// PdfCraft patch (32): `rgb` with its OKLab lightness turned over between `background` (for
+/// white) and `text` (for black), keeping its own hue and chroma. Total: every input gives an
+/// in-gamut colour.
+fn invert_lightness(rgb: [u8; 3], text: [u8; 3], background: [u8; 3]) -> [u8; 3] {
+    let paint = oklab(rgb);
+    let (text, background) = (oklab(text), oklab(background));
+    let s = (1.0 - paint[0]).clamp(0.0, 1.0);
+    let mix = |i: usize| background[i] + (text[i] - background[i]) * s;
+    let lightness = mix(0);
+    let (a, b) = (mix(1) + paint[1], mix(2) + paint[2]);
+    // A colourful paint turned dark (or light) can leave the sRGB gamut: give up chroma until
+    // it fits, keeping the lightness and hue.
+    if let Some(rgb) = from_oklab([lightness, a, b]) {
+        return rgb;
+    }
+    let (mut lo, mut hi) = (0.0f32, 1.0f32);
+    for _ in 0..12 {
+        let k = (lo + hi) / 2.0;
+        if from_oklab([lightness, a * k, b * k]).is_some() {
+            lo = k;
+        } else {
+            hi = k;
+        }
+    }
+    from_oklab([lightness, a * lo, b * lo]).unwrap_or_else(|| clamp_oklab([lightness, a * lo, b * lo]))
+}
+
+/// PdfCraft patch (32): sRGB bytes in OKLab (`[L, a, b]`, L in `0.0..=1.0`).
+fn oklab(rgb: [u8; 3]) -> [f32; 3] {
+    let linear = |v: u8| {
+        let c = f32::from(v) / 255.0;
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    let [r, g, b] = rgb.map(linear);
+    let l = (0.412_221_46 * r + 0.536_332_55 * g + 0.051_445_99 * b).cbrt();
+    let m = (0.211_903_5 * r + 0.680_699_5 * g + 0.107_396_96 * b).cbrt();
+    let s = (0.088_302_46 * r + 0.281_718_85 * g + 0.629_978_7 * b).cbrt();
+    [
+        0.210_454_26 * l + 0.793_617_8 * m - 0.004_072_047 * s,
+        1.977_998_5 * l - 2.428_592_2 * m + 0.450_593_7 * s,
+        0.025_904_037 * l + 0.782_771_77 * m - 0.808_675_77 * s,
+    ]
+}
+
+/// PdfCraft patch (32): linear sRGB of an OKLab colour, which may be outside `0.0..=1.0`.
+fn oklab_linear(lab: [f32; 3]) -> [f32; 3] {
+    let [lightness, a, b] = lab;
+    let l = (lightness + 0.396_337_78 * a + 0.215_803_76 * b).powi(3);
+    let m = (lightness - 0.105_561_346 * a - 0.063_854_17 * b).powi(3);
+    let s = (lightness - 0.089_484_18 * a - 1.291_485_5 * b).powi(3);
+    [
+        4.076_741_7 * l - 3.307_711_6 * m + 0.230_969_93 * s,
+        -1.268_438 * l + 2.609_757_4 * m - 0.341_319_4 * s,
+        -0.004_196_086_3 * l - 0.703_418_6 * m + 1.707_614_7 * s,
+    ]
+}
+
+/// PdfCraft patch (32): the sRGB bytes of an OKLab colour, or `None` when it is outside the
+/// gamut (beyond a rounding's worth) or not a number.
+fn from_oklab(lab: [f32; 3]) -> Option<[u8; 3]> {
+    let linear = oklab_linear(lab);
+    const SLACK: f32 = 1.0 / 1024.0;
+    if linear.iter().all(|c| c.is_finite() && (-SLACK..=1.0 + SLACK).contains(c)) {
+        Some(clamp_oklab(lab))
+    } else {
+        None
+    }
+}
+
+/// PdfCraft patch (32): the sRGB bytes of an OKLab colour, each channel clamped into range
+/// (a NaN channel becomes 0).
+fn clamp_oklab(lab: [f32; 3]) -> [u8; 3] {
+    oklab_linear(lab).map(|c| {
+        let c = if c.is_finite() { c.clamp(0.0, 1.0) } else { 0.0 };
+        let encoded = if c <= 0.003_130_8 {
+            c * 12.92
+        } else {
+            1.055 * c.powf(1.0 / 2.4) - 0.055
+        };
+        // Clamped into `0.0..=1.0` above, so the scaled value fits a byte.
+        (encoded * 255.0).round().clamp(0.0, 255.0) as u8
+    })
 }
 
 /// Settings to apply during rendering.
@@ -385,6 +490,8 @@ mod color_replacement_tests {
             background,
             only_black,
             line_art,
+            invert_lightness: false,
+            hide_paints: false,
         }
     }
 
@@ -436,6 +543,65 @@ mod color_replacement_tests {
         assert_eq!(r.map([0x00, 0x00, 0x00, 255], false), [0x00, 0x00, 0x00, 255]);
         // Text fills/strokes still map.
         assert_eq!(r.map([0x00, 0x00, 0x00, 255], true), [0xff, 0xff, 0xff, 255]);
+    }
+    fn dark() -> ColorReplacement {
+        ColorReplacement {
+            text: [0xe6, 0xe6, 0xe6],
+            background: [0x1e, 0x1e, 0x1e],
+            only_black: false,
+            line_art: true,
+            invert_lightness: true,
+            hide_paints: false,
+        }
+    }
+
+    #[test]
+    fn dark_mode_turns_black_and_white_over() {
+        let r = dark();
+        assert_eq!(r.map([0x00, 0x00, 0x00, 0xff], true), [0xe6, 0xe6, 0xe6, 0xff]);
+        assert_eq!(r.map([0xff, 0xff, 0xff, 0xff], false), [0x1e, 0x1e, 0x1e, 0xff]);
+        assert_eq!(r.map([0x00, 0x00, 0x00, 77], true)[3], 77, "alpha is kept");
+        // Grey in between lands in between, lighter the darker it was.
+        let (dark_grey, light_grey) = (r.map([0x40, 0x40, 0x40, 0xff], true), r.map([0xc0, 0xc0, 0xc0, 0xff], true));
+        assert!(dark_grey[0] > light_grey[0] && dark_grey[0] < 0xe6 && light_grey[0] > 0x1e, "{dark_grey:?} {light_grey:?}");
+    }
+
+    #[test]
+    fn dark_mode_keeps_hue() {
+        let hue = |rgb: [u8; 4]| {
+            let [_, a, b] = super::oklab([rgb[0], rgb[1], rgb[2]]);
+            b.atan2(a)
+        };
+        for colour in [[0xff, 0x00, 0x00, 0xff], [0x00, 0x00, 0xff, 0xff], [0x00, 0x80, 0x00, 0xff], [0xcc, 0xe5, 0xff, 0xff]] {
+            let mapped = dark().map(colour, false);
+            let turn = (hue(mapped) - hue(colour)).abs();
+            let turn = turn.min(std::f32::consts::TAU - turn);
+            assert!(turn < 0.12, "{colour:?} -> {mapped:?} turned its hue by {turn}");
+        }
+        // A pale fill becomes a dark one, and a dark ink a light one.
+        let lightness = |rgb: [u8; 4]| super::oklab([rgb[0], rgb[1], rgb[2]])[0];
+        assert!(lightness(dark().map([0xcc, 0xe5, 0xff, 0xff], false)) < 0.45);
+        assert!(lightness(dark().map([0x00, 0x00, 0x80, 0xff], true)) > 0.6);
+    }
+
+    #[test]
+    fn dark_mode_is_total() {
+        // Saturated paints are pulled into gamut; every byte triple gives a colour.
+        for r in (0..=255u8).step_by(15) {
+            for g in (0..=255u8).step_by(15) {
+                for b in (0..=255u8).step_by(15) {
+                    let _ = dark().map([r, g, b, 0xff], true);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn hidden_paints_are_transparent_and_gates_still_apply() {
+        let r = ColorReplacement { hide_paints: true, line_art: false, ..dark() };
+        assert_eq!(r.map([0x12, 0x34, 0x56, 0xff], true), [0, 0, 0, 0]);
+        // Line art the mapping leaves alone stays, as everything else that keeps its colours.
+        assert_eq!(r.map([0x12, 0x34, 0x56, 0xff], false), [0x12, 0x34, 0x56, 0xff]);
     }
 }
 
@@ -507,6 +673,8 @@ mod color_replacement_render_tests {
             background: [0x00, 0x00, 0x00],
             only_black: false,
             line_art,
+            invert_lightness: false,
+            hide_paints: false,
         }
     }
 

@@ -1090,16 +1090,17 @@ pub fn tools() -> Vec<ToolDef> {
         t("comments_hide", "Hide all comments", "Hide or show every comment on the page (fields and links still draw). A view setting: the file doesn't change.")
             .cmd("comment.hide_all")
             .with(schema(json!({ "doc": doc(), "hidden": { "type": "boolean", "description": "Default true." } }), &["doc"])),
-        t("view_reading_colors", "Set reading colours", "Set the document's reading colours (Acrobat's Replace Document Colors, in the Reading Options): solid text and line-art paints are remapped for readability and the page clears to the background colour in page_render. A view setting: the file doesn't change. mode is one of: off, black-on-white, white-on-black, yellow-on-black, green-on-black, or custom (which takes text and background as #RRGGBB). only_black maps only near-black paints (default false) and line_art also maps line-art paints (default true); both override the mode's preset. A flag that differs from the mode's preset default makes the returned mode read custom, because the resulting params no longer match any preset. Returns the resulting setting.")
+        t("view_reading_colors", "Set reading colours", "Set the document's reading colours (Acrobat's Replace Document Colors, in the Reading Options): solid text and line-art paints are remapped for readability and the page clears to the background colour in page_render. A view setting: the file doesn't change. mode is one of: off, dark (the dark mode: every paint keeps its hue and only its lightness turns over, light text on a dark page, while pictures, shadings and comments keep their own colours; gamma from 0.5 to 2.5, default 1, shapes the rendered tones between page and text outside pictures, higher making text bolder and brighter, and text and background, when given, replace its two ends), black-on-white, white-on-black, yellow-on-black, green-on-black, or custom (which takes text and background as #RRGGBB). only_black maps only near-black paints (default false) and line_art also maps line-art paints (default true); both override the mode's preset. A flag that differs from the mode's preset default makes the returned mode read custom, because the resulting params no longer match any preset. Returns the resulting setting.")
             .cmd("a11y.reading_options")
             .with(schema(
                 json!({
                     "doc": doc(),
-                    "mode": { "type": "string", "enum": ["off", "black-on-white", "white-on-black", "yellow-on-black", "green-on-black", "custom"] },
+                    "mode": { "type": "string", "enum": ["off", "dark", "black-on-white", "white-on-black", "yellow-on-black", "green-on-black", "custom"] },
                     "text": { "type": "string", "description": "With mode custom: the text colour, #RRGGBB." },
                     "background": { "type": "string", "description": "With mode custom: the background colour, #RRGGBB." },
                     "only_black": { "type": "boolean", "description": "Map only near-black paints. Default false." },
                     "line_art": { "type": "boolean", "description": "Also map line-art paints. Default true." },
+                    "gamma": { "type": "number", "minimum": 0.5, "maximum": 2.5, "description": "With mode dark: shapes the rendered tones between page and text, pictures aside, 0.5 to 2.5 (default 1; higher makes text bolder and brighter)." },
                 }),
                 &["doc", "mode"],
             )),

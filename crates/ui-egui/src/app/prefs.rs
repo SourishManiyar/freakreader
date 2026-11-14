@@ -59,6 +59,30 @@ impl PdfCraftApp {
                 self.views[i].invalidate_content();
             }
         }
+        if let Some(gamma) = colors.dark_gamma() {
+            self.dark_gamma = gamma;
+        }
+    }
+
+    /// Whether the documents are shown in the dark mode (View ▸ Dark mode for documents).
+    pub fn dark_documents(&self) -> bool {
+        self.reading_colors.dark_gamma().is_some()
+    }
+
+    /// Turn the documents' dark mode on, at the last gamma chosen, or off (back to the
+    /// documents' own colours).
+    pub fn set_dark_documents(&mut self, on: bool) {
+        self.set_reading_colors(if on { pdfcraft_render::ReadingColors::dark(self.dark_gamma) } else { pdfcraft_render::ReadingColors::default() });
+    }
+
+    /// Set the dark mode's gamma (hundredths, kept to its range); the documents re-render when
+    /// they are shown dark.
+    pub fn set_dark_gamma(&mut self, gamma: u16) {
+        self.dark_gamma = gamma.clamp(pdfcraft_render::DARK_GAMMA_RANGE.0, pdfcraft_render::DARK_GAMMA_RANGE.1);
+        if let Some(mut colors) = self.reading_colors.params.filter(|p| p.gamma.is_some()) {
+            colors.gamma = Some(self.dark_gamma);
+            self.set_reading_colors(pdfcraft_render::ReadingColors { params: Some(colors) });
+        }
     }
 
     /// Enable the Linux desktop portal in a native window. Headless contexts keep
@@ -115,6 +139,7 @@ impl PdfCraftApp {
             "units": self.units,
             "language": self.language,
             "reading_colors": self.reading_colors,
+            "dark_gamma": self.dark_gamma,
             // Null follows the system's text scaling.
             "ui_scale": self.ui_scale,
             "flatten_fill_sign": self.flatten_fill_sign_on_save,
@@ -460,8 +485,14 @@ impl PdfCraftApp {
         // Settings are untrusted: an unreadable value (a colour that isn't three bytes, say)
         // fails to deserialize and keeps Off.
         if let Ok(colors) = serde_json::from_value::<pdfcraft_render::ReadingColors>(v["reading_colors"].clone()) {
-            self.reading_colors = colors;
+            self.reading_colors = colors.checked();
         }
+        // Settings are untrusted: a gamma out of range is kept to it.
+        self.dark_gamma = self.reading_colors.dark_gamma().unwrap_or_else(|| {
+            v["dark_gamma"].as_u64().map_or(pdfcraft_render::DARK_GAMMA_DEFAULT, |g| {
+                u16::try_from(g).unwrap_or(u16::MAX).clamp(pdfcraft_render::DARK_GAMMA_RANGE.0, pdfcraft_render::DARK_GAMMA_RANGE.1)
+            })
+        });
         // Settings are untrusted: a size out of range follows the system instead.
         self.ui_scale = v["ui_scale"].as_f64().and_then(ui_scale::valid);
         // Settings are untrusted: an unusable pattern keeps the default.

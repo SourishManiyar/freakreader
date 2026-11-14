@@ -194,3 +194,66 @@ fn reading_colours_seed_on_open() {
         assert_eq!(h.state().session.reading_colors(view.id), Some(ReadingColors::default()));
     }
 }
+
+/// The documents' dark mode: the navigation bar's moon and View ▸ Dark mode for documents turn
+/// it on and off for every open document, Preferences ▸ Reading colours offers it with its
+/// gamma, and the gamma survives turning it off, a restart and a corrupt settings file.
+#[test]
+fn dark_mode_toggles_from_the_bar_and_menu_and_keeps_its_gamma() {
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("a.pdf", None, pdf()).expect("opens");
+        app.open_bytes("b.pdf", None, pdf()).expect("opens");
+        app
+    });
+    h.run_steps(4);
+    let dark = ReadingColors::dark(pdfcraft_render::DARK_GAMMA_DEFAULT);
+    h.get_by(|n| n.role() == Role::Button && n.label().as_deref() == Some("Dark mode for documents")).click();
+    h.run_steps(2);
+    assert_eq!(h.state().reading_colors, dark);
+    for v in &h.state().views {
+        assert_eq!(h.state().session.reading_colors(v.id), Some(dark), "every open document turns dark");
+    }
+    // The same button, now pressed, turns it off.
+    h.get_by(|n| n.role() == Role::Button && n.label().as_deref() == Some("Show documents in their own colours")).click();
+    h.run_steps(2);
+    assert_eq!(h.state().reading_colors, ReadingColors::default());
+
+    // The menu command, and the gamma, which is kept while the mode is off.
+    assert!(h.state_mut().execute("view.dark_mode"));
+    h.state_mut().set_option("dark-gamma", "1.6").unwrap();
+    assert_eq!(h.state().reading_colors.dark_gamma(), Some(160));
+    assert!(h.state_mut().execute("view.dark_mode"));
+    assert_eq!(h.state().reading_colors, ReadingColors::default());
+    h.state_mut().set_option("dark-mode", "on").unwrap();
+    assert_eq!(h.state().reading_colors, ReadingColors::dark(160), "back on at the same gamma");
+    let bad = h.state_mut().set_option("dark-gamma", "4").unwrap_err();
+    assert!(bad.contains("0.5") && bad.contains("2.5"), "{bad}");
+
+    // Preferences offer it beside the other presets, with the gamma slider while it is on.
+    h.state_mut().set_option("dialog", "preferences").unwrap();
+    h.run_steps(4);
+    h.get_by(|n| n.role() == Role::Button && n.label().as_deref() == Some("Dark mode")).scroll_to_me();
+    h.run_steps(4);
+    assert!(h.query_by(|n| n.role() == Role::Slider && n.label().as_deref() == Some("Gamma")).is_some(), "the gamma slider shows");
+    h.get_by(|n| n.role() == Role::Button && n.label().as_deref() == Some("Off")).click();
+    h.run_steps(4);
+    assert!(h.query_by(|n| n.role() == Role::Slider && n.label().as_deref() == Some("Gamma")).is_none());
+    h.get_by(|n| n.role() == Role::Button && n.label().as_deref() == Some("Dark mode")).click();
+    h.run_steps(4);
+    assert_eq!(h.state().reading_colors, ReadingColors::dark(160));
+
+    // A restart keeps both; a gamma out of range in the file is kept to the range.
+    let mut restored = PdfCraftApp::new();
+    restored.restore(&h.state().persist());
+    assert_eq!((restored.reading_colors, restored.dark_gamma), (ReadingColors::dark(160), 160));
+    let mut fresh = PdfCraftApp::new();
+    fresh.restore(r#"{"dark_gamma": 9000}"#);
+    assert_eq!((fresh.reading_colors, fresh.dark_gamma), (ReadingColors::default(), pdfcraft_render::DARK_GAMMA_RANGE.1));
+    fresh.restore(
+        r#"{"reading_colors": {"params": {"text": [230, 230, 230], "background": [30, 30, 30], "only_black": false, "line_art": true, "gamma": 3}}}"#,
+    );
+    assert_eq!(fresh.reading_colors.dark_gamma(), Some(pdfcraft_render::DARK_GAMMA_RANGE.0));
+    assert_eq!(fresh.dark_gamma, pdfcraft_render::DARK_GAMMA_RANGE.0);
+}

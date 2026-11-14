@@ -102,6 +102,7 @@ impl PdfCraftApp {
             // A fresh install follows the desktop's appearance (#1248); saved settings override.
             theme_preference: ThemePreference::System,
             reading_colors: Default::default(),
+            dark_gamma: pdfcraft_render::DARK_GAMMA_DEFAULT,
             show_page_edge_shadows: true,
             #[cfg(target_os = "linux")]
             desktop_theme: None,

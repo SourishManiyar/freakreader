@@ -1015,6 +1015,7 @@ fn reading_colours_section(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens,
     ui.horizontal_wrapped(|ui| {
         for (name, label, colors) in [
             ("off", "Off", pdfcraft_render::ReadingColors::default()),
+            ("dark", "Dark mode", pdfcraft_render::ReadingColors::dark(app.dark_gamma)),
             ("black-on-white", "Black on white", pdfcraft_render::ReadingColors::BLACK_ON_WHITE),
             ("white-on-black", "White on black", pdfcraft_render::ReadingColors::WHITE_ON_BLACK),
             ("yellow-on-black", "Yellow on black", pdfcraft_render::ReadingColors::YELLOW_ON_BLACK),
@@ -1025,6 +1026,7 @@ fn reading_colours_section(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens,
                 background: [255, 255, 255],
                 only_black: false,
                 line_art: true,
+                gamma: None,
             });
             ui.vertical(|ui| {
                 ui.set_width(100.0);
@@ -1043,6 +1045,23 @@ fn reading_colours_section(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens,
         }
     });
     ui.add_space(4.0);
+    if mode == "dark" {
+        ui.horizontal(|ui| {
+            let label = ctx.label_primary(ui, tl!("Gamma"), t);
+            let (lo, hi) = pdfcraft_render::DARK_GAMMA_RANGE;
+            let mut gamma = f32::from(app.dark_gamma) / 100.0;
+            let slider = egui::Slider::new(&mut gamma, f32::from(lo) / 100.0..=f32::from(hi) / 100.0).step_by(0.05).fixed_decimals(2);
+            if ui.add(slider).labelled_by(label.id).changed() {
+                // Within the slider's range, so hundredths fit a u16.
+                app.set_dark_gamma((gamma * 100.0).round() as u16);
+            }
+        });
+        ctx.label_secondary(
+            ui,
+            tl!("Text and drawings turn light on a dark page and keep their hues; pictures keep their own colours. A higher gamma makes text bolder and brighter, a lower one thinner and dimmer."),
+            t,
+        );
+    }
     if let Some(params) = app.reading_colors.params {
         let text = Color32::from_rgb(params.text[0], params.text[1], params.text[2]);
         let background = Color32::from_rgb(params.background[0], params.background[1], params.background[2]);

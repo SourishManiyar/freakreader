@@ -1245,6 +1245,23 @@ evidence = [
 notes = "Not an Acrobat feature; asked for by readers of papers with cross-references (#3194, item 4, for documents with links). With the Select tool, a right-click on a link to a place in this document (an explicit or named destination: a theorem, an equation, a cited work) shows that place in a small window by the link, without leaving the page: a band the width of the target page from just above the destination's position, 0.4 of the page's width tall (the destination's own rectangle, with a margin, for /FitR; the top of the page for a destination without a position), drawn on a render thread of its own with the page view's settings. Another right-click, on the pages or the window, or Escape closes it; a click on it goes there. An edit, a dialog over the pages, or the link's page leaving the screen closes it. Links to web addresses and other files keep their menu, and the Link tool keeps the menu for every link; full screen keeps its right-click for turning back a page. link_preview renders the same area headlessly. Not yet: hover to preview, references found from the text in documents without links (Fig. 3, Eq. (2)), and previews of links to other files."
 
 [[feature]]
+id = "view.dark-mode"
+title = "Dark mode for documents, with gamma"
+area = "M"
+tier = "P2"
+milestone = "M12"
+status = "shipped"
+commands = ["view.dark_mode"]
+tools = ["view_reading_colors"]
+evidence = [
+    "crates/render/src/reading.rs::dark_mode_parses_with_its_gamma_and_colours",
+    "crates/render/src/raster/tests.rs::dark_mode_turns_ink_over_keeps_hues_and_leaves_pictures",
+    "crates/automation/tests/it/automation.rs::dark_mode_through_tools",
+    "crates/ui-egui/tests/it/reading_colors.rs::dark_mode_toggles_from_the_bar_and_menu_and_keeps_its_gamma",
+]
+notes = "Not an Acrobat feature (its Replace Document Colors is two-colour only, a11y.replace-page-colors); asked for by readers. View ▸ Dark mode for documents, the moon at the end of the navigation bar, and the Dark mode preset in Preferences ▸ Reading colours show every open document as light text on a dark page (#1e1e1e page, #e6e6e6 text). Solid text and line-art paints keep their hue and chroma and only their OKLab lightness turns over between the two, so a red curve stays red and a pale blue box turns dark blue, instead of the cyan a plain inversion gives; images, shadings, tiling patterns and comments keep their own colours, so photographs and raster figures are never inverted. Gamma (0.5 to 2.5, default 1; Preferences slider, set_option dark-gamma, view_reading_colors gamma) shapes the rendered tones between page and text outside pictures as x^(1/gamma): higher makes text bolder and brighter. It needs a second pass that draws only what keeps its colours to find where pictures are, run only when gamma isn't 1. The gamma is kept while the mode is off. Display only, like reading colours: printing, exports and print previews use the document's colours. Limits: a vector figure (drawn with paths, as most LaTeX and plotting output is) turns over like text, keeping its hues; a scanned page is a picture and stays light; colours are per paint, so a light paint over a picture is turned over while the picture beside it is not."
+
+[[feature]]
 id = "view.annotation-hover"
 title = "Show comment text on hover"
 area = "B"
