@@ -237,11 +237,12 @@ fn parse_hex(name: &str, value: &str) -> Result<[u8; 3], String> {
 /// at the page, 1 at the text), so with a gamma over 1 the antialiased edges of text and lines
 /// and the middle tones grow brighter and the text reads bolder; under 1, thinner. `mask` is
 /// the same page rendered with only what keeps its own colours (pictures, shadings, comments)
-/// on a transparent ground: where it covers, the pixel is kept as rendered. Pages must have the
-/// same length; a mismatch, or a gamma of 1, leaves `page` as it is.
-pub(crate) fn dark_gamma(page: &mut [u8], mask: &[u8], params: &ReadingParams) {
+/// on a transparent ground: where it covers, the pixel is kept as rendered; `None` when it would
+/// cover nothing, which shapes every pixel. Pages must have the same length; a mismatch, or a
+/// gamma of 1, leaves `page` as it is.
+pub(crate) fn dark_gamma(page: &mut [u8], mask: Option<&[u8]>, params: &ReadingParams) {
     let Some(gamma) = params.gamma.filter(|g| *g != 100) else { return };
-    if page.len() != mask.len() {
+    if mask.is_some_and(|mask| page.len() != mask.len()) {
         return;
     }
     let exponent = 100.0 / f32::from(gamma.clamp(DARK_GAMMA_RANGE.0, DARK_GAMMA_RANGE.1));
@@ -262,6 +263,16 @@ pub(crate) fn dark_gamma(page: &mut [u8], mask: &[u8], params: &ReadingParams) {
         t
     };
     let tables = [0, 1, 2].map(|c| table(params.background[c], params.text[c]));
+    let Some(mask) = mask else {
+        // No mask: nothing keeps its colours, every pixel is shaped. The same bytes as an
+        // all-transparent mask gives (a blend weighted 255 to 0 is the table's value).
+        for px in page.as_chunks_mut::<4>().0 {
+            for (slot, t) in px.iter_mut().take(3).zip(&tables) {
+                *slot = t.get(usize::from(*slot)).copied().unwrap_or(*slot);
+            }
+        }
+        return;
+    };
     for (px, m) in page.as_chunks_mut::<4>().0.iter_mut().zip(mask.as_chunks::<4>().0) {
         let [.., mask_alpha] = *m;
         let keep = u32::from(mask_alpha);

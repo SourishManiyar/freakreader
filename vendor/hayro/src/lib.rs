@@ -324,6 +324,17 @@ pub fn render_size(page: &Page<'_>, render_settings: &RenderSettings) -> (u16, u
     )
 }
 
+/// PdfCraft patch (33): what a render found out about the page while drawing it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RenderReport {
+    /// Something was drawn that a pass with [`ColorReplacement::hide_paints`] would draw too
+    /// (an image, a shading, a pattern, an annotation, a paint the mapping leaves alone). When
+    /// `false`, such a pass of the same page and settings draws nothing at all, so a caller
+    /// need not run it. It may be `true` when that pass would draw nothing (it errs that way),
+    /// and is always `true` without a colour replacement.
+    pub kept_paints: bool,
+}
+
 /// PdfCraft patch: [`render`] into `buffer`, premultiplied RGBA8 rows of [`render_size`]
 /// pixels, so the caller chooses the allocation (one aligned to whole pixels can then become
 /// texture data without a copy). `buffer.len()` must be width × height × 4; any other length
@@ -335,6 +346,19 @@ pub fn render_into<'a>(
     render_settings: &RenderSettings,
     buffer: &mut [u8],
 ) {
+    render_into_reporting(page, cache, interpreter_settings, render_settings, buffer);
+}
+
+/// PdfCraft patch (33): [`render_into`], saying what it found out ([`RenderReport`]). A
+/// `buffer` of the wrong length is left untouched and reports `kept_paints: true`, the answer
+/// that never lets a caller skip a pass it needs.
+pub fn render_into_reporting<'a>(
+    page: &'a Page<'a>,
+    cache: &RenderCache<'a>,
+    interpreter_settings: &InterpreterSettings,
+    render_settings: &RenderSettings,
+    buffer: &mut [u8],
+) -> RenderReport {
     let (x_scale, y_scale) = (render_settings.x_scale, render_settings.y_scale);
     let initial_transform = Affine::translate((-render_settings.x_offset as f64, -render_settings.y_offset as f64))
         * Affine::scale_non_uniform(x_scale as f64, y_scale as f64)
@@ -345,7 +369,7 @@ pub fn render_into<'a>(
         .checked_mul(pix_height as usize)
         .and_then(|n| n.checked_mul(4));
     if expected != Some(buffer.len()) {
-        return;
+        return RenderReport { kept_paints: true };
     }
     let mut state = Context::new(
         initial_transform,
@@ -426,6 +450,9 @@ pub fn render_into<'a>(
         pix_height,
         vc_settings.render_mode,
     );
+    RenderReport {
+        kept_paints: device.kept_paints || render_settings.color_replacement.is_none(),
+    }
 }
 
 // Just a convenience method for testing.
