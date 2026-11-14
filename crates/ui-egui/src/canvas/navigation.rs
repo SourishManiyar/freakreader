@@ -243,17 +243,19 @@ impl DocView {
     /// Retain the current page when `typed` exactly matches its displayed label, even if
     /// another page has that label. Otherwise resolve a trimmed label (case-insensitive),
     /// then a position in parentheses ("(3)", as print ranges take it), then a physical page
-    /// number. `false` when it names no page.
-    pub fn go_to_typed(&mut self, typed: &str, labels: &[String]) -> bool {
+    /// number. `false` when it names no page. `labels` are the pages' labels in order, borrowed
+    /// (the navigation bar passes them straight from the document, every frame it is typed in).
+    pub fn go_to_typed<L: AsRef<str>>(&mut self, typed: &str, labels: impl IntoIterator<Item = L, IntoIter: Clone>) -> bool {
+        let labels = labels.into_iter();
         // Compare the displayed value before trimming: a label may itself contain spaces.
         // Repeated labels occur in restarted sections and prefix-only ranges.
-        if self.current < self.page_count && self.current_page_label(labels.get(self.current).map(String::as_str)) == typed {
+        if self.current < self.page_count && self.current_page_label(labels.clone().nth(self.current).as_ref().map(AsRef::as_ref)) == typed {
             return true;
         }
         let t = typed.trim();
         let page = labels
-            .iter()
-            .position(|l| !l.is_empty() && l.eq_ignore_ascii_case(t))
+            .clone()
+            .position(|l| !l.as_ref().is_empty() && l.as_ref().eq_ignore_ascii_case(t))
             .or_else(|| pdfcraft_engine::print::position(t).or_else(|| t.parse::<usize>().ok()).filter(|n| *n >= 1).map(|n| n - 1));
         match page {
             Some(p) if p < self.page_count => {
