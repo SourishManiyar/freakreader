@@ -14,8 +14,12 @@
 //! style, a view such as Fit width, an action), and a destination the row leaves alone is not
 //! rewritten. Nothing changes in the document until Apply; Cancel discards the list.
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::mpsc;
+
 use egui::{Key, Modifiers, Sense, Stroke, vec2};
-use pdfcraft_engine::toc::{PageRef, TocProposal, TocSource};
+use pdfcraft_engine::toc::{PageRef, TocError, TocProposal, TocSource};
 use pdfcraft_engine::{OutlineRow, RowTarget};
 use pdfcraft_render::DocInfo;
 
@@ -1041,6 +1045,30 @@ fn inspector(ui: &mut egui::Ui, t: &Tokens, editor: &mut BookmarkList, cx: &List
     });
 }
 
+/// Create table of contents running on a thread of its own for one document. Dropping it tells
+/// the thread to stop at its next page.
+pub struct TocRun {
+    /// The document's edit generation when it was asked: a result for another is dropped.
+    generation: u64,
+    cancel: Arc<AtomicBool>,
+    pages_read: Arc<AtomicUsize>,
+    /// `None` when it stopped before finishing.
+    receiver: mpsc::Receiver<Option<Result<TocProposal, TocError>>>,
+}
+
+impl TocRun {
+    /// Pages read so far (a page may be read more than once).
+    pub fn pages_read(&self) -> usize {
+        self.pages_read.load(Ordering::Relaxed)
+    }
+}
+
+impl Drop for TocRun {
+    fn drop(&mut self) {
+        self.cancel.store(true, Ordering::Relaxed);
+    }
+}
+
 impl crate::PdfCraftApp {
     /// Open the Bookmarks panel's list editor on document `id`'s outline (or show the one
     /// already open for it).
@@ -1077,26 +1105,103 @@ impl crate::PdfCraftApp {
     }
 
     /// Create table of contents: find the document's own table of contents (else its tags, else
-    /// its headings), and open what was found in the list editor for review, after the existing
-    /// bookmarks.
+    /// its headings) off the UI thread, showing progress in the Bookmarks panel; what was found
+    /// opens in the list editor for review, after the existing bookmarks ([`Self::poll_toc_runs`]).
+    /// Inline (tests, the web build) it is found before this returns.
     pub fn create_toc(&mut self, id: pdfcraft_engine::DocId) {
+        self.right = Some(crate::RightPanel::Bookmarks);
+        if self.toc_runs.contains_key(&id) {
+            return; // already running: its progress shows in the panel
+        }
         let Some(doc) = self.session.get(id) else { return };
-        let proposal = match doc.create_toc() {
-            Ok(p) => p,
+        let job = match doc.toc_job() {
+            Ok(job) => job,
             Err(e) => {
                 self.notify_error(e);
                 return;
             }
         };
-        let info = doc.info.clone();
-        // A list already open keeps its changes; what was found goes after them.
+        let (sender, receiver) = mpsc::channel();
+        let run = TocRun {
+            generation: doc.edit_generation(),
+            cancel: Arc::new(AtomicBool::new(false)),
+            pages_read: Arc::new(AtomicUsize::new(0)),
+            receiver,
+        };
+        let (cancel, pages_read, hold, ctx) = (run.cancel.clone(), run.pages_read.clone(), self.toc_hold.take(), self.ctx.clone());
+        let work = move || {
+            if let Some(hold) = hold {
+                let _ = hold.recv();
+            }
+            let found = job.run(&|| !cancel.load(Ordering::Relaxed), &pages_read);
+            let _ = sender.send(found);
+            if let Some(ctx) = ctx {
+                ctx.request_repaint();
+            }
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        if !self.run_inline {
+            match std::thread::Builder::new().name("pdfcraft-create-toc".into()).spawn(work) {
+                Ok(_) => {
+                    self.toc_runs.insert(id, run);
+                }
+                Err(e) => self.notify_error(e),
+            }
+            return;
+        }
+        work();
+        self.toc_runs.insert(id, run);
+        self.poll_toc_runs();
+    }
+
+    /// Stop Create table of contents on document `id`, if it is running: nothing it found is
+    /// shown.
+    pub fn stop_create_toc(&mut self, id: pdfcraft_engine::DocId) {
+        // Dropping the run tells its thread to stop at its next page.
+        self.toc_runs.remove(&id);
+    }
+
+    /// Show what each finished Create table of contents found. A result for a document that
+    /// closed, or changed since it was asked, is dropped.
+    pub(crate) fn poll_toc_runs(&mut self) {
+        if self.toc_runs.is_empty() {
+            return;
+        }
+        let ids: Vec<pdfcraft_engine::DocId> = self.toc_runs.keys().copied().collect();
+        for id in ids {
+            let outcome = match self.toc_runs.get(&id).map(|run| run.receiver.try_recv()) {
+                None | Some(Err(mpsc::TryRecvError::Empty)) => continue,
+                Some(Ok(found)) => found.map(|found| found.map_err(|e: TocError| e.to_string())),
+                Some(Err(mpsc::TryRecvError::Disconnected)) => Some(Err(tl!("Create table of contents stopped unexpectedly.").to_string())),
+            };
+            let Some(run) = self.toc_runs.remove(&id) else { continue };
+            let Some(doc) = self.session.get(id) else { continue };
+            if run.cancel.load(Ordering::Relaxed) {
+                continue;
+            }
+            if doc.edit_generation() != run.generation {
+                self.notify_tr("The document changed while its table of contents was being made, so nothing was added. Try again.");
+                continue;
+            }
+            match outcome {
+                None => {}
+                Some(Err(why)) => self.notify_error(why),
+                Some(Ok(proposal)) => self.show_toc(id, &proposal),
+            }
+        }
+    }
+
+    /// Open `proposal` in document `id`'s list editor for review, after the existing bookmarks
+    /// (and after the changes of a list already open).
+    fn show_toc(&mut self, id: pdfcraft_engine::DocId, proposal: &TocProposal) {
         let list = match self.bookmark_lists.remove(&id) {
             Some(list) => Some(list),
             None => self.read_bookmark_list(id),
         };
         let Some(mut list) = list else { return };
+        let Some(doc) = self.session.get(id) else { return };
         list.checkpoint();
-        list.add_toc(&proposal, &info);
+        list.add_toc(proposal, &doc.info);
         self.bookmark_lists.insert(id, list);
         self.right = Some(crate::RightPanel::Bookmarks);
     }

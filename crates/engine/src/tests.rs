@@ -2431,6 +2431,29 @@ fn create_toc_falls_back_to_tags_then_to_headings() {
     assert!(err.to_string().contains("no table of contents, tagged headings or headings were found"), "{err}");
 }
 
+/// Create Table of Contents as a job for another thread finds what the synchronous call finds,
+/// and once told to stop it reads no further page and proposes nothing.
+#[test]
+fn create_toc_job_matches_the_call_and_stops_when_told() {
+    fn send_static<T: Send + 'static>(_: &T) {}
+    let mut s = Session::new();
+    for (name, bytes) in [("tagged.pdf", tagged_headings_fixture()), ("styled.pdf", styled_headings_fixture())] {
+        let id = s.open(name, None, Arc::new(bytes), None).unwrap();
+        let doc = s.get(id).unwrap();
+        let job = doc.toc_job().unwrap();
+        send_static(&job);
+        let read = std::sync::atomic::AtomicUsize::new(0);
+        assert_eq!(job.run(&|| true, &read), Some(doc.create_toc().map_err(|_| toc::TocError::NothingFound)));
+        let stopped = std::sync::atomic::AtomicUsize::new(0);
+        assert_eq!(job.run(&|| false, &stopped), None);
+        assert_eq!(stopped.load(std::sync::atomic::Ordering::Relaxed), 0, "no page is read after stop");
+    }
+    let (s, plain) = session_with(2);
+    let read = std::sync::atomic::AtomicUsize::new(0);
+    assert_eq!(s.get(plain).unwrap().toc_job().unwrap().run(&|| true, &read), Some(Err(toc::TocError::NothingFound)));
+    assert!(read.load(std::sync::atomic::Ordering::Relaxed) >= 2, "every page read counts as progress");
+}
+
 /// A list edit is one undo step that keeps what it doesn't change, and a document that forbids
 /// copying text refuses Create Table of Contents (its titles are the document's text).
 #[test]

@@ -29,6 +29,9 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
     let mut list_action: Option<super::ListAction> = None;
     let bm_editable = app.session.get(id).is_some_and(|d| d.allows_assembly() && d.read_only_reason.is_none());
     let bm_can_paste = app.bookmark_clipboard.is_some();
+    // Create table of contents running for this document: its progress, and Stop.
+    let toc_progress = if panel == RightPanel::Bookmarks { app.toc_runs.get(&id).map(super::TocRun::pages_read) } else { None };
+    let mut toc_stop = false;
     // Prepare a form is open: the Fields panel orders tabs.
     let preparing = app.is_preparing();
     // The Pages panel's Escape and Delete act on the pages: not while something is over them.
@@ -207,6 +210,16 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 if panel == RightPanel::Pages {
                     let enabled = !modal && view.panel_drag.is_none();
                     thumbnail_size(ui, &t, view, enabled);
+                }
+                if let Some(read) = toc_progress {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.spinner();
+                        ui.label(crate::i18n::fmt(tl!("Creating table of contents… {n} pages read"), &[("n", &read.to_string())]));
+                    });
+                    if ui.button(tl!("Stop")).clicked() {
+                        toc_stop = true;
+                    }
+                    ui.separator();
                 }
                 if in_list && let Some(editor) = list_editor.as_mut() {
                     // Where the reader is: the selection's corner, else the top of the window.
@@ -500,6 +513,9 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
     if let Some(list) = list_editor {
         // An editor opened for this document meanwhile (it can't be, but never drop one).
         app.bookmark_lists.entry(id).or_insert(list);
+    }
+    if toc_stop {
+        app.stop_create_toc(id);
     }
     if let Some(a) = list_action {
         app.bookmark_list_action(id, a);

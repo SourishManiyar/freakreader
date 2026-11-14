@@ -22,7 +22,7 @@ pub(super) mod search_ui;
 pub mod side_panels;
 mod tools;
 
-pub use bookmark_list::{BookmarkList, ListAction};
+pub use bookmark_list::{BookmarkList, ListAction, TocRun};
 pub use bookmarks::BmAction;
 pub(crate) use bookmarks::ellipsized_prefix;
 pub use right::right_panel;

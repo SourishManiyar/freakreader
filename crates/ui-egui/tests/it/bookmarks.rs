@@ -273,7 +273,8 @@ trailer << /Root 1 0 R >>
     h.get_by_label("Bookmark options").click();
     h.run_steps(2);
     h.get_by_label("Create table of contents…").click();
-    h.run_steps(3);
+    h.run_steps(1);
+    wait_for_toc(&mut h);
     let id = h.state().active.and_then(|i| h.state().views.get(i)).unwrap().id;
     h.get_by_label("No table of contents: found 2 tagged headings.");
     field(&h, "Overview");
@@ -292,8 +293,105 @@ trailer << /Root 1 0 R >>
     h.state_mut().open_bytes("plain.pdf", None, PAGES.to_vec()).unwrap();
     h.run_steps(3);
     assert!(h.state_mut().execute("bookmark.create_toc"));
-    h.run_steps(3);
+    h.run_steps(1);
+    wait_for_toc(&mut h);
     assert!(h.state().bookmark_lists.is_empty());
+}
+
+const TAGGED_TWO: &[u8] = b"%PDF-1.7
+1 0 obj << /Type /Catalog /Pages 2 0 R /StructTreeRoot 5 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 /MediaBox [0 0 300 400] >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R >> endobj
+4 0 obj << /Type /Page /Parent 2 0 R >> endobj
+5 0 obj << /Type /StructTreeRoot /K [6 0 R 7 0 R] >> endobj
+6 0 obj << /S /H1 /Pg 3 0 R /ActualText (Overview) >> endobj
+7 0 obj << /S /H2 /Pg 4 0 R /ActualText (Method) >> endobj
+trailer << /Root 1 0 R >>
+%%EOF";
+
+/// Run frames until every Create table of contents has finished and been shown or dropped.
+fn wait_for_toc(h: &mut Harness<'static, PdfCraftApp>) {
+    let start = std::time::Instant::now();
+    while !h.state().toc_runs.is_empty() {
+        assert!(start.elapsed() < std::time::Duration::from_secs(20), "Create table of contents never finished");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        h.run_steps(1);
+    }
+    h.run_steps(3);
+}
+
+/// Open the tagged document and start Create table of contents on it, held before it reads
+/// anything until the returned sender sends or is dropped.
+fn start_held_toc(h: &mut Harness<'static, PdfCraftApp>) -> (pdfcraft_engine::DocId, std::sync::mpsc::Sender<()>) {
+    h.state_mut().open_bytes("tagged.pdf", None, TAGGED_TWO.to_vec()).unwrap();
+    h.run_steps(3);
+    let (release, hold) = std::sync::mpsc::channel();
+    h.state_mut().toc_hold = Some(hold);
+    assert!(h.state_mut().execute("bookmark.create_toc"));
+    h.run_steps(3);
+    let id = h.state().active.and_then(|i| h.state().views.get(i)).unwrap().id;
+    assert!(h.state().toc_runs.contains_key(&id), "it runs off the UI thread");
+    (id, release)
+}
+
+/// While it runs, the window keeps drawing and the Bookmarks panel shows its progress; Stop
+/// ends it and what it would have found never appears.
+#[test]
+fn create_toc_shows_progress_and_stop_drops_what_it_found() {
+    let mut h = harness();
+    let (id, release) = start_held_toc(&mut h);
+    h.get_by_label_contains("Creating table of contents…");
+    h.get_by_label("Stop").click();
+    h.run_steps(3);
+    assert!(h.state().toc_runs.is_empty(), "stopped");
+    assert!(h.query_by_label_contains("Creating table of contents…").is_none());
+    release.send(()).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    h.run_steps(5);
+    assert!(h.state().bookmark_lists.is_empty(), "nothing found is shown after Stop");
+    assert!(h.state().session.get(id).unwrap().info.outline.is_empty());
+    // It can be asked again, and then shows what it found.
+    assert!(h.state_mut().execute("bookmark.create_toc"));
+    h.run_steps(1);
+    wait_for_toc(&mut h);
+    field(&h, "Overview");
+}
+
+/// Closing the document while it runs stops it, and its result is dropped; so is the result for
+/// a document closed some other way.
+#[test]
+fn create_toc_result_is_dropped_when_its_document_closes() {
+    let mut h = harness();
+    let (id, release) = start_held_toc(&mut h);
+    let index = h.state().views.iter().position(|v| v.id == id).unwrap();
+    h.state_mut().close_tab(index);
+    h.run_steps(2);
+    assert!(h.state().toc_runs.is_empty(), "closing the tab stops it");
+    drop(release);
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    h.run_steps(5);
+    assert!(h.state().bookmark_lists.is_empty());
+
+    let (id, release) = start_held_toc(&mut h);
+    h.state_mut().session.close(id);
+    drop(release);
+    wait_for_toc(&mut h);
+    assert!(h.state().bookmark_lists.is_empty(), "a closed document's result is never shown");
+}
+
+/// An edit made while it runs makes its result stale: it is dropped and the user is told.
+#[test]
+fn create_toc_result_is_dropped_when_its_document_changes() {
+    use pdfcraft_engine::Edit;
+    let mut h = harness();
+    let (id, release) = start_held_toc(&mut h);
+    h.state_mut().apply_edit(Edit::AddBookmark { parent: vec![], index: 0, title: "Mine".into(), page: 0, left: None, top: None });
+    drop(release);
+    wait_for_toc(&mut h);
+    assert!(h.state().bookmark_lists.is_empty(), "a stale result is not shown");
+    h.get_by_label_contains("The document changed while its table of contents was being made");
+    assert_eq!(active_outline(&h), [("Mine".into(), Some(0), 0)]);
+    assert!(h.state().session.get(id).is_some());
 }
 
 /// The list editor: Tab nests a row, typing renames, Enter adds a row whose page is typed, and

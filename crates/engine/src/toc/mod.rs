@@ -197,6 +197,55 @@ impl<'a> RenderSource<'a> {
     }
 }
 
+/// What Create Table of Contents reads, owned, so it can run off the UI thread
+/// ([`crate::Document::toc_job`]): a snapshot of the document as it was when asked. Running it
+/// reads the same pages, within the same bounds, as [`crate::Document::create_toc`].
+pub struct TocJob {
+    pub(crate) doc: Document,
+    pub(crate) bytes: std::sync::Arc<Vec<u8>>,
+    pub(crate) config: pdfcraft_render::RenderConfig,
+    pub(crate) pages: Vec<pdfcraft_render::PageInfo>,
+}
+
+impl TocJob {
+    /// Find the proposal, asking `keep_going` before each page is read, and counting the pages
+    /// read in `pages_read`. `None` once `keep_going` said no: the pages it skipped would have
+    /// changed what was found.
+    pub fn run(&self, keep_going: &dyn Fn() -> bool, pages_read: &std::sync::atomic::AtomicUsize) -> Option<Result<TocProposal, TocError>> {
+        let inner = RenderSource::new(self.bytes.clone(), self.config.clone(), &self.pages, &self.doc);
+        let mut source = Stoppable { inner, keep_going, pages_read, stopped: false };
+        let found = create_toc_from(&self.doc, &mut source);
+        (!source.stopped && keep_going()).then_some(found)
+    }
+}
+
+/// A source that reads no more pages once told to stop.
+struct Stoppable<'a, S> {
+    inner: S,
+    keep_going: &'a dyn Fn() -> bool,
+    pages_read: &'a std::sync::atomic::AtomicUsize,
+    stopped: bool,
+}
+
+impl<S: PageSource> PageSource for Stoppable<'_, S> {
+    fn count(&self) -> usize {
+        self.inner.count()
+    }
+
+    fn segs(&mut self, page: usize) -> Vec<Seg> {
+        if self.stopped || !(self.keep_going)() {
+            self.stopped = true;
+            return Vec::new();
+        }
+        self.pages_read.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.inner.segs(page)
+    }
+
+    fn to_user(&self, page: usize, top: f64) -> (Option<f64>, Option<f64>) {
+        self.inner.to_user(page, top)
+    }
+}
+
 /// A word being built from glyphs: its text, view-space box, the sum of its glyphs' heights and
 /// how many glyphs it has.
 type Word = (String, [f32; 4], f32, usize);

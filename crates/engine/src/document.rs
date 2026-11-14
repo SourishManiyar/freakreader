@@ -436,6 +436,24 @@ impl Document {
         crate::toc::create_toc_from(&editor.cos, &mut source).map_err(|e| crate::EditError::Invalid(e.to_string()))
     }
 
+    /// [`Self::create_toc`] as a job that owns what it reads, for running on another thread: the
+    /// same refusals, then a snapshot of the document as it is now ([`crate::toc::TocJob`]).
+    pub fn toc_job(&self) -> Result<crate::toc::TocJob, crate::EditError> {
+        if !self.allows_assembly() {
+            return Err(crate::EditError::NotPermitted("page changes"));
+        }
+        if !self.allows_copying() {
+            return Err(crate::EditError::NotPermitted("copying text and images"));
+        }
+        let editor = self.editor.as_ref().ok_or_else(|| crate::EditError::Invalid("this document can't be edited".into()))?;
+        Ok(crate::toc::TocJob {
+            doc: editor.cos.clone(),
+            bytes: self.bytes.clone(),
+            config: RenderConfig { system_fonts: false, ..self.config.clone() },
+            pages: self.info.pages.clone(),
+        })
+    }
+
     /// The outline as rows a list edit ([`crate::Edit::EditBookmarks`]) writes back unchanged:
     /// every bookmark in listing order with its object. Refused when bookmarks nest deeper than
     /// the listing reaches.
