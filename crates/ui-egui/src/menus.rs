@@ -197,7 +197,8 @@ const PAGES: &[&str] = &[
     "page.properties",
     SEP,
     "bookmark.add",
-    "bookmark.from_structure",
+    "bookmark.edit_list",
+    "bookmark.create_toc",
     "bookmark.from_text_styles",
 ];
 /// Sign ▸ Fill & Sign, with the short labels of the Fill & Sign toolbar.

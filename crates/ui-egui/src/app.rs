@@ -322,6 +322,7 @@ impl PdfCraftApp {
             control: None,
             bookmark_rename: None,
             bookmark_clipboard: None,
+            bookmark_lists: std::collections::HashMap::new(),
             last_opened_url: None,
             community_card_closed: false,
             pending_link: None,

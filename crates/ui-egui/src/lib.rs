@@ -795,6 +795,9 @@ pub struct PdfCraftApp {
     /// Bookmarks copied or cut in the Bookmarks panel, with their subtrees, ready to paste into
     /// any document. Destinations are page indices.
     pub bookmark_clipboard: Option<Vec<pdfcraft_engine::OutlineNode>>,
+    /// The Bookmarks panel's list editors (Edit bookmarks as a list, Create table of contents),
+    /// one per document, kept across tab switches until applied or cancelled.
+    pub bookmark_lists: std::collections::HashMap<pdfcraft_engine::DocId, crate::panels::BookmarkList>,
     /// Number pages dialog settings (1-based pages).
     pub number_draft: NumberDraft,
     pub(crate) word_count_draft: word_count_ui::Draft,

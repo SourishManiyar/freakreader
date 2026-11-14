@@ -4982,3 +4982,145 @@ fn combining_some_pages_brings_only_their_bookmarks_and_no_attachments() {
     assert_eq!(source_bookmarks(&all), [("Chapter one".to_string(), vec!["Section".to_string()])]);
     assert!(attachments(&all));
 }
+
+/// An outline with a coloured, styled parent going to page 1 with /FitH, a child going to a web
+/// address, and a closed parent with one child.
+fn rich_outline() -> Vec<u8> {
+    let b: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R /Outlines 6 0 R >>".into(),                             // 1
+        "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 /MediaBox [0 0 300 400] >>".into(), // 2
+        "<< /Type /Page /Parent 2 0 R >>".into(),                                               // 3
+        "<< /Type /Page /Parent 2 0 R >>".into(),                                               // 4
+        "<< /Type /Page /Parent 2 0 R >>".into(),                                               // 5
+        "<< /Type /Outlines /First 7 0 R /Last 9 0 R /Count 3 >>".into(),                       // 6
+        "<< /Title (Intro) /Parent 6 0 R /Next 9 0 R /First 8 0 R /Last 8 0 R /Count 1 /C [1 0 0] /F 2 /Dest [3 0 R /FitH 380] /Custom (kept) >>"
+            .into(), // 7
+        "<< /Title (Web) /Parent 7 0 R /A << /S /URI /URI (https://example.org) >> >>".into(),  // 8
+        "<< /Title (Closed) /Parent 6 0 R /Prev 7 0 R /First 10 0 R /Last 10 0 R /Count -1 /Dest [5 0 R /XYZ null 200 null] >>".into(), // 9
+        "<< /Title (Inner) /Parent 9 0 R /Dest [4 0 R /Fit] >>".into(),                         // 10
+    ];
+    build(&b, "/Root 1 0 R")
+}
+
+/// The rows `outline_rows` reads, as rows that keep everything.
+fn keep_rows(d: &Document) -> Vec<OutlineRow> {
+    outline_rows(d)
+        .unwrap()
+        .into_iter()
+        .map(|b| OutlineRow { level: b.path.len() - 1, title: b.title, target: RowTarget::Keep, origin: Some(b.obj), open: None, element: None })
+        .collect()
+}
+
+fn titles_and_depths(d: &Document) -> Vec<(String, usize, Option<usize>, bool)> {
+    crate::bookmarks(d).into_iter().map(|b| (b.title, b.path.len() - 1, b.page, b.open)).collect()
+}
+
+#[test]
+fn writing_the_rows_back_unchanged_changes_nothing() {
+    let mut d = open(rich_outline());
+    let rows = keep_rows(&d);
+    assert_eq!(rows.len(), 4);
+    rewrite_outline(&mut d, &rows).unwrap();
+    assert!(d.modified_objects().is_empty(), "nothing rewritten: {:?}", d.modified_objects());
+}
+
+#[test]
+fn a_list_edit_renames_nests_reorders_and_keeps_what_it_does_not_show() {
+    let mut d = open(rich_outline());
+    let mut rows = keep_rows(&d);
+    // Intro (0), Web (1), Closed (0), Inner (1)  →  Closed (0), Intro (1), Web (2), Inner(0) renamed, New (1)
+    let [intro, web, closed, inner] = <[OutlineRow; 4]>::try_from(std::mem::take(&mut rows)).unwrap();
+    let rows = vec![
+        OutlineRow { level: 0, ..closed },
+        OutlineRow { level: 1, ..intro.clone() },
+        OutlineRow { level: 2, ..web },
+        OutlineRow { level: 0, title: "Inner part".into(), target: RowTarget::Page { page: 2, left: None, top: Some(100.0) }, ..inner },
+        OutlineRow::new(1, "New", Some(1), None),
+    ];
+    rewrite_outline(&mut d, &rows).unwrap();
+    let d = save_and_reopen(&d);
+    assert_eq!(
+        titles_and_depths(&d),
+        [
+            ("Closed".to_string(), 0, Some(2), false),
+            ("Intro".to_string(), 1, Some(0), true),
+            ("Web".to_string(), 2, None, false),
+            ("Inner part".to_string(), 0, Some(2), true),
+            ("New".to_string(), 1, Some(1), false),
+        ]
+    );
+    let b = crate::bookmarks(&d);
+    let intro_dict = d.get(b[1].obj).as_dict().cloned().unwrap();
+    assert_eq!(b[1].color, Some([1.0, 0.0, 0.0]), "colour kept");
+    assert!(b[1].bold, "style kept");
+    assert_eq!(b[1].view.as_ref().map(|v| v.0.clone()), Some(b"FitH".to_vec()), "a view the list leaves alone is kept");
+    assert!(intro_dict.get(b"Custom").is_some(), "unknown keys kept");
+    assert!(d.get(b[2].obj).as_dict().unwrap().get(b"A").is_some(), "the web action is kept");
+    assert_eq!(b[3].view, Some((b"XYZ".to_vec(), vec![None, Some(100.0), None])), "a new position is written as /XYZ");
+    // /Count values are consistent: the root counts what is visible.
+    let root = crate::outline::outline_root(&d).unwrap();
+    assert_eq!(d.get(root).as_dict().unwrap().int(b"Count"), Some(3), "Closed hides its children; Inner part shows New");
+}
+
+#[test]
+fn a_row_giving_the_page_a_bookmark_already_goes_to_keeps_its_view() {
+    let mut d = open(rich_outline());
+    let mut rows = keep_rows(&d);
+    rows[0].target = RowTarget::Page { page: 0, left: None, top: None };
+    rewrite_outline(&mut d, &rows).unwrap();
+    assert!(d.modified_objects().is_empty(), "the /FitH destination stays");
+    rows[0].target = RowTarget::Nowhere;
+    rewrite_outline(&mut d, &rows).unwrap();
+    assert_eq!(crate::bookmarks(&d)[0].page, None);
+}
+
+#[test]
+fn rows_that_cannot_be_written_are_refused_before_anything_changes() {
+    let d = open(rich_outline());
+    let rows = keep_rows(&d);
+    let refused = |rows: Vec<OutlineRow>| {
+        let mut copy = d.clone();
+        let e = rewrite_outline(&mut copy, &rows).unwrap_err();
+        assert!(copy.modified_objects().is_empty(), "{e}: nothing written");
+        e.to_string()
+    };
+    let mut deep = rows.clone();
+    deep[0].level = 1;
+    assert!(refused(deep).contains("row 1: the first bookmark must be at the top level"));
+    let mut jump = rows.clone();
+    jump[1].level = 2;
+    assert!(refused(jump).contains("row 2: a bookmark can be at most one level deeper"));
+    let mut twice = rows.clone();
+    twice[3].origin = twice[0].origin;
+    assert!(refused(twice).contains("row 4: another row already stands for the same bookmark"));
+    let mut empty = rows.clone();
+    empty[1].title = "  ".into();
+    assert!(refused(empty).contains("row 2: the title must not be empty"));
+    let mut past = rows.clone();
+    past[1].target = RowTarget::Page { page: 3, left: None, top: None };
+    assert!(refused(past).contains("row 2: page 4 is past the last page (3)"));
+    let mut nan = rows.clone();
+    nan[1].target = RowTarget::Page { page: 0, left: None, top: Some(f64::NAN) };
+    assert!(refused(nan).contains("row 2: a position must be a finite number"));
+    let mut stale = rows.clone();
+    stale[1].origin = Some(pdfcraft_cos::ObjRef { num: 3, generation: 0 });
+    assert!(refused(stale).contains("row 2: the bookmark it stands for is no longer in the outline"));
+}
+
+#[test]
+fn an_empty_list_removes_every_bookmark_and_new_rows_start_an_outline() {
+    let mut d = open(rich_outline());
+    rewrite_outline(&mut d, &[]).unwrap();
+    assert!(crate::bookmarks(&d).is_empty());
+    let mut plain = doc_a();
+    rewrite_outline(&mut plain, &[OutlineRow::new(0, "Start", Some(0), None), OutlineRow::new(1, "Inside", None, None)]).unwrap();
+    let plain = save_and_reopen(&plain);
+    assert_eq!(titles_and_depths(&plain), [("Start".to_string(), 0, Some(0), true), ("Inside".to_string(), 1, None, false)]);
+}
+
+#[test]
+fn an_outline_too_deep_to_list_is_not_edited_as_a_list() {
+    let mut d = open(deep_outline(40));
+    assert!(matches!(outline_rows(&d), Err(OutlineError::Unlisted(_))));
+    assert!(matches!(rewrite_outline(&mut d, &[]), Err(OutlineError::Unlisted(_))));
+}

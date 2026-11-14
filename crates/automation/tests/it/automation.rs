@@ -2450,8 +2450,10 @@ fn link_list_reports_the_address_the_viewer_opens_past_the_text_budget() {
     assert_eq!((links[last]["url"].clone(), links[last].get("resolved_url")), (json!("p.html"), None));
 }
 
+/// Create Table of Contents falls back to tagged headings when there is no contents page: each
+/// bookmark links its element, nested by heading level, as one undo step.
 #[test]
-fn bookmarks_from_structure_through_tools() {
+fn create_toc_uses_tagged_headings_without_a_contents_page() {
     let dir = workdir("bookmarks-structure");
     std::fs::write(
         dir.join("tagged.pdf"),
@@ -2471,18 +2473,14 @@ trailer << /Root 1 0 R >>
     .unwrap();
     let mut a = auto(&dir);
     let doc = ok(&mut a, "doc_open", json!({ "path": "tagged.pdf" }))["doc"].as_u64().unwrap();
-    let r = ok(&mut a, "bookmark_from_structure", json!({ "doc": doc }));
-    let top = &r["bookmarks"][0];
-    assert_eq!(
-        (top["title"].as_str(), top["children"][0]["title"].as_str(), top["children"][0]["page"].as_u64()),
-        (Some("Untitled"), Some("Report"), Some(1))
-    );
-    assert_eq!(top["children"][0]["children"][0]["title"], "Findings");
-    assert_eq!(top["children"][0]["children"][0]["path"], json!([1, 1, 1]));
-    assert_eq!(ok(&mut a, "edit_undo", json!({ "doc": doc }))["undone"], "New bookmarks from structure");
-    // An untagged document: an error that says why.
-    let plain = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
-    assert!(matches!(a.call("bookmark_from_structure", &json!({ "doc": plain })), Err(ToolError::Failed(m)) if m.contains("no tagged headings")));
+    let r = ok(&mut a, "bookmark_create_toc", json!({ "doc": doc, "apply": true }));
+    assert_eq!(r["source"], "structure");
+    let listing = ok(&mut a, "bookmark_list", json!({ "doc": doc }));
+    let top = &listing["bookmarks"][0];
+    assert_eq!((top["title"].as_str(), top["page"].as_u64()), (Some("Report"), Some(1)));
+    assert_eq!(top["children"][0]["title"], "Findings");
+    assert_eq!(top["children"][0]["path"], json!([1, 1]));
+    assert_eq!(ok(&mut a, "edit_undo", json!({ "doc": doc }))["undone"], "Create table of contents");
 }
 
 #[test]

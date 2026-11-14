@@ -2,6 +2,7 @@ Label = "Bookmarks"
 Button "Close" [off]
 Button "Bookmark options" [off]
 Button "New bookmark (Ctrl+B)" [off]
+Button "Edit bookmarks as a list" [off]
 Label = "Search"
 TextInput "Search"
 Button "Clear" [off]

@@ -264,13 +264,9 @@ impl Automation {
                     _ => self.apply(&a, Edit::Batch { label: "Style".into(), edits })?,
                 }
             }
-            "bookmark_from_structure" => {
-                let mut out = self.apply(&a, Edit::BookmarksFromStructure)?;
-                let listing = self.bookmark_listing(&a)?;
-                out["bookmarks"] = listing["bookmarks"].clone();
-                out["next"] = listing["next"].clone();
-                out
-            }
+            "bookmark_rows" => self.bookmark_rows(&a)?,
+            "bookmark_edit_rows" => self.bookmark_edit_rows(&a)?,
+            "bookmark_create_toc" => self.bookmark_create_toc(&a)?,
             "text_styles" => {
                 // The samples are the document's text, as text_lines is.
                 let doc = self.doc_to_copy(&a)?;

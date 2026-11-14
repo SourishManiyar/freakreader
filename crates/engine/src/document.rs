@@ -420,6 +420,49 @@ impl Document {
         self.editor.as_ref().map(|e| crate::text_style_bookmarks::styles(&e.cos)).unwrap_or_default()
     }
 
+    /// Create Table of Contents: bookmarks from the document's own table of contents, else its
+    /// tagged headings, else its headings by how they look, for the user to review
+    /// ([`crate::toc`]). Refused when the document doesn't allow copying text (the titles are its
+    /// text) or changing pages and bookmarks, or when nothing was found.
+    pub fn create_toc(&self) -> Result<crate::toc::TocProposal, crate::EditError> {
+        if !self.allows_assembly() {
+            return Err(crate::EditError::NotPermitted("page changes"));
+        }
+        if !self.allows_copying() {
+            return Err(crate::EditError::NotPermitted("copying text and images"));
+        }
+        let editor = self.editor.as_ref().ok_or_else(|| crate::EditError::Invalid("this document can't be edited".into()))?;
+        let mut source = self.toc_source(&editor.cos);
+        crate::toc::create_toc_from(&editor.cos, &mut source).map_err(|e| crate::EditError::Invalid(e.to_string()))
+    }
+
+    /// The outline as rows a list edit ([`crate::Edit::EditBookmarks`]) writes back unchanged:
+    /// every bookmark in listing order with its object. Refused when bookmarks nest deeper than
+    /// the listing reaches.
+    pub fn outline_rows(&self) -> Result<Vec<pdfcraft_organize::Bookmark>, crate::EditError> {
+        let editor = self.editor.as_ref().ok_or_else(|| crate::EditError::Invalid("this document can't be edited".into()))?;
+        Ok(pdfcraft_organize::outline_rows(&editor.cos)?)
+    }
+
+    /// Map printed page numbers to pages as Create Table of Contents does
+    /// ([`crate::toc::place_printed`]): (page, heading left and top, title found there) per entry.
+    pub fn place_printed(&self, entries: &[(String, Option<crate::toc::PageRef>)]) -> Vec<crate::toc::PlacedEntry> {
+        match self.editor.as_ref() {
+            Some(e) if self.allows_copying() => {
+                let mut source = self.toc_source(&e.cos);
+                crate::toc::place_printed_from(&e.cos, &mut source, entries)
+            }
+            _ => entries.iter().map(|_| (None, None, None, false)).collect(),
+        }
+    }
+
+    /// The text Create Table of Contents reads: what the viewer finds and selects in, with the
+    /// layers it shows, never drawn with fonts from the machine.
+    fn toc_source<'a>(&'a self, cos: &'a pdfcraft_cos::Document) -> crate::toc::RenderSource<'a> {
+        let config = RenderConfig { system_fonts: false, ..self.config.clone() };
+        crate::toc::RenderSource::new(self.bytes.clone(), config, &self.info.pages, cos)
+    }
+
     /// Edit a PDF ▸ Edit text: the lines of existing text on `page` (0-based).
     pub fn text_lines(&self, page: usize) -> Vec<pdfcraft_edit::TextLine> {
         self.editor.as_ref().and_then(|e| pdfcraft_edit::text_lines(&e.cos, page).ok()).unwrap_or_default()

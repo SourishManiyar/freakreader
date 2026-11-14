@@ -9,6 +9,7 @@ use crate::theme::{self, Tokens};
 use crate::{LeftPanel, PdfCraftApp, RightPanel, icons, widgets};
 
 pub(super) mod all_tools_ui;
+mod bookmark_list;
 mod bookmarks;
 pub(super) mod comments_panel;
 mod edit;
@@ -21,6 +22,7 @@ pub(super) mod search_ui;
 pub mod side_panels;
 mod tools;
 
+pub use bookmark_list::{BookmarkList, ListAction};
 pub use bookmarks::BmAction;
 pub(crate) use bookmarks::ellipsized_prefix;
 pub use right::right_panel;

@@ -8,6 +8,7 @@ mod backdrop;
 mod batch;
 mod batch_failures;
 mod batch_secrets;
+mod bookmark_rows;
 mod button_caption;
 mod document_actions;
 mod find_text;
