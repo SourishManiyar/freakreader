@@ -26,6 +26,7 @@ pub(super) mod crop;
 mod find;
 pub(super) mod fling;
 pub(super) mod image_pick;
+pub(super) mod latex_ui;
 pub mod link_peek;
 mod navigation;
 mod organize;
@@ -749,6 +750,8 @@ pub struct DocView {
     /// (Print area…, Save as image…), and what was chosen there.
     pub area_pick: Option<(usize, [f32; 4])>,
     pub area_choice: Option<crate::zoom_snap::AreaChoice>,
+    /// Copy as LaTeX: the area being read (page, view-space rect), outlined until its answer comes.
+    pub(crate) latex_pending: Option<(usize, [f32; 4])>,
     /// Fill & Sign text being typed.
     pub fill_text: Option<crate::fill_sign::TypeBox>,
     /// A queued Fill & Sign signature: select it after its edit succeeds, then leave placement.
@@ -1173,6 +1176,7 @@ impl DocView {
             pages_focus_id: None,
             marquee: None,
             marquee_done: None,
+            latex_pending: None,
             area_pick: None,
             area_choice: None,
             fill_text: None,
@@ -1207,6 +1211,8 @@ impl DocView {
         // deleted or moved it would outline, print and save a different page.
         self.area_pick = None;
         self.area_choice = None;
+        // The formula being read is of the document as it was: its outline would mark another page.
+        self.latex_pending = None;
         self.goto = None;
         self.goto_point = None;
         self.zoom_anchor = None;
@@ -3127,7 +3133,8 @@ fn tool_selects_text(tool: QuickTool, preparing: bool) -> bool {
         | QuickTool::Link
         | QuickTool::SignArea { .. }
         | QuickTool::MarqueeZoom
-        | QuickTool::Snapshot => false,
+        | QuickTool::Snapshot
+        | QuickTool::CopyAsLatex => false,
     }
 }
 

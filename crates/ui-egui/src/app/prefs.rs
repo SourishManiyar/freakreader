@@ -212,6 +212,7 @@ impl PdfCraftApp {
         v["comment_tool_pinned"] = serde_json::Value::Bool(self.comment_prefs.pinned);
         v["show_secured_notice"] = serde_json::Value::Bool(self.show_secured_notice);
         v["text_links"] = serde_json::Value::Bool(self.text_links);
+        v["latex_wrapper"] = self.latex_wrapper.name().into();
         v["organize_zoom"] = serde_json::json!(self.organize_zoom);
         // Canonical names survive changes to the order of PAPERS and do not depend on UI language;
         // a custom paper is stored by the name it was given.
@@ -298,6 +299,10 @@ impl PdfCraftApp {
         }
         if let Some(on) = v["text_links"].as_bool() {
             self.text_links = on;
+        }
+        // An unknown name (a later version's) keeps the default.
+        if let Some(w) = v["latex_wrapper"].as_str().and_then(pdfcraft_engine::math_recover::Wrapper::from_name) {
+            self.latex_wrapper = w;
         }
         self.pinned.restore(&v["pinned_folders"]);
         self.pinned.restore_collapsed(&v["pinned_folders_collapsed"]);

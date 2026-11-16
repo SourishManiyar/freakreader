@@ -229,6 +229,7 @@ impl Automation {
     /// The LaTeX of the mathematics drawn in a rectangle of a page (`text_recover_latex`), see
     /// `pdfcraft_render::text::math::layout`.
     pub(crate) fn text_recover_latex(&self, a: &Args) -> Result<Value> {
+        use pdfcraft_engine::math_recover::Wrapper;
         use pdfcraft_render::text::math::recover::{ErrorKind, RecoverOptions, Style};
         let doc = self.doc_to_copy(a)?;
         let page = self.page(a)?;
@@ -240,20 +241,40 @@ impl Automation {
             return Err(ToolError::InvalidArgs("rect must be a box with positive width and height, [x0, y0, x1, y1] in points".into()));
         }
         let style = a.opt_bool("display")?.map(|d| if d { Style::Display } else { Style::Text });
+        let wrap = match a.opt_str("wrap")? {
+            None => None,
+            Some(name) => Some(
+                Wrapper::from_name(name)
+                    .ok_or_else(|| ToolError::InvalidArgs(format!("wrap must be none, inline ($…$) or display (\\[…\\]), not {name:?}")))?,
+            ),
+        };
         let read = pdfcraft_engine::math_recover::recover_latex_in(doc.export_source(), page, region, RecoverOptions { style }).map_err(failed)?;
         let diagnostics = |ds: &[pdfcraft_render::text::math::recover::Diagnostic]| -> Vec<Value> {
             ds.iter().map(|d| json!({ "severity": d.severity.as_str(), "message": d.message })).collect()
         };
         Ok(match read {
-            Ok(r) => json!({
-                "page": page + 1, "rect": region.map(f64::from), "latex": r.latex, "confidence": r.confidence.as_str(),
-                "diagnostics": diagnostics(&r.diagnostics),
-            }),
+            Ok(r) => {
+                let mut v = json!({
+                    "page": page + 1, "rect": region.map(f64::from), "latex": r.latex, "confidence": r.confidence.as_str(),
+                    "diagnostics": diagnostics(&r.diagnostics),
+                });
+                // What Edit ▸ Copy as LaTeX puts on the clipboard with this wrapper.
+                if let Some(w) = wrap {
+                    v["text"] = json!(w.wrap(&r.latex));
+                }
+                v
+            }
             Err(e) if e.kind == ErrorKind::BadRegion => return Err(ToolError::InvalidArgs(e.to_string())),
-            Err(e) => json!({
-                "page": page + 1, "rect": region.map(f64::from), "latex": null, "confidence": "none",
-                "reason": e.kind.as_str(), "diagnostics": diagnostics(&e.diagnostics),
-            }),
+            Err(e) => {
+                let mut v = json!({
+                    "page": page + 1, "rect": region.map(f64::from), "latex": null, "confidence": "none",
+                    "reason": e.kind.as_str(), "diagnostics": diagnostics(&e.diagnostics),
+                });
+                if wrap.is_some() {
+                    v["text"] = Value::Null;
+                }
+                v
+            }
         })
     }
 
