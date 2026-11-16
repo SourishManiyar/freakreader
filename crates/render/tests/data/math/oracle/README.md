@@ -1,14 +1,15 @@
 # Math oracle: equation-level truth for LaTeX recovery
 
-PdfCraft does not recover LaTeX from typeset equations yet. This directory is the measuring
-instrument for when it does: equations whose source we wrote and compiled ourselves, so a
-recoverer's answer can be scored against what TeX actually set rather than eyeballed.
+This directory is the measuring instrument for recovering LaTeX from typeset equations: equations
+whose source we wrote and compiled ourselves, so a recoverer's answer can be scored against what TeX
+actually set rather than eyeballed. The first recoverer is the layout reader
+(`pdfcraft_render::text::math::layout`); its scores are at the end of this file.
 
 ## Files
 
 | File | What it is |
 |---|---|
-| `equations.toml` | The equation list: id, category, tier (1 plain, 2 structure, 3 expected hard, with the reason), environment, LaTeX body; and the paragraph pages. Written for this repository. |
+| `equations.toml` | The equation list: id, category, tier (1 plain, 2 structure, 3 expected hard, with the reason), environment, LaTeX body; and the paragraph pages. Written for this repository. 120 equations are for development; 57 more, whose ids start `ho_` and which say `holdout = true`, are held out: written before any recoverer existed, typeset alone only, and to be looked at by their per-category scores, not one by one. |
 | `equations.tex`, `equations.pdf` | One equation per page (420 × 200 bp), in the template every candidate is typeset in. |
 | `paragraphs.tex`, `paragraphs.pdf` | Running text with inline and numbered display equations, one- and two-column, so a region must be isolated from the words around it. |
 | `truth.tsv` | Per occurrence: source, page, view-space box, and the glyphs and rules TeX set for it; per page, every glyph and rule with its owner. Format: `pdfcraft_oracle::tex::TruthSet`. |
@@ -66,7 +67,10 @@ view-space region in, an optional LaTeX body out) and is registered in
 `crates/render/examples/math_oracle.rs`.
 
 ```sh
-cargo xtask math-oracle report                      # every registered recoverer
+cargo xtask math-oracle report                      # every registered recoverer, development and held-out equations apart
+cargo xtask math-oracle report --recoverer layout-confident
+cargo xtask math-oracle report --recoverer layout --failures   # which development equations fail
+cargo xtask math-oracle report --explain sup_squares           # one development equation: answer, confidence, diagnostics
 cargo xtask math-oracle report --recoverer identity --no-tex
 cargo xtask math-oracle test                        # the tests, including those that run TeX
 cargo xtask math-oracle generate --check            # regenerate and require identical bytes
@@ -86,3 +90,111 @@ papers whose sources compile with pdfTeX and fonts on the allowlist would be usa
 by the same bracket method after inserting the specials into each display environment. Papers under
 arXiv's default non-exclusive licence would be excluded, as would any whose PDF embeds a font not on
 the allowlist.
+
+## Scores of the layout reader
+
+`pdfcraft_render::text::math::layout` (`cargo xtask math-oracle report`), measured on 2026-11-16 at
+commit `50e8da29c` of branch `feat/math-symbols-parser` (working tree clean, no uncommitted change),
+with pdfTeX 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) as the typeset check. Numbers are
+typeset-equal / n, the share in parentheses is the **precision**: of the answers given, how many are
+right. The three columns are the reader's best answer whether or not it is sure of it
+(`layout`), only the answers it calls confident (`layout-confident`: the precision there is the one that
+matters for copy-as-LaTeX, since a wrong answer given with confidence is the worst result), and the
+confident answers when the caller also tells it whether the equation is inline or displayed
+(`layout+env-confident`; the environment is the only thing taken from the truth, as a caller that knows
+where the region came from can say; without it a numerator as large as the text is `\frac` in a
+display and `\dfrac` in text and the answer is tentative).
+
+Development equations are the 120 the reader was worked on (143 occurrences, 23 of them in running
+text, one and two columns). Held-out equations are the 57 added before the reader existed, typeset
+alone only; the reader was not tuned on them and no individual result of theirs was read while it was
+being worked on. Read the two apart: the held-out figures are the honest ones.
+
+### Development equations (143 occurrences)
+
+| category | n | best answer: equal (precision) | confident: equal (precision) | confident, environment told: equal (precision) |
+|---|--:|---|---|---|
+| accents | 7 | 7/7 (100.0%) | 7/7 (100.0%) | 7/7 (100.0%) |
+| alignment | 12 | 3/12 (100.0%) | 3/12 (100.0%) | 3/12 (100.0%) |
+| alphabets | 8 | 8/8 (100.0%) | 6/8 (100.0%) | 7/8 (100.0%) |
+| arrows | 7 | 7/7 (100.0%) | 6/7 (100.0%) | 6/7 (100.0%) |
+| bigops | 8 | 7/8 (100.0%) | 7/8 (100.0%) | 7/8 (100.0%) |
+| cases | 5 | 0/5 (-) | 0/5 (-) | 0/5 (-) |
+| decorations | 7 | 1/7 (100.0%) | 1/7 (100.0%) | 1/7 (100.0%) |
+| delimiters | 10 | 9/10 (100.0%) | 8/10 (100.0%) | 9/10 (100.0%) |
+| dots_primes | 8 | 8/8 (100.0%) | 8/8 (100.0%) | 8/8 (100.0%) |
+| fractions | 11 | 6/11 (75.0%) | 4/11 (100.0%) | 7/11 (100.0%) |
+| greek | 6 | 5/6 (83.3%) | 5/6 (100.0%) | 5/6 (100.0%) |
+| integrals | 7 | 7/7 (100.0%) | 6/7 (100.0%) | 6/7 (100.0%) |
+| matrices | 6 | 0/6 (0.0%) | 0/6 (-) | 0/6 (-) |
+| operators | 10 | 10/10 (100.0%) | 7/10 (100.0%) | 8/10 (100.0%) |
+| radicals | 7 | 7/7 (100.0%) | 6/7 (100.0%) | 7/7 (100.0%) |
+| relations | 7 | 6/7 (85.7%) | 6/7 (100.0%) | 6/7 (100.0%) |
+| scripts | 8 | 7/8 (100.0%) | 7/8 (100.0%) | 7/8 (100.0%) |
+| spacing | 5 | 4/5 (100.0%) | 4/5 (100.0%) | 4/5 (100.0%) |
+| text | 4 | 4/4 (100.0%) | 4/4 (100.0%) | 4/4 (100.0%) |
+
+| tier | n | best answer: equal (precision) | confident: equal (precision) | confident, environment told: equal (precision) |
+|---|--:|---|---|---|
+| tier 1 | 44 | 42/44 (95.5%) | 39/44 (100.0%) | 40/44 (100.0%) |
+| tier 2 | 63 | 44/63 (97.8%) | 39/63 (100.0%) | 43/63 (100.0%) |
+| tier 3 | 36 | 20/36 (90.9%) | 17/36 (100.0%) | 19/36 (100.0%) |
+
+| context | n | best answer: equal (precision) | confident: equal (precision) | confident, environment told: equal (precision) |
+|---|--:|---|---|---|
+| alone | 120 | 89/120 (96.7%) | 81/120 (100.0%) | 88/120 (100.0%) |
+| 1col | 9 | 7/9 (100.0%) | 7/9 (100.0%) | 7/9 (100.0%) |
+| 2col | 14 | 10/14 (83.3%) | 7/14 (100.0%) | 7/14 (100.0%) |
+
+### Held-out equations (57)
+
+| category | n | best answer: equal (precision) | confident: equal (precision) | confident, environment told: equal (precision) |
+|---|--:|---|---|---|
+| accents | 2 | 2/2 (100.0%) | 2/2 (100.0%) | 2/2 (100.0%) |
+| alignment | 1 | 0/1 (-) | 0/1 (-) | 0/1 (-) |
+| alphabets | 3 | 3/3 (100.0%) | 3/3 (100.0%) | 3/3 (100.0%) |
+| arrows | 2 | 2/2 (100.0%) | 2/2 (100.0%) | 2/2 (100.0%) |
+| bigops | 4 | 4/4 (100.0%) | 3/4 (100.0%) | 3/4 (100.0%) |
+| cases | 1 | 0/1 (-) | 0/1 (-) | 0/1 (-) |
+| decorations | 1 | 1/1 (100.0%) | 1/1 (100.0%) | 1/1 (100.0%) |
+| delimiters | 6 | 6/6 (100.0%) | 4/6 (100.0%) | 5/6 (100.0%) |
+| dots_primes | 2 | 2/2 (100.0%) | 2/2 (100.0%) | 2/2 (100.0%) |
+| fractions | 6 | 3/6 (75.0%) | 1/6 (100.0%) | 3/6 (75.0%) |
+| greek | 3 | 3/3 (100.0%) | 3/3 (100.0%) | 3/3 (100.0%) |
+| integrals | 4 | 3/4 (75.0%) | 3/4 (75.0%) | 3/4 (75.0%) |
+| matrices | 1 | 0/1 (-) | 0/1 (-) | 0/1 (-) |
+| operators | 4 | 4/4 (100.0%) | 3/4 (100.0%) | 4/4 (100.0%) |
+| radicals | 5 | 5/5 (100.0%) | 4/5 (100.0%) | 5/5 (100.0%) |
+| relations | 3 | 3/3 (100.0%) | 3/3 (100.0%) | 3/3 (100.0%) |
+| scripts | 6 | 6/6 (100.0%) | 6/6 (100.0%) | 6/6 (100.0%) |
+| spacing | 1 | 1/1 (100.0%) | 1/1 (100.0%) | 1/1 (100.0%) |
+| text | 2 | 2/2 (100.0%) | 2/2 (100.0%) | 2/2 (100.0%) |
+
+| tier | n | best answer: equal (precision) | confident: equal (precision) | confident, environment told: equal (precision) |
+|---|--:|---|---|---|
+| tier 1 | 20 | 20/20 (100.0%) | 19/20 (100.0%) | 20/20 (100.0%) |
+| tier 2 | 33 | 26/33 (92.9%) | 21/33 (95.5%) | 24/33 (92.3%) |
+| tier 3 | 4 | 4/4 (100.0%) | 3/4 (100.0%) | 4/4 (100.0%) |
+
+Over everything: development `layout` 106/143 typeset-equal (74.1%), 95.5% of its answers right; confident answers 95/143 answered, **100.0%** right; held out `layout` 50/57 (87.7%, 96.2% of its answers right), confident answers 44/57 answered, **97.7%** right (one confident answer is wrong; with the environment told, 48/57 and **96.0%**, two confident answers are wrong). The held-out confident precision is below 100%, and the reader has not been fitted to those equations: that is its real figure on equations it has not seen. Which held-out equations they are has not been looked at, so as not to turn the held-out set into a development set.
+
+
+### What the reader does not read, and says so
+
+Matrices and `array`s, `cases`, `align`/`gather` rows (stacked rows of marks with no rule between
+them), braces over and under (`\overbrace`), stacked symbols (`\overset`, `\stackrel`,
+`\xrightarrow`, `\substack`), `\binom`, `\middle`, scripts on an empty base, `\cfrac`, and
+any glyph of a font or code the symbol table does not know: the answer is `None` (or tentative with
+the reason) and the diagnostics name what was met. The development categories `matrices`, `cases`,
+`alignment` and `decorations` score low for that reason and are not failures of the kind the other
+categories show: the reader answers few of them, and what it answers with confidence is right (the
+one wrong answer among them, in `matrices`, is a tentative one). `\dfrac` in text and
+`\tfrac` in a display cannot be told from `\frac` without the environment.
+
+### Floors
+
+`crates/render/tests/it/math_recover.rs` (`cargo xtask math-oracle test`) holds the reader to floors on
+these numbers, with and without the environment: development typeset-equal at least 70%, held-out at
+least 78%, the precision of the confident answers at least 98% on development and 93% on held-out
+equations, and per category the floors listed there. They are where the reader stood when it was last
+worked on; raise them with it, do not lower one to make a number pass.
