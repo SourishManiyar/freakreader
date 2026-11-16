@@ -159,6 +159,12 @@ impl Automation {
                             LinkAction::Other(_) => v["named"] = json!(true),
                             LinkAction::Uri(_) => {}
                         }
+                        // The named destination it goes through (hyperref's `equation.4.7`), as
+                        // the viewer resolved it.
+                        if let Some(name) = link.and_then(|t| t.dest_name.as_deref()) {
+                            v["named"] = json!(true);
+                            v["dest_name"] = json!(name);
+                        }
                     }
                     (LinkAction::Page { page, zoom }, None) => {
                         v["to_page"] = json!(page + 1);
