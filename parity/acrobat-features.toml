@@ -1225,21 +1225,42 @@ tier = "P2"
 milestone = "M3"
 status = "shipped"
 commands = []
-tools = ["link_preview"]
+tools = ["link_preview", "link_list"]
 evidence = [
     "crates/engine/src/link_preview.rs::an_xyz_destination_shows_a_band_from_just_above_its_line",
     "crates/engine/src/link_preview.rs::a_fit_rectangle_shows_itself_with_a_margin",
     "crates/engine/src/link_preview.rs::hostile_numbers_never_leave_the_page",
+    "crates/engine/src/link_preview.rs::a_preview_is_fitted_only_where_a_block_is_found",
+    "crates/engine/src/link_preview/names.rs::hyperref_names_read_as_their_kind_and_number",
+    "crates/engine/src/link_preview/names.rs::names_with_no_printed_number_have_none",
+    "crates/engine/src/link_preview/block.rs::a_page_with_nothing_to_read_has_no_block",
+    "crates/engine/src/link_preview/block.rs::hostile_numbers_never_leave_the_page",
+    "crates/engine/src/link_preview/block.rs::two_columns_are_told_apart_by_their_gutter",
+    "crates/engine/tests/it/reference_blocks.rs::one_column_blocks_read_whole",
+    "crates/engine/tests/it/reference_blocks.rs::two_column_blocks_read_whole_within_their_column",
+    "crates/render/src/inspect/navigation.rs::a_link_keeps_the_name_it_resolves_through",
+    "crates/render/src/inspect/navigation.rs::a_hostile_name_is_followed_but_not_kept",
     "crates/render/src/raster/tests.rs::a_companion_pool_renders_the_same_document_apart_from_its_parent",
+    "crates/render/src/raster/tests.rs::worker_reuses_parser_and_releases_source_after_rendering",
     "crates/automation/tests/it/automation.rs::link_preview_renders_the_band_a_link_points_at",
+    "crates/automation/tests/it/reference_preview.rs::link_list_names_each_links_destination",
+    "crates/automation/tests/it/reference_preview.rs::link_preview_shows_the_block_a_destination_names",
+    "crates/automation/tests/it/reference_preview.rs::link_preview_says_what_is_wrong_with_a_name",
     "crates/ui-egui/tests/it/link_preview.rs::a_right_click_on_a_link_previews_its_destination_and_another_closes_it",
     "crates/ui-egui/tests/it/link_preview.rs::a_right_click_on_the_preview_or_escape_closes_it",
     "crates/ui-egui/tests/it/link_preview.rs::a_click_on_the_preview_goes_to_the_destination",
     "crates/ui-egui/tests/it/link_preview.rs::a_web_link_and_the_link_tool_keep_the_link_menu",
     "crates/ui-egui/tests/it/link_preview.rs::an_edit_closes_the_preview",
+    "crates/ui-egui/tests/it/link_preview.rs::resting_the_pointer_on_a_link_previews_it_and_leaving_closes_it",
+    "crates/ui-egui/tests/it/link_preview.rs::the_pointer_can_cross_to_the_preview_and_stay_on_it",
+    "crates/ui-egui/tests/it/link_preview.rs::escape_closes_a_pointer_preview_until_the_pointer_comes_back",
+    "crates/ui-egui/tests/it/link_preview.rs::a_right_click_keeps_a_pointer_preview_open",
+    "crates/ui-egui/tests/it/link_preview.rs::no_pointer_preview_with_the_preference_off_a_web_link_scrolling_or_a_menu_open",
+    "crates/ui-egui/tests/it/link_preview.rs::a_papers_references_preview_the_block_they_name",
+    "crates/ui-egui/tests/it/link_preview.rs::closing_the_document_while_a_preview_reads_its_glyphs_leaves_nothing_behind",
     "crates/ui-egui/tests/it/preferences_layout.rs::text_size_preview_size_and_font_are_offered_saved_and_checked",
 ]
-notes = "Not an Acrobat feature; asked for by readers of papers with cross-references (#3194, item 4, for documents with links). With the Select tool, a right-click on a link to a place in this document (an explicit or named destination: a theorem, an equation, a cited work) shows that place in a small window by the link, without leaving the page: a band the width of the target page from just above the destination's position, 0.4 of the page's width tall (the destination's own rectangle, with a margin, for /FitR; the top of the page for a destination without a position), drawn at the page's zoom (Preferences ▸ Documents and view ▸ Reference preview size scales it from 50% to 150%) on a render thread of its own with the page view's settings. Another right-click, on the pages or the window, or Escape closes it; a click on it goes there. An edit, a dialog over the pages, or the link's page leaving the screen closes it. Links to web addresses and other files keep their menu, and the Link tool keeps the menu for every link; full screen keeps its right-click for turning back a page. link_preview renders the same area headlessly. Not yet: hover to preview, references found from the text in documents without links (Fig. 3, Eq. (2)), and previews of links to other files."
+notes = "Not an Acrobat feature; asked for by readers of papers with cross-references (#3194, item 4, for documents with links). With the Select tool, resting the pointer on a link to a place in this document for 0.4 s, or a right-click on it, shows that place in a small window by the link, without leaving the page. What it shows is the block the destination names, read from the target page's glyphs and rules: for a LaTeX hyperref name (equation.4.7, theorem.2.1, cite.key, section.3, figure.2, table.1, Item.5) an equation's display with every row of its align, a statement to its end with the displays in it, one bibliography entry, a heading and its first lines, a float with its caption, within the destination's column of a two-column page. Otherwise (page.N, an unnamed or unknown destination, a page with no text, rotated text) a band the width of the target page from just above the destination's position, 0.4 of the page's width tall (the destination's own rectangle, with a margin, for /FitR; the top of the page for a destination without a position). The caption names an equation, section, figure, table or item by the number in its hyperref name (Equation 4.7 · page 12), else the page; theorem-like statements share a counter, so their kind is left to their own text. Drawn at the page's zoom (Preferences ▸ Documents and view ▸ Reference preview size, 50% to 150%) on a render thread of its own with the page view's settings, which reads the page's glyphs first and gives up on them after 0.5 s. A preview the pointer opened closes 0.3 s after the pointer leaves the link and the window, when the pages scroll, zoom or are pressed, or with a dialog, menu or palette over them; a right-click keeps it. Preferences ▸ Documents and view ▸ Show a reference preview when the pointer rests on a link turns the pointer's previews off (control key link-preview-hover). Another right-click, on the pages or the window, or Escape closes it; a click on it goes there. An edit or the link's page leaving the screen closes it. Links to web addresses and other files keep their menu, and the Link tool keeps the menu for every link; full screen keeps its right-click for turning back a page. link_list reports each link's dest_name, dest_kind and dest_number; link_preview renders the same area headlessly, by link or by destination name. The blocks are tuned on the article class (one and two columns, crates/render/tests/data/hyperref) and read by geometry: other classes, multline and split displays, footnotes, floats spanning both columns, hypcap anchors and statements longer than 0.45 of the page may be cut differently. Not yet: references found from the text in documents without links (Fig. 3, Eq. (2)), previews of links to other files, and keyboard access to the preview."
 
 [[feature]]
 id = "view.annotation-hover"
@@ -1403,11 +1424,15 @@ title = "Named destinations panel"
 area = "B"
 tier = "P2"
 milestone = "M12"
-status = "planned"
+status = "partial"
 commands = []
-tools = []
-evidence = []
-notes = ""
+tools = ["dest_list"]
+evidence = [
+    "crates/render/src/inspect/navigation.rs::named_destinations_are_listed_in_page_order_once_each",
+    "crates/render/src/inspect/navigation.rs::named_destinations_survive_cycles_missing_pages_and_floods",
+    "crates/automation/tests/it/reference_preview.rs::dest_list_lists_named_destinations_in_page_order",
+]
+notes = "Headless only: dest_list lists a document's named destinations (the /Names /Dests tree, then the PDF 1.1 catalog /Dests) in page order, top to bottom, with page, page label, position, and the kind and number a hyperref name gives; paged by from and limit. At most 100,000 names; one longer than 256 bytes is counted in left_out, one that goes to no page (a missing page, a cycle of names) in unresolved; a name two keys read as is listed once. Not yet: the panel in the app, going to a destination from it, sorting, and creating, renaming or deleting destinations."
 
 [[feature]]
 id = "view.articles-panel"

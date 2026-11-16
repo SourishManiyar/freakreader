@@ -291,6 +291,26 @@ The desktop UI asks Allow/Cancel before following absolute GoToR targets and dis
 complete path. Relative links retain their existing behavior. Named destinations remain
 unapplied with a warning.
 
+## Reference previews and named destinations
+
+`link_list` reports, for a link that goes through a named destination, its `dest_name` with the
+`dest_kind` and `dest_number` its hyperref name gives (`equation.4.7` is an equation numbered
+4.7). `dest_list {doc, from?, limit?}` lists every named destination of the document in page
+order, with its page, page label, position, kind and number, at most `limit` (default 1000) per
+call. `link_preview {doc, page, index}` or `link_preview {doc, dest}` renders what the viewer's
+reference preview shows for a link or a destination: with `fit` (the default) the block the
+destination names, read from the target page's glyphs (an equation's display with every row of
+its `align`, a statement to its end, one bibliography entry, a heading and its first lines, a
+float with its caption), else the band below the destination. The result says which (`fitted`)
+and gives the window's caption (`Equation 4.7 · page 12`).
+
+The kinds come from hyperref's names: statements that share a counter (`\newtheorem{lemma}[theorem]`)
+are all `theorem.N`, so `theorem_like` cannot say Lemma or Theorem; the statement's own text does.
+A number is taken from a name only when it follows hyperref's `counter.number` pattern. A page
+the block cannot be read from (no text, a scan, rotated text) shows the band. The blocks are
+tuned on article-like LaTeX (`crates/render/tests/data/hyperref`); other classes and layouts may
+cut differently.
+
 ## Folder batches
 
 `doc_batch` runs conversion, OCR and compression over files and optionally recursive
