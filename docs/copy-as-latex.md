@@ -24,12 +24,30 @@ glyphs and rules and puts its LaTeX on the clipboard as plain text. It is not an
 ## What it reads
 
 The reader and its scores against TeX-typeset equations are described in
-`crates/render/tests/data/math/oracle/README.md`. In short, it reads equations typeset by pdfTeX in
-Computer Modern, AMS Euler and the AMS symbol fonts: rows, scripts, fractions, radicals, large
-operators with limits, integrals, delimiters, accents, alphabets, arrows, relations, function names,
-text and spacing. It does not read matrices, `cases`, aligned rows, braces over or under a formula,
-stacked symbols, `\binom`, or fonts other than those (OpenType math fonts, Times, Latin Modern): it
-says so instead of guessing.
+`crates/render/tests/data/math/oracle/README.md`. In short, it reads rows, scripts, fractions,
+radicals, large operators with limits, integrals, delimiters, accents, alphabets, arrows, relations,
+function names, text and spacing. It does not read matrices, `cases`, aligned rows, braces over or
+under a formula, stacked symbols or `\binom`: it says so instead of guessing.
+
+Fonts:
+
+- **Computer Modern, AMS Euler and the AMS symbol fonts** as pdfTeX embeds them are read by font and
+  character code, with their metrics: the most answers, and the most of them confident.
+- **Other fonts are read by the Unicode text the PDF gives each glyph**: OpenType math fonts with
+  `unicode-math` under LuaLaTeX or XeLaTeX (STIX Two, TeX Gyre Termes, Pagella and Bonum, Latin
+  Modern Math, Fira Math, Libertinus Math) and Times-style packages under pdfLaTeX (newtx,
+  mathptmx, txfonts), including a formula that mixes them with Computer Modern. Other OpenType math
+  fonts (Cambria Math, for one) go the same way but have not been measured. Symbols,
+  Greek, the math alphabets (`\mathbb`, `\mathcal`, `\mathfrak`, `unicode-math`'s `\symbf`) and
+  structure are read as for Computer Modern. Plain letters take their alphabet from the font's name
+  (`…-Italic`, `…-Regular`, `…-Bold`) and from what the page shows; a letter of a font whose name says
+  nothing (a symbol font's `R` may be a blackboard R) is not guessed.
+- **What such fonts leave open is said, not guessed.** Their metrics are not in the PDF, so the
+  answer is marked low confidence when it depends on them: whether a grown delimiter is
+  `\left…\right` or `\big…`, a gap that is either a letter's italic correction or a space, a word
+  space at the edge of `\text`, `\mathrm{tr}` against `\text{tr}`, a character Unicode gives to several
+  commands (`\emptyset`, `\varnothing`). Expect fewer confident answers than with Computer Modern,
+  fewest for Times. A glyph with no Unicode text (some Type 3 fonts) is not read.
 
 The rectangle must hold the formula alone: a glyph counts when its origin (the left end of its
 baseline) is inside. An equation number beside a display is read as part of it if it is inside.
