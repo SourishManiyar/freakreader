@@ -94,7 +94,7 @@ the allowlist.
 ## Scores of the layout reader
 
 `pdfcraft_render::text::math::layout` (`cargo xtask math-oracle report`), measured on 2026-11-16 at
-commit `50e8da29c` of branch `feat/math-symbols-parser` (working tree clean, no uncommitted change),
+commit `6133c4a15` of branch `feat/math-symbols-parser` (working tree clean, no uncommitted change),
 with pdfTeX 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) as the typeset check. Numbers are
 typeset-equal / n, the share in parentheses is the **precision**: of the answers given, how many are
 right. The three columns are the reader's best answer whether or not it is sure of it
@@ -106,9 +106,16 @@ where the region came from can say; without it a numerator as large as the text 
 display and `\dfrac` in text and the answer is tentative).
 
 Development equations are the 120 the reader was worked on (143 occurrences, 23 of them in running
-text, one and two columns). Held-out equations are the 57 added before the reader existed, typeset
-alone only; the reader was not tuned on them and no individual result of theirs was read while it was
-being worked on. Read the two apart: the held-out figures are the honest ones.
+text, one and two columns). The 57 held-out equations were added before the reader existed, typeset
+alone only, and were not used while it was worked on. **They have been read once since**: after the
+reader had stopped changing, with the maintainer's agreement, their failures were looked at one by one.
+The first run had one confident wrong answer (and a second, with the environment told), both a
+fraction followed by glue: a fraction is an ordinary atom to TeX's spacing, and the reader had it as an
+inner one. That is fixed (`fractions_are_ordinary_atoms_to_the_glue`) and the held-out set is
+development data from here on. The held-out figures below are therefore **not** a measure on unseen
+equations any more; the figures before that fix, which were, are in the commit messages and were: held-out
+`layout` 50/57 typeset-equal (87.7%, 96.2% of its answers right), confident answers 43/44 right (97.7%),
+with the environment told 48/50 (96.0%). Only a new held-out set can measure the reader again.
 
 ### Development equations (143 occurrences)
 
@@ -146,7 +153,7 @@ being worked on. Read the two apart: the held-out figures are the honest ones.
 | 1col | 9 | 7/9 (100.0%) | 7/9 (100.0%) | 7/9 (100.0%) |
 | 2col | 14 | 10/14 (83.3%) | 7/14 (100.0%) | 7/14 (100.0%) |
 
-### Held-out equations (57)
+### Held-out equations, after they were read (57)
 
 | category | n | best answer: equal (precision) | confident: equal (precision) | confident, environment told: equal (precision) |
 |---|--:|---|---|---|
@@ -159,9 +166,9 @@ being worked on. Read the two apart: the held-out figures are the honest ones.
 | decorations | 1 | 1/1 (100.0%) | 1/1 (100.0%) | 1/1 (100.0%) |
 | delimiters | 6 | 6/6 (100.0%) | 4/6 (100.0%) | 5/6 (100.0%) |
 | dots_primes | 2 | 2/2 (100.0%) | 2/2 (100.0%) | 2/2 (100.0%) |
-| fractions | 6 | 3/6 (75.0%) | 1/6 (100.0%) | 3/6 (75.0%) |
+| fractions | 6 | 4/6 (100.0%) | 1/6 (100.0%) | 4/6 (100.0%) |
 | greek | 3 | 3/3 (100.0%) | 3/3 (100.0%) | 3/3 (100.0%) |
-| integrals | 4 | 3/4 (75.0%) | 3/4 (75.0%) | 3/4 (75.0%) |
+| integrals | 4 | 4/4 (100.0%) | 4/4 (100.0%) | 4/4 (100.0%) |
 | matrices | 1 | 0/1 (-) | 0/1 (-) | 0/1 (-) |
 | operators | 4 | 4/4 (100.0%) | 3/4 (100.0%) | 4/4 (100.0%) |
 | radicals | 5 | 5/5 (100.0%) | 4/5 (100.0%) | 5/5 (100.0%) |
@@ -173,10 +180,10 @@ being worked on. Read the two apart: the held-out figures are the honest ones.
 | tier | n | best answer: equal (precision) | confident: equal (precision) | confident, environment told: equal (precision) |
 |---|--:|---|---|---|
 | tier 1 | 20 | 20/20 (100.0%) | 19/20 (100.0%) | 20/20 (100.0%) |
-| tier 2 | 33 | 26/33 (92.9%) | 21/33 (95.5%) | 24/33 (92.3%) |
+| tier 2 | 33 | 28/33 (100.0%) | 22/33 (100.0%) | 26/33 (100.0%) |
 | tier 3 | 4 | 4/4 (100.0%) | 3/4 (100.0%) | 4/4 (100.0%) |
 
-Over everything: development `layout` 106/143 typeset-equal (74.1%), 95.5% of its answers right; confident answers 95/143 answered, **100.0%** right; held out `layout` 50/57 (87.7%, 96.2% of its answers right), confident answers 44/57 answered, **97.7%** right (one confident answer is wrong; with the environment told, 48/57 and **96.0%**, two confident answers are wrong). The held-out confident precision is below 100%, and the reader has not been fitted to those equations: that is its real figure on equations it has not seen. Which held-out equations they are has not been looked at, so as not to turn the held-out set into a development set.
+Over everything: development `layout` 106/143 typeset-equal (74.1%), 95.5% of its answers right; confident answers 95 of 143 answered, **100.0%** right; held out (read) `layout` 52/57 (91.2%, 100.0% of its answers right), confident answers 44 of 57 answered, **100.0%** right, with the environment told 50 answered, **100.0%**.
 
 
 ### What the reader does not read, and says so
@@ -185,16 +192,16 @@ Matrices and `array`s, `cases`, `align`/`gather` rows (stacked rows of marks wit
 them), braces over and under (`\overbrace`), stacked symbols (`\overset`, `\stackrel`,
 `\xrightarrow`, `\substack`), `\binom`, `\middle`, scripts on an empty base, `\cfrac`, and
 any glyph of a font or code the symbol table does not know: the answer is `None` (or tentative with
-the reason) and the diagnostics name what was met. The development categories `matrices`, `cases`,
-`alignment` and `decorations` score low for that reason and are not failures of the kind the other
-categories show: the reader answers few of them, and what it answers with confidence is right (the
-one wrong answer among them, in `matrices`, is a tentative one). `\dfrac` in text and
-`\tfrac` in a display cannot be told from `\frac` without the environment.
+the reason) and the diagnostics name what was met. The categories `matrices`, `cases`, `alignment` and
+`decorations` score low for that reason and are not failures of the kind the other categories show: the
+reader answers few of them, and what it answers with confidence is right (the one wrong answer among
+them, in `matrices`, is a tentative one). `\dfrac` in text and `\tfrac` in a display cannot be told
+from `\frac` without the environment.
 
 ### Floors
 
 `crates/render/tests/it/math_recover.rs` (`cargo xtask math-oracle test`) holds the reader to floors on
 these numbers, with and without the environment: development typeset-equal at least 70%, held-out at
-least 78%, the precision of the confident answers at least 98% on development and 93% on held-out
-equations, and per category the floors listed there. They are where the reader stood when it was last
-worked on; raise them with it, do not lower one to make a number pass.
+least 85%, the precision of the confident answers at least 98% on both, and per category the floors
+listed there. They are where the reader stood when it was last worked on; raise them with it, do not
+lower one to make a number pass.
