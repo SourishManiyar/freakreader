@@ -35,6 +35,7 @@ mod comments;
 mod compare;
 mod content;
 mod control;
+mod copy_as_latex;
 mod create;
 mod date_format;
 mod dialog_chrome;

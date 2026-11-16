@@ -156,3 +156,25 @@ fn an_equation_in_running_text_reads_as_it_does_alone() {
     }
     assert!(compared >= 8, "{compared} equations compared");
 }
+
+/// `wrap` returns what Edit ▸ Copy as LaTeX puts on the clipboard with that wrapper: the body, `$…$`
+/// or `\[…\]`, and null when nothing was read; a wrapper it does not know is refused.
+#[test]
+fn wrap_returns_the_text_copy_as_latex_copies() {
+    let mut a = Automation::new();
+    let doc = open(&mut a, "equations.pdf");
+    let p = place("sup_squares");
+    let call = |a: &mut Automation, wrap: &str| ok(a, "text_recover_latex", json!({ "doc": doc, "page": p.page, "rect": p.rect, "wrap": wrap }));
+    let plain = ok(&mut a, "text_recover_latex", json!({ "doc": doc, "page": p.page, "rect": p.rect }));
+    assert!(plain.get("text").is_none(), "only asked for: {plain}");
+    for (wrap, text) in [("none", r"x^{2} + y^{2} = r^{2}"), ("inline", r"$x^{2} + y^{2} = r^{2}$"), ("display", r"\[x^{2} + y^{2} = r^{2}\]")] {
+        let r = call(&mut a, wrap);
+        assert_eq!((r["text"].as_str(), r["latex"].as_str()), (Some(text), Some(r"x^{2} + y^{2} = r^{2}")), "{wrap}: {r}");
+    }
+    let empty = ok(&mut a, "text_recover_latex", json!({ "doc": doc, "page": 1, "rect": [300, 150, 400, 190], "wrap": "inline" }));
+    assert_eq!((empty["text"].clone(), empty["latex"].clone()), (Value::Null, Value::Null), "{empty}");
+    for wrap in [json!("dollars"), json!(true)] {
+        let args = json!({ "doc": doc, "page": p.page, "rect": p.rect, "wrap": wrap });
+        assert!(a.call("text_recover_latex", &args).is_err(), "{args}");
+    }
+}

@@ -47,7 +47,7 @@ DeviceCMYK `k`), so text added to a print file can be 100 K black. `content_list
 
 ## LaTeX from typeset mathematics
 
-`text_recover_latex {doc, page, rect, display?}` reads the formula in `rect` (`[x0, y0, x1, y1]` in
+`text_recover_latex {doc, page, rect, display?, wrap?}` reads the formula in `rect` (`[x0, y0, x1, y1]` in
 points from the top-left of the displayed page; it must hold exactly the formula, finding it is not
 done) back as LaTeX: the body, without `$…$` or `\[…\]`. It returns `latex`, `confidence` and
 `diagnostics` (`severity` `info`, `ambiguous`, `unsupported` or `unknown`, and a `message`).
@@ -59,7 +59,11 @@ the answer is tentative. A region the reader does not handle is a result, not an
 `null`, `confidence` is `"none"`, `reason` is `unsupported`, `unknown_symbol`, `no_glyphs`,
 `invalid_glyph`, `too_large` or `too_complex`, and the diagnostics say what was met (a matrix, an
 alignment, a brace, stacked marks without a rule, a font or code the symbol table does not know).
-Nothing is guessed. A rectangle that is not a box, a page that is not there and a document that is not
+Nothing is guessed. `wrap` (`none`, `inline` or `display`) adds `text`: what Edit ▸ Copy as LaTeX
+puts on the clipboard with that wrapper (the body, `$…$` or `\[…\]`), `null` when nothing was read;
+the app's wrapper is the Preferences choice (`--latex-wrapper` on the control channel), and its tool is
+`copy-as-latex` (`ui set quick copy-as-latex`, see [docs/copy-as-latex.md](../../docs/copy-as-latex.md)).
+A rectangle that is not a box, a page that is not there and a document that is not
 open are errors; copy permission is required. Read-only. Bounds: 4000 glyphs and 2000 rules per region,
 nesting 32 deep. The scores against the math oracle, and what is read and what is not, are in
 `crates/render/tests/data/math/oracle/README.md`; the reader is `pdfcraft_render::text::math::layout`.

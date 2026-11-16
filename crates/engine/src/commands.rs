@@ -231,6 +231,9 @@ pub const COMMANDS: &[CommandSpec] = &[
     c("comment.paste", "Paste comments", EDIT, None, Annotate, "clipboard-paste"),
     c("edit.column_select", "Column select", EDIT, None, Document, "text-select"),
     c("edit.snapshot", "Take a snapshot", EDIT, None, Copying, "camera"),
+    // Drag a rectangle around a typeset formula and copy its LaTeX (text_recover_latex). Not an
+    // Acrobat command. No shortcut: none free is obvious, as for Column select and Snapshot.
+    c("edit.copy_as_latex", "Copy as LaTeX", EDIT, None, Copying, "superscript"),
     c("view.full_screen", "Full screen mode", VIEW, Some(Shortcut::cmd("L")), Document, "maximize"),
     c("view.read_mode", "Read mode", VIEW, Some(Shortcut { command: true, shift: false, mac_ctrl: true, key: "H" }), Document, "book-open"),
     // Split view (Acrobat's Window ▸ Split): the current document in two panes, or back to one;

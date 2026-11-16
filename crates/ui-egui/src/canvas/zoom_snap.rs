@@ -113,6 +113,7 @@ impl PdfCraftApp {
                     Err(e) => self.notify_fmt("Couldn't take the snapshot: {e}", &[("e", &e.to_string())]),
                 }
             }
+            QuickTool::CopyAsLatex => self.start_latex_copy(index, page, view_rect),
             _ => {}
         }
     }
