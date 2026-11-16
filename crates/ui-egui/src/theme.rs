@@ -403,6 +403,9 @@ fn font_definitions_for_platform(prefer_hans: bool, platform: FontPolicyPlatform
             }
         }
     }
+    // U+FFFD, which the app shows for text that isn't UTF-8, is in JetBrains Mono and in none of
+    // Inter or egui's defaults. Last of the embedded faces, so it only draws what they all lack.
+    fonts.families.entry(FontFamily::Proportional).or_default().push("JetBrainsMono".to_owned());
     let fallback: Vec<String> = fonts.families[&FontFamily::Proportional].clone();
     for (fam, primary) in [("medium", "Inter-Medium"), ("semibold", "Inter-SemiBold")] {
         let mut stack = vec![primary.to_owned()];

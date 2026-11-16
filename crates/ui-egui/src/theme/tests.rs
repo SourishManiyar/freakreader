@@ -258,6 +258,17 @@ fn windows_hinting_improves_low_dpi_mono_raster_without_changing_layout_or_cover
     }
 }
 
+/// Every interface family draws U+FFFD. The app shows it on purpose, for text that isn't UTF-8
+/// (a custom property name in Document Properties); without a face for it, egui draws an empty
+/// box and its test harness panics.
+#[test]
+fn every_interface_family_draws_the_replacement_character() {
+    let mut fonts = hinting_test_fonts(FontPolicyPlatform::Other);
+    for (family, _) in primary_families() {
+        assert!(fonts.has_glyphs(&FontId::new(13.0, family.clone()), "Dept\u{FFFD}"), "{family:?}");
+    }
+}
+
 /// "Use system setting" draws what the operating system says, dark or light.
 #[test]
 fn following_the_system_draws_what_the_system_says() {
