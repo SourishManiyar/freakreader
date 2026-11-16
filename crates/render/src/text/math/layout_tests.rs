@@ -139,8 +139,14 @@ fn an_unknown_font_or_code_is_reported_and_never_guessed() {
     // A glyph of a font with no name at all.
     let mut p =
         MathPage { fonts: vec![MathFont { base_font: None, name: None, kind: FontKind::Type3, program_bytes: None, key: 1 }], ..MathPage::default() };
-    p.glyphs.push(glyph(0, 65, 10.0, 10.0, 50.0, 5.0));
-    assert_eq!(latex(&p).unwrap_err().kind, ErrorKind::UnknownSymbol);
+    let mut g = glyph(0, 80, 10.0, 10.0, 50.0, 5.0);
+    g.text = Some("P".into());
+    p.glyphs.push(g);
+    let e = latex(&p).unwrap_err();
+    assert_eq!(e.kind, ErrorKind::UnknownSymbol);
+    // Said as what it is (a bitmap font nothing names, as dvips and Ghostscript embed bbm's
+    // blackboard letters), not as a font called ``; its text "P" is not taken for the symbol.
+    assert_eq!(e.diagnostics[0].message, "an unnamed bitmap (Type 3) font, which cannot be identified (code 80, drawn as `P`)", "{e:?}");
     // A glyph whose font index is not in the page's list.
     let mut p = page();
     p.glyphs.push(glyph(99, X, 10.0, 10.0, 50.0, 5.0));

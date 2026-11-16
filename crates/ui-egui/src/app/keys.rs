@@ -131,6 +131,12 @@ impl PdfCraftApp {
             self.quick_tool = QuickTool::Select;
             self.space_hand = None;
         }
+        // Escape finishes Copy as LaTeX (and a formula still being read), back to selecting; a
+        // rectangle being dragged is Escape's to cancel first.
+        if self.quick_tool == QuickTool::CopyAsLatex && self.views[i].marquee.is_none() && keys.pressed(ctx, Key::Escape) {
+            self.quick_tool = QuickTool::Select;
+            self.cancel_latex_copy();
+        }
         if keys.pressed(ctx, Key::H) {
             self.quick_tool = QuickTool::Hand;
             self.space_hand = None;
