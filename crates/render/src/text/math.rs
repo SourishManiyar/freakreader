@@ -538,5 +538,7 @@ pub(crate) fn extract_math_page_with(pdf: &Pdf, page: usize, settings: &Interpre
     Ok(out)
 }
 
+pub mod recover;
+
 #[cfg(test)]
 mod tests;

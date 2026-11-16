@@ -41,5 +41,7 @@ getrandom = { version = "0.4", features = ["wasm_js"] }
 # `tests/content_differential.rs` (L3 may depend on L2).
 pdfcraft-content = { workspace = true }
 pdfcraft-testkit = { workspace = true }
+# TeX as the oracle of the math-recovery harness (`tests/it/math_oracle.rs`, `examples/math_oracle.rs`).
+pdfcraft-oracle = { workspace = true }
 # Builds the decompression-bomb streams in the raster tests.
 flate2 = { workspace = true }

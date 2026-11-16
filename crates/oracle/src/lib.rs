@@ -26,6 +26,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 pub mod pixels;
+pub mod tex;
 
 use std::fmt;
 use std::process::Command;
@@ -89,6 +90,8 @@ impl Absent {
         match program {
             "qpdf" => "apt install qpdf / brew install qpdf",
             "pdftoppm" | "pdftotext" => "apt install poppler-utils / brew install poppler",
+            // amsmath, amssymb, geometry and the AMS Type 1 fonts come with these TeX Live sets.
+            "pdflatex" | "dvitype" => "apt install texlive-latex-base / brew install --cask mactex-no-gui",
             _ => "install it and put it on PATH",
         }
     }
@@ -151,6 +154,17 @@ pub fn pdftoppm() -> Result<Oracle, Absent> {
 /// against it over the corpus).
 pub fn pdftotext() -> Result<Oracle, Absent> {
     find("pdftotext", "-v")
+}
+
+/// pdfTeX's `pdflatex`: typesets LaTeX to DVI and to PDF, the source of the math oracle's truth
+/// (`tex`).
+pub fn pdflatex() -> Result<Oracle, Absent> {
+    find("pdflatex", "--version")
+}
+
+/// TeX's `dvitype`: lists every glyph, rule and `\special` of a DVI file with its exact position.
+pub fn dvitype() -> Result<Oracle, Absent> {
+    find("dvitype", "--version")
 }
 
 /// Binds an oracle, or returns from the calling test after saying on stderr why it was skipped.
@@ -230,7 +244,7 @@ mod tests {
     /// The install hint is specific per tool, so a skip notice is actionable.
     #[test]
     fn every_known_oracle_has_an_install_hint() {
-        for p in ["qpdf", "pdftoppm", "pdftotext"] {
+        for p in ["qpdf", "pdftoppm", "pdftotext", "pdflatex", "dvitype"] {
             let hint = Absent::install_hint(p);
             assert!(hint.contains("install"), "{p}: {hint}");
             assert_ne!(hint, Absent::install_hint("something-else"), "{p} needs its own hint");

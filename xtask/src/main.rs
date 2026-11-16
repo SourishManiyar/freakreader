@@ -10,6 +10,7 @@ mod gates;
 mod layers;
 mod license_check;
 mod macos_integration;
+mod math_oracle;
 mod netcheck;
 mod parity;
 mod screenshots;
@@ -52,6 +53,11 @@ const COMMANDS: &[(&str, &str, Command)] = &[
         "render-oracle",
         "Compare page rendering with Poppler over corpus/ (pixel disagreement rate; --dir, --dpi, --limit, --tolerance, --hide-annotations)",
         gates::render_oracle,
+    ),
+    (
+        "math-oracle",
+        "Equation-level oracle for LaTeX recovery: `generate [--check]` (needs TeX Live), `report`, `test` (crates/render/tests/data/math/oracle)",
+        math_oracle::run,
     ),
     ("screenshots", "Regenerate the README screenshots in docs/images/ and their ATTRIBUTION entries", screenshots::run),
     ("models", "Fetch the OCR models (ATTRIBUTION.toml kind = \"model\") into assets/models/, verified by SHA-256", assets::models),

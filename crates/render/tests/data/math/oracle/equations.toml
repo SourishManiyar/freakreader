@@ -1,0 +1,988 @@
+# The equation list of the math oracle (crates/render/tests/data/math/oracle/README.md).
+#
+# Written for this repository: common notation and textbook identities, no passages copied from
+# papers or books. `cargo xtask math-oracle generate` typesets each equation on a page of its own
+# and the paragraph pages below, and writes the truth next to this file.
+#
+# Fields of an equation:
+#   id        unique, [a-z0-9_]
+#   category  what it exercises (the report groups by it)
+#   tier      1 plain: one line, symbols in a row with scripts at most
+#             2 structure: fractions, radicals, limits, matrices, accents, alignment
+#             3 hard to recover: the glyphs alone underdetermine the source, or the layout is
+#               assembled from pieces; `hard` says why
+#   env       inline, display, equation, align, align*, gather, gather*
+#   tex       the body, on one line, as it would appear inside the environment
+#   hard      required on tier 3 only
+
+# ---- sub- and superscripts --------------------------------------------------------------------
+
+[[equation]]
+id = "sup_squares"
+category = "scripts"
+tier = 1
+env = "inline"
+tex = 'x^2 + y^2 = r^2'
+
+[[equation]]
+id = "sub_index"
+category = "scripts"
+tier = 1
+env = "inline"
+tex = 'a_n + a_{n+1} = a_{n+2}'
+
+[[equation]]
+id = "sub_sup_both"
+category = "scripts"
+tier = 1
+env = "display"
+tex = 'x_i^2 + y_{jk}^{3}'
+
+[[equation]]
+id = "sup_tower"
+category = "scripts"
+tier = 2
+env = "display"
+tex = '2^{2^{n}} + 1'
+
+[[equation]]
+id = "sub_nested"
+category = "scripts"
+tier = 2
+env = "display"
+tex = 'a_{i_{j_k}}'
+
+[[equation]]
+id = "sup_gaussian"
+category = "scripts"
+tier = 2
+env = "display"
+tex = 'e^{-\frac{(x-m)^2}{2s^2}}'
+
+[[equation]]
+id = "prescripts"
+category = "scripts"
+tier = 3
+env = "display"
+tex = '{}^{t}\!M = {}_{a}F_{b}'
+hard = "scripts on an empty base, and a negative kern, leave nothing to attach them to"
+
+# ---- fractions --------------------------------------------------------------------------------
+
+[[equation]]
+id = "frac_simple"
+category = "fractions"
+tier = 1
+env = "display"
+tex = '\frac{a+b}{c}'
+
+[[equation]]
+id = "frac_text_style"
+category = "fractions"
+tier = 1
+env = "inline"
+tex = '\frac{1}{2} + \frac{1}{3} = \frac{5}{6}'
+
+[[equation]]
+id = "frac_nested"
+category = "fractions"
+tier = 2
+env = "display"
+tex = '\frac{1}{1 + \frac{1}{x}}'
+
+[[equation]]
+id = "frac_continued"
+category = "fractions"
+tier = 3
+env = "display"
+tex = 'b_0 + \cfrac{1}{b_1 + \cfrac{1}{b_2 + \cfrac{1}{b_3}}}'
+hard = "\\cfrac sets display-size numerators with struts; \\frac with \\displaystyle comes close but not equal"
+
+[[equation]]
+id = "dfrac_inline"
+category = "fractions"
+tier = 2
+env = "inline"
+tex = '\dfrac{p}{q}'
+
+[[equation]]
+id = "binom_display"
+category = "fractions"
+tier = 2
+env = "display"
+tex = '\binom{n}{k} = \frac{n!}{k!\,(n-k)!}'
+
+[[equation]]
+id = "binom_inline"
+category = "fractions"
+tier = 2
+env = "inline"
+tex = '\binom{2m}{m}'
+
+[[equation]]
+id = "slash_fraction"
+category = "fractions"
+tier = 1
+env = "inline"
+tex = '1/(1+t)'
+
+# ---- radicals ---------------------------------------------------------------------------------
+
+[[equation]]
+id = "sqrt_two"
+category = "radicals"
+tier = 1
+env = "display"
+tex = '\sqrt{2}'
+
+[[equation]]
+id = "sqrt_sum"
+category = "radicals"
+tier = 2
+env = "display"
+tex = '\sqrt{x^2 + y^2}'
+
+[[equation]]
+id = "sqrt_cube"
+category = "radicals"
+tier = 2
+env = "display"
+tex = '\sqrt[3]{u + v}'
+
+[[equation]]
+id = "sqrt_nested"
+category = "radicals"
+tier = 2
+env = "display"
+tex = '\sqrt{1 + \sqrt{1 + \sqrt{w}}}'
+
+[[equation]]
+id = "sqrt_tall"
+category = "radicals"
+tier = 3
+env = "display"
+tex = '\sqrt{\frac{a}{b}}'
+hard = "the radical sign is chosen from a family of sizes by the height it covers"
+
+[[equation]]
+id = "sqrt_inline"
+category = "radicals"
+tier = 1
+env = "inline"
+tex = '\sqrt{n}\log n'
+
+# ---- big operators ----------------------------------------------------------------------------
+
+[[equation]]
+id = "sum_gauss"
+category = "bigops"
+tier = 2
+env = "display"
+tex = '\sum_{i=1}^{n} i = \frac{n(n+1)}{2}'
+
+[[equation]]
+id = "sum_inline"
+category = "bigops"
+tier = 2
+env = "inline"
+tex = '\sum_{k=0}^{\infty} z^k'
+
+[[equation]]
+id = "prod_display"
+category = "bigops"
+tier = 2
+env = "display"
+tex = '\prod_{j=1}^{m} (1 + t_j)'
+
+[[equation]]
+id = "union_intersection"
+category = "bigops"
+tier = 2
+env = "display"
+tex = '\bigcup_{n \ge 1} A_n \subseteq \bigcap_{m} B_m'
+
+[[equation]]
+id = "sum_nolimits"
+category = "bigops"
+tier = 3
+env = "display"
+tex = '\sum\nolimits_{i} c_i'
+hard = "a display operator with side scripts looks like an inline sum set larger"
+
+[[equation]]
+id = "sum_substack"
+category = "bigops"
+tier = 3
+env = "display"
+tex = '\sum_{\substack{0 \le i \le m \\ 0 < j < n}} P(i,j)'
+hard = "two stacked lines of limits under one operator"
+
+[[equation]]
+id = "direct_sum"
+category = "bigops"
+tier = 2
+env = "display"
+tex = '\bigoplus_{i \in I} V_i'
+
+# ---- integrals --------------------------------------------------------------------------------
+
+[[equation]]
+id = "int_power"
+category = "integrals"
+tier = 2
+env = "display"
+tex = '\int_0^1 x^2\,dx = \frac{1}{3}'
+
+[[equation]]
+id = "int_inline"
+category = "integrals"
+tier = 1
+env = "inline"
+tex = '\int_a^b g(t)\,dt'
+
+[[equation]]
+id = "int_double"
+category = "integrals"
+tier = 2
+env = "display"
+tex = '\iint_{D} f\,dA'
+
+[[equation]]
+id = "int_contour"
+category = "integrals"
+tier = 2
+env = "display"
+tex = '\oint_{\gamma} \frac{dz}{z} = 2\pi i'
+
+[[equation]]
+id = "int_limits"
+category = "integrals"
+tier = 3
+env = "display"
+tex = '\int\limits_{0}^{\infty} e^{-t}\,dt'
+hard = "limits above and below an integral sign, which usually takes them at its side"
+
+[[equation]]
+id = "int_gaussian"
+category = "integrals"
+tier = 2
+env = "display"
+tex = '\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}'
+
+# ---- limits and named operators ---------------------------------------------------------------
+
+[[equation]]
+id = "lim_compound"
+category = "operators"
+tier = 2
+env = "display"
+tex = '\lim_{n \to \infty} \left(1 + \frac{1}{n}\right)^{n} = e'
+
+[[equation]]
+id = "lim_inline"
+category = "operators"
+tier = 2
+env = "inline"
+tex = '\lim_{x \to 0} \frac{\sin x}{x} = 1'
+
+[[equation]]
+id = "limsup"
+category = "operators"
+tier = 2
+env = "display"
+tex = '\limsup_{n \to \infty} a_n'
+
+[[equation]]
+id = "operatorname_trace"
+category = "operators"
+tier = 3
+env = "display"
+tex = '\operatorname{tr}(AB) = \operatorname{tr}(BA)'
+hard = "a named operator is upright letters: \\mathrm sets the same glyphs, and here (before a parenthesis) the same spacing"
+
+[[equation]]
+id = "log_product"
+category = "operators"
+tier = 1
+env = "inline"
+tex = '\log(xy) = \log x + \log y'
+
+[[equation]]
+id = "max_abs"
+category = "operators"
+tier = 2
+env = "display"
+tex = '\max_{1 \le i \le n} |a_i|'
+
+[[equation]]
+id = "det_char"
+category = "operators"
+tier = 1
+env = "inline"
+tex = '\det(\lambda I - A)'
+
+# ---- delimiters -------------------------------------------------------------------------------
+
+[[equation]]
+id = "left_right_paren"
+category = "delimiters"
+tier = 2
+env = "display"
+tex = '\left( \frac{a}{b} \right)'
+
+[[equation]]
+id = "manual_sizes"
+category = "delimiters"
+tier = 3
+env = "display"
+tex = '\Bigl( \bigl( x \bigr) + y \Bigr)'
+hard = "fixed delimiter sizes chosen by hand; \\left/\\right would pick others"
+
+[[equation]]
+id = "angle_brackets"
+category = "delimiters"
+tier = 2
+env = "display"
+tex = '\langle u, v \rangle = \langle v, u \rangle'
+
+[[equation]]
+id = "norm_triangle"
+category = "delimiters"
+tier = 2
+env = "display"
+tex = '\| x + y \| \le \| x \| + \| y \|'
+
+[[equation]]
+id = "abs_epsilon"
+category = "delimiters"
+tier = 1
+env = "inline"
+tex = '|x - y| < \varepsilon'
+
+[[equation]]
+id = "floor_ceiling"
+category = "delimiters"
+tier = 2
+env = "display"
+tex = '\lfloor x \rfloor \le x \le \lceil x \rceil'
+
+[[equation]]
+id = "left_right_tall"
+category = "delimiters"
+tier = 3
+env = "display"
+tex = '\left[ \sum_{i=1}^{n} \frac{x_i}{n} \right]^{2}'
+hard = "brackets assembled from extensible pieces around a tall operator"
+
+[[equation]]
+id = "set_builder_middle"
+category = "delimiters"
+tier = 3
+env = "display"
+tex = '\left\{ x \in \mathbb{R} \,\middle|\, x^2 < 2 \right\}'
+hard = "\\middle bar and hand spacing inside grown braces"
+
+[[equation]]
+id = "set_braces"
+category = "delimiters"
+tier = 1
+env = "inline"
+tex = '\{1, 2, 3\}'
+
+# ---- matrices ---------------------------------------------------------------------------------
+
+[[equation]]
+id = "pmatrix_two"
+category = "matrices"
+tier = 2
+env = "display"
+tex = '\begin{pmatrix} a & b \\ c & d \end{pmatrix}'
+
+[[equation]]
+id = "bmatrix_identity"
+category = "matrices"
+tier = 2
+env = "display"
+tex = '\begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{bmatrix}'
+
+[[equation]]
+id = "vmatrix_det"
+category = "matrices"
+tier = 2
+env = "display"
+tex = '\begin{vmatrix} a & b \\ c & d \end{vmatrix} = ad - bc'
+
+[[equation]]
+id = "matrix_dots"
+category = "matrices"
+tier = 3
+env = "display"
+tex = '\begin{pmatrix} a_{11} & \cdots & a_{1n} \\ \vdots & \ddots & \vdots \\ a_{m1} & \cdots & a_{mn} \end{pmatrix}'
+hard = "grid of cells with dots that stand for rows and columns"
+
+[[equation]]
+id = "smallmatrix_inline"
+category = "matrices"
+tier = 3
+env = "inline"
+tex = '\left(\begin{smallmatrix} 1 & 2 \\ 3 & 4 \end{smallmatrix}\right)'
+hard = "a script-size matrix in a line of text"
+
+[[equation]]
+id = "array_ruled"
+category = "matrices"
+tier = 3
+env = "display"
+tex = '\left[\begin{array}{cc|c} 1 & 2 & 3 \\ 4 & 5 & 6 \end{array}\right]'
+hard = "a vertical rule from the column specification, not from a glyph"
+
+# ---- cases ------------------------------------------------------------------------------------
+
+[[equation]]
+id = "cases_abs"
+category = "cases"
+tier = 2
+env = "display"
+tex = '|x| = \begin{cases} x & x \ge 0 \\ -x & x < 0 \end{cases}'
+
+[[equation]]
+id = "cases_text"
+category = "cases"
+tier = 2
+env = "display"
+tex = 'f(x) = \begin{cases} 1 & \text{if } x \in \mathbb{Q} \\ 0 & \text{otherwise} \end{cases}'
+
+[[equation]]
+id = "cases_sign"
+category = "cases"
+tier = 2
+env = "display"
+tex = '\operatorname{sgn}(x) = \begin{cases} -1 & x < 0 \\ 0 & x = 0 \\ 1 & x > 0 \end{cases}'
+
+[[equation]]
+id = "cases_numbered"
+category = "cases"
+tier = 3
+env = "equation"
+tex = '\delta_{ij} = \begin{cases} 1 & i = j \\ 0 & i \ne j \end{cases}'
+hard = "the equation number beside it is not part of the equation"
+
+# ---- alignment and numbering ------------------------------------------------------------------
+
+[[equation]]
+id = "equation_numbered"
+category = "alignment"
+tier = 1
+env = "equation"
+tex = 'E = mc^2'
+
+[[equation]]
+id = "align_two"
+category = "alignment"
+tier = 2
+env = "align"
+tex = 'a &= b + c \\ d &= e - f'
+
+[[equation]]
+id = "align_chain"
+category = "alignment"
+tier = 3
+env = "align"
+tex = '(a+b)^2 &= (a+b)(a+b) \\ &= a^2 + 2ab + b^2'
+hard = "a continuation row with an empty left side, and one number per row"
+
+[[equation]]
+id = "align_pairs"
+category = "alignment"
+tier = 3
+env = "align"
+tex = 'x &= 1 & y &= 2 \\ z &= 3 & w &= 4'
+hard = "two alignment columns spread over the line"
+
+[[equation]]
+id = "gather_rows"
+category = "alignment"
+tier = 2
+env = "gather"
+tex = 'a = b \\ c = d + e'
+
+[[equation]]
+id = "align_unnumbered"
+category = "alignment"
+tier = 2
+env = "align*"
+tex = 'f(x) &= x^2 \\ g(x) &= x^3'
+
+[[equation]]
+id = "aligned_block"
+category = "alignment"
+tier = 3
+env = "display"
+tex = '\begin{aligned} u &= x + y \\ v &= x - y \end{aligned}'
+hard = "an aligned block inside an unnumbered display looks like align*"
+
+[[equation]]
+id = "gather_unnumbered"
+category = "alignment"
+tier = 2
+env = "gather*"
+tex = 'p + q = 1 \\ p q = r'
+
+# ---- accents ----------------------------------------------------------------------------------
+
+[[equation]]
+id = "hat_letters"
+category = "accents"
+tier = 1
+env = "inline"
+tex = '\hat{x} + \hat{\theta}'
+
+[[equation]]
+id = "widehat"
+category = "accents"
+tier = 2
+env = "display"
+tex = '\widehat{xyz}'
+
+[[equation]]
+id = "tilde_bar"
+category = "accents"
+tier = 1
+env = "inline"
+tex = '\tilde{a} + \bar{b}'
+
+[[equation]]
+id = "widetilde"
+category = "accents"
+tier = 2
+env = "display"
+tex = '\widetilde{ABC}'
+
+[[equation]]
+id = "vectors"
+category = "accents"
+tier = 2
+env = "display"
+tex = '\vec{v} \cdot \vec{w} = 0'
+
+[[equation]]
+id = "dots_over"
+category = "accents"
+tier = 2
+env = "display"
+tex = '\ddot{x} + \dot{x} + x = 0'
+
+[[equation]]
+id = "accent_stack"
+category = "accents"
+tier = 3
+env = "display"
+tex = '\hat{\bar{x}} \ne \overline{x}'
+hard = "stacked accents; \\bar and \\overline differ only in how the line is made"
+
+# ---- over and under -----------------------------------------------------------------------------
+
+[[equation]]
+id = "overline_conj"
+category = "decorations"
+tier = 2
+env = "display"
+tex = '\overline{z w} = \overline{z}\,\overline{w}'
+
+[[equation]]
+id = "underbrace"
+category = "decorations"
+tier = 3
+env = "display"
+tex = '\underbrace{1 + 1 + \cdots + 1}_{n}'
+hard = "a brace assembled from pieces and rules, with a label below"
+
+[[equation]]
+id = "overbrace"
+category = "decorations"
+tier = 3
+env = "display"
+tex = '\overbrace{a + b + c}^{3}'
+hard = "a brace assembled from pieces and rules, with a label above"
+
+[[equation]]
+id = "overset_def"
+category = "decorations"
+tier = 2
+env = "display"
+tex = 'A \overset{\mathrm{def}}{=} B'
+
+[[equation]]
+id = "underset_sim"
+category = "decorations"
+tier = 2
+env = "display"
+tex = 'f \underset{x \to 0}{\sim} g'
+
+[[equation]]
+id = "xrightarrow"
+category = "decorations"
+tier = 3
+env = "display"
+tex = 'A \xrightarrow{u} B \xrightarrow[\sim]{v} C'
+hard = "extensible arrows assembled from overlapping glyphs, with labels above and below"
+
+[[equation]]
+id = "stackrel"
+category = "decorations"
+tier = 2
+env = "display"
+tex = 'a \stackrel{?}{=} b'
+
+# ---- alphabets --------------------------------------------------------------------------------
+
+[[equation]]
+id = "blackboard"
+category = "alphabets"
+tier = 1
+env = "display"
+tex = '\mathbb{N} \subset \mathbb{Z} \subset \mathbb{Q} \subset \mathbb{R}'
+
+[[equation]]
+id = "calligraphic"
+category = "alphabets"
+tier = 1
+env = "inline"
+tex = '\mathcal{L}(V, W)'
+
+[[equation]]
+id = "fraktur"
+category = "alphabets"
+tier = 2
+env = "display"
+tex = '\mathfrak{g} = \mathfrak{sl}_2'
+
+[[equation]]
+id = "bold_vectors"
+category = "alphabets"
+tier = 2
+env = "display"
+tex = '\mathbf{x} \cdot \mathbf{y} = \mathbf{0}'
+
+[[equation]]
+id = "upright_d"
+category = "alphabets"
+tier = 3
+env = "display"
+tex = '\frac{\mathrm{d}y}{\mathrm{d}x}'
+hard = "upright d against italic d, a one-glyph font difference"
+
+[[equation]]
+id = "expectation"
+category = "alphabets"
+tier = 2
+env = "inline"
+tex = '\mathbb{E}[X] = \mu'
+
+[[equation]]
+id = "italic_word"
+category = "alphabets"
+tier = 3
+env = "display"
+tex = '\mathit{rank}(M) \ne rank(M)'
+hard = "a math-italic word and a product of letters differ only in kerning"
+
+# ---- text in math -----------------------------------------------------------------------------
+
+[[equation]]
+id = "text_and"
+category = "text"
+tier = 2
+env = "inline"
+tex = 'x \in A \text{ and } y \notin A'
+
+[[equation]]
+id = "text_for_all"
+category = "text"
+tier = 2
+env = "display"
+tex = '\text{for all } \varepsilon > 0'
+
+[[equation]]
+id = "text_subscript"
+category = "text"
+tier = 3
+env = "display"
+tex = 'x_{\text{max}} - x_{\text{min}}'
+hard = "\\text in a subscript sets the glyphs \\mathrm would"
+
+[[equation]]
+id = "text_quad"
+category = "text"
+tier = 2
+env = "display"
+tex = 'a = 0 \quad \text{or} \quad b = 0'
+
+# ---- Greek ------------------------------------------------------------------------------------
+
+[[equation]]
+id = "greek_lower"
+category = "greek"
+tier = 1
+env = "inline"
+tex = '\alpha + \beta + \gamma + \delta'
+
+[[equation]]
+id = "greek_variants"
+category = "greek"
+tier = 2
+env = "display"
+tex = '\varepsilon \ne \epsilon, \quad \varphi \ne \phi, \quad \vartheta \ne \theta'
+
+[[equation]]
+id = "gamma_function"
+category = "greek"
+tier = 1
+env = "display"
+tex = '\Gamma(n) = (n-1)!'
+
+[[equation]]
+id = "greek_upper_italic"
+category = "greek"
+tier = 3
+env = "display"
+tex = '\varDelta \ne \Delta'
+hard = "italic and upright capitals come from different fonts"
+
+[[equation]]
+id = "greek_run"
+category = "greek"
+tier = 1
+env = "inline"
+tex = '\lambda \mu \nu \xi \pi \rho \sigma \tau'
+
+# ---- relations --------------------------------------------------------------------------------
+
+[[equation]]
+id = "rel_order"
+category = "relations"
+tier = 1
+env = "inline"
+tex = 'a \le b \ge c \ne d'
+
+[[equation]]
+id = "rel_sets"
+category = "relations"
+tier = 1
+env = "inline"
+tex = 'A \subseteq B \cap C'
+
+[[equation]]
+id = "rel_congruence"
+category = "relations"
+tier = 3
+env = "display"
+tex = 'a \equiv b \pmod{n}'
+hard = "\\pmod adds its own spacing and parentheses"
+
+[[equation]]
+id = "rel_ams"
+category = "relations"
+tier = 2
+env = "display"
+tex = 'x \leqslant y \lesssim z'
+
+[[equation]]
+id = "rel_negated"
+category = "relations"
+tier = 3
+env = "display"
+tex = 'a \not\in B'
+hard = "a slash overprinted on a relation; \\notin is one glyph"
+
+[[equation]]
+id = "rel_orders"
+category = "relations"
+tier = 2
+env = "display"
+tex = 'f \prec g \preceq h \sim k \simeq l \cong m'
+
+# ---- arrows -----------------------------------------------------------------------------------
+
+[[equation]]
+id = "arrow_map"
+category = "arrows"
+tier = 1
+env = "inline"
+tex = 'f\colon X \to Y'
+
+[[equation]]
+id = "mapsto"
+category = "arrows"
+tier = 1
+env = "inline"
+tex = 'x \mapsto x^2'
+
+[[equation]]
+id = "implications"
+category = "arrows"
+tier = 2
+env = "display"
+tex = 'P \Rightarrow Q \iff \neg Q \Rightarrow \neg P'
+
+[[equation]]
+id = "long_arrows"
+category = "arrows"
+tier = 3
+env = "display"
+tex = 'A \longrightarrow B \longleftarrow C'
+hard = "each long arrow is two overlapping glyphs"
+
+[[equation]]
+id = "hook_onto"
+category = "arrows"
+tier = 2
+env = "display"
+tex = 'U \hookrightarrow V \twoheadrightarrow W'
+
+# ---- dots and primes --------------------------------------------------------------------------
+
+[[equation]]
+id = "cdots_sum"
+category = "dots_primes"
+tier = 1
+env = "inline"
+tex = '1 + 2 + \cdots + n'
+
+[[equation]]
+id = "ldots_list"
+category = "dots_primes"
+tier = 1
+env = "inline"
+tex = 'x_1, \ldots, x_n'
+
+[[equation]]
+id = "primes"
+category = "dots_primes"
+tier = 1
+env = "display"
+tex = '''f'(x) + f''(x)'''
+
+[[equation]]
+id = "prime_power"
+category = "dots_primes"
+tier = 3
+env = "display"
+tex = '''f'^{2} = (f')^2'''
+hard = "a prime and a superscript merge into one superscript"
+
+[[equation]]
+id = "nth_derivative"
+category = "dots_primes"
+tier = 2
+env = "display"
+tex = 'f^{(n)}(x)'
+
+[[equation]]
+id = "dots_auto"
+category = "dots_primes"
+tier = 3
+env = "inline"
+tex = 'a_1 + \dots + a_n'
+hard = "\\dots picks centred dots between binary operators, as \\cdots does"
+
+# ---- spacing ----------------------------------------------------------------------------------
+
+[[equation]]
+id = "spaces_named"
+category = "spacing"
+tier = 3
+env = "display"
+tex = 'a\,b\;c\quad d\qquad e'
+hard = "the spaces are invisible: only the gaps between glyphs say which they were"
+
+[[equation]]
+id = "neg_space"
+category = "spacing"
+tier = 3
+env = "display"
+tex = '\int\!\!\int f'
+hard = "negative spaces pull two signs together"
+
+[[equation]]
+id = "mathrel_custom"
+category = "spacing"
+tier = 3
+env = "display"
+tex = 'a \mathrel{\#} b'
+hard = "relation spacing around an ordinary symbol"
+
+[[equation]]
+id = "colon_spacing"
+category = "spacing"
+tier = 3
+env = "display"
+tex = '\{x : x > 0\}'
+hard = "a colon as a relation, against \\colon or \\mid"
+
+[[equation]]
+id = "mathop_custom"
+category = "spacing"
+tier = 3
+env = "display"
+tex = '\mathop{\mathrm{ess\,sup}}_{x} |f(x)|'
+hard = "a home-made operator name with limits below"
+
+# ---- paragraph pages ----------------------------------------------------------------------------
+#
+# Running text around equations of the list, so a region must be isolated from the words around
+# it. `{{id}}` places the equation `id` (in its own environment); the prose is plain text (no
+# backslashes or dollar signs); a line `{{columnbreak}}` moves to the next column.
+
+[[paragraph_page]]
+id = "onecol_a"
+columns = 1
+text = '''
+Consider a point on a circle, so that {{sup_squares}} holds for its coordinates. Halving and
+thirding a cake gives {{frac_text_style}} of it, which is easy to check. A geometric series
+{{sum_inline}} converges when the ratio is small, and the most famous relation of all reads
+{{equation_numbered}}
+where the constant is the speed of light. Nothing more is needed here, but the reader may wish
+to compare the last display with the one on the next page.
+'''
+
+[[paragraph_page]]
+id = "onecol_b"
+columns = 1
+text = '''
+The integral {{int_inline}} measures the area under the curve, and the limit
+{{lim_inline}} is the first one met in a course on calculus. When two points are close we write
+{{abs_epsilon}} and move on. The Kronecker symbol is defined by
+{{cases_numbered}}
+and it appears in almost every computation with coordinates. A short aligned computation
+closes the page:
+{{align_two}}
+'''
+
+[[paragraph_page]]
+id = "twocol_a"
+columns = 2
+text = '''
+The squaring map {{mapsto}} is a first example of a map {{arrow_map}} between sets, which
+sends each element somewhere. Greek letters such as {{greek_lower}} name angles in most books. The integers sit
+in a chain of number systems, and the next display is numbered:
+{{equation_numbered}}
+which ends the first column.
+{{columnbreak}}
+In the second column a list {{ldots_list}} of unknowns is solved by elimination, and the
+relations {{rel_order}} are read from left to right. A sum {{cdots_sum}} of the first numbers
+was found by a schoolboy.
+'''
+
+[[paragraph_page]]
+id = "twocol_b"
+columns = 2
+text = '''
+Logarithms turn products into sums: {{log_product}} for positive numbers. The determinant
+{{det_char}} gives the characteristic polynomial, and the binomial coefficient {{binom_inline}}
+counts balanced paths. Two equations, numbered, follow:
+{{gather_rows}}
+{{columnbreak}}
+Square roots such as {{sqrt_inline}} appear in running times. The expectation {{expectation}}
+of a random variable is its mean, and a ratio {{slash_fraction}} is often written with a slash.
+'''

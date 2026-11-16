@@ -1,0 +1,106 @@
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage[paperwidth=440bp,paperheight=340bp,margin=24bp]{geometry}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\newcommand*\pdfcraftbegin[1]{\special{pdfcraft:eq:#1:begin}}
+\newcommand*\pdfcraftend[1]{\special{pdfcraft:eq:#1:end}}
+\newcommand*\pdfcrafttag[1]{\special{pdfcraft:tag:#1}}
+% amsmath's \maketag@@@, with the equation number bracketed.
+\makeatletter
+\def\maketag@@@#1{\hbox{\m@th\normalfont\pdfcrafttag{begin}#1\pdfcrafttag{end}}}
+\makeatother
+\relpenalty=10000
+\binoppenalty=10000
+\sloppy
+\begin{document}
+\onecolumn
+Consider a point on a circle, so that $\pdfcraftbegin{sup_squares@onecol_a}
+x^2 + y^2 = r^2
+\pdfcraftend{sup_squares@onecol_a}$ holds for its coordinates. Halving and
+thirding a cake gives $\pdfcraftbegin{frac_text_style@onecol_a}
+\frac{1}{2} + \frac{1}{3} = \frac{5}{6}
+\pdfcraftend{frac_text_style@onecol_a}$ of it, which is easy to check. A geometric series
+$\pdfcraftbegin{sum_inline@onecol_a}
+\sum_{k=0}^{\infty} z^k
+\pdfcraftend{sum_inline@onecol_a}$ converges when the ratio is small, and the most famous relation of all reads
+\begin{equation}\pdfcraftbegin{equation_numbered@onecol_a}
+E = mc^2
+\pdfcraftend{equation_numbered@onecol_a}\end{equation}
+where the constant is the speed of light. Nothing more is needed here, but the reader may wish
+to compare the last display with the one on the next page.
+
+\clearpage
+\onecolumn
+The integral $\pdfcraftbegin{int_inline@onecol_b}
+\int_a^b g(t)\,dt
+\pdfcraftend{int_inline@onecol_b}$ measures the area under the curve, and the limit
+$\pdfcraftbegin{lim_inline@onecol_b}
+\lim_{x \to 0} \frac{\sin x}{x} = 1
+\pdfcraftend{lim_inline@onecol_b}$ is the first one met in a course on calculus. When two points are close we write
+$\pdfcraftbegin{abs_epsilon@onecol_b}
+|x - y| < \varepsilon
+\pdfcraftend{abs_epsilon@onecol_b}$ and move on. The Kronecker symbol is defined by
+\begin{equation}\pdfcraftbegin{cases_numbered@onecol_b}
+\delta_{ij} = \begin{cases} 1 & i = j \\ 0 & i \ne j \end{cases}
+\pdfcraftend{cases_numbered@onecol_b}\end{equation}
+and it appears in almost every computation with coordinates. A short aligned computation
+closes the page:
+\begin{align}\pdfcraftbegin{align_two@onecol_b}
+a &= b + c \\ d &= e - f
+\pdfcraftend{align_two@onecol_b}\end{align}
+
+\clearpage
+\twocolumn
+The squaring map $\pdfcraftbegin{mapsto@twocol_a}
+x \mapsto x^2
+\pdfcraftend{mapsto@twocol_a}$ is a first example of a map $\pdfcraftbegin{arrow_map@twocol_a}
+f\colon X \to Y
+\pdfcraftend{arrow_map@twocol_a}$ between sets, which
+sends each element somewhere. Greek letters such as $\pdfcraftbegin{greek_lower@twocol_a}
+\alpha + \beta + \gamma + \delta
+\pdfcraftend{greek_lower@twocol_a}$ name angles in most books. The integers sit
+in a chain of number systems, and the next display is numbered:
+\begin{equation}\pdfcraftbegin{equation_numbered@twocol_a}
+E = mc^2
+\pdfcraftend{equation_numbered@twocol_a}\end{equation}
+which ends the first column.
+\newpage
+
+In the second column a list $\pdfcraftbegin{ldots_list@twocol_a}
+x_1, \ldots, x_n
+\pdfcraftend{ldots_list@twocol_a}$ of unknowns is solved by elimination, and the
+relations $\pdfcraftbegin{rel_order@twocol_a}
+a \le b \ge c \ne d
+\pdfcraftend{rel_order@twocol_a}$ are read from left to right. A sum $\pdfcraftbegin{cdots_sum@twocol_a}
+1 + 2 + \cdots + n
+\pdfcraftend{cdots_sum@twocol_a}$ of the first numbers
+was found by a schoolboy.
+
+\clearpage
+\twocolumn
+Logarithms turn products into sums: $\pdfcraftbegin{log_product@twocol_b}
+\log(xy) = \log x + \log y
+\pdfcraftend{log_product@twocol_b}$ for positive numbers. The determinant
+$\pdfcraftbegin{det_char@twocol_b}
+\det(\lambda I - A)
+\pdfcraftend{det_char@twocol_b}$ gives the characteristic polynomial, and the binomial coefficient $\pdfcraftbegin{binom_inline@twocol_b}
+\binom{2m}{m}
+\pdfcraftend{binom_inline@twocol_b}$
+counts balanced paths. Two equations, numbered, follow:
+\begin{gather}\pdfcraftbegin{gather_rows@twocol_b}
+a = b \\ c = d + e
+\pdfcraftend{gather_rows@twocol_b}\end{gather}
+\newpage
+
+Square roots such as $\pdfcraftbegin{sqrt_inline@twocol_b}
+\sqrt{n}\log n
+\pdfcraftend{sqrt_inline@twocol_b}$ appear in running times. The expectation $\pdfcraftbegin{expectation@twocol_b}
+\mathbb{E}[X] = \mu
+\pdfcraftend{expectation@twocol_b}$
+of a random variable is its mean, and a ratio $\pdfcraftbegin{slash_fraction@twocol_b}
+1/(1+t)
+\pdfcraftend{slash_fraction@twocol_b}$ is often written with a slash.
+
+\clearpage
+\end{document}

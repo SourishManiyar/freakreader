@@ -4726,6 +4726,7 @@ dependencies = [
  "pdfcraft-cos",
  "pdfcraft-fonts",
  "pdfcraft-geom",
+ "pdfcraft-oracle",
  "pdfcraft-testkit",
  "serde",
  "skrifa 0.44.0",
