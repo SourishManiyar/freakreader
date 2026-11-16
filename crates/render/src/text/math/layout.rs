@@ -21,9 +21,9 @@
 //! not read (a matrix, an alignment, stacked material with no rule) is not guessed at: it is an error
 //! naming what was met.
 
-use super::MathPage;
 use super::ast::{FractionStyle, Limits, Node, Sizing, Space, Sym};
 use super::symbols::{self, Alphabet, Class, Compound, Kind, Lookup, Role, Symbol, SymbolTable};
+use super::{FontKind, MathPage};
 use std::collections::HashMap;
 
 /// Most glyphs read from one region.
@@ -330,6 +330,11 @@ pub fn recover_latex(page: &MathPage, region: [f32; 4], opts: &RecoverOptions) -
     Ok(Recovered { latex: node.to_latex(), ast: node, confidence, diagnostics: reader.diags })
 }
 
+/// `t`, at most eight characters, for a message.
+fn capped_text(t: &str) -> String {
+    t.chars().take(8).collect()
+}
+
 /// The style a large operator's size shows: its text-size glyph is the smaller one.
 fn style_evidence(els: &[El]) -> Option<Style> {
     els.iter().find_map(|e| match &e.what {
@@ -377,13 +382,16 @@ fn collect(page: &MathPage, region: [f32; 4], table: &'static SymbolTable) -> R<
         let font = page.fonts.get(g.font as usize);
         let name = font.and_then(|f| f.name.as_deref().or(f.base_font.as_deref())).unwrap_or("");
         let Some(family) = symbols::family_of(name).and_then(|f| table.family(&f)) else {
-            return Err(RecoverError {
-                kind: ErrorKind::UnknownSymbol,
-                diagnostics: vec![Diagnostic::new(
-                    Severity::Unknown,
-                    format!("font `{name}` is not a math font the symbol table knows (code {})", g.code),
-                )],
-            });
+            let message = if name.is_empty() && font.is_some_and(|f| f.kind == FontKind::Type3) {
+                // dvips and Ghostscript embed a font they had only as a bitmap (METAFONT's bbm, an
+                // old Computer Modern) as an unnamed Type 3 font: nothing says which font it is, and
+                // its text (`P` for bbm's blackboard P) is not to be trusted for mathematics.
+                let shown = g.text.as_deref().filter(|t| !t.is_empty()).map(|t| format!(", drawn as `{}`", capped_text(t))).unwrap_or_default();
+                format!("an unnamed bitmap (Type 3) font, which cannot be identified (code {}{shown})", g.code)
+            } else {
+                format!("font `{name}` is not a math font the symbol table knows (code {})", g.code)
+            };
+            return Err(RecoverError { kind: ErrorKind::UnknownSymbol, diagnostics: vec![Diagnostic::new(Severity::Unknown, message)] });
         };
         let what = match table.lookup_id(family, g.code) {
             Lookup::Known(sym) => What::Sym(sym),

@@ -92,7 +92,7 @@ fn a_formula_is_copied_with_how_sure_the_reader_is() {
     let mut h = harness(std::fs::read(oracle("equations.pdf")).unwrap());
     assert!(h.state_mut().execute("edit.copy_as_latex"));
     assert_eq!(h.state().quick_tool, pdfcraft_ui_egui::QuickTool::CopyAsLatex);
-    assert_eq!(notice(&h), "Drag a rectangle around a formula to copy its LaTeX");
+    assert_eq!(notice(&h), "Drag a rectangle around a formula to copy its LaTeX. Esc to finish.");
 
     // Confident: the bare body, and the notice says so with a preview.
     let copied = copy_equation(&mut h, "sup_squares");
@@ -134,7 +134,7 @@ fn a_formula_is_copied_with_how_sure_the_reader_is() {
     h.run_steps(1);
     h.drop_at(at(200.0, 100.0));
     h.run_steps(2);
-    assert_eq!(notice(&h), "Drag a rectangle around a formula to copy its LaTeX");
+    assert_eq!(notice(&h), "Drag a rectangle around a formula to copy its LaTeX. Esc to finish.");
     assert!(!h.state().latex_copy_running());
 }
 
@@ -160,4 +160,19 @@ fn a_document_that_withholds_copying_is_not_read() {
     let copied = copy_equation(&mut h, "sup_squares");
     assert!(copied.is_empty(), "{copied:?}");
     assert_eq!(notice(&h), "The document's security settings don't allow copying text and images");
+}
+
+/// Escape finishes the tool, back to selecting, and drops a formula still being read; V does too.
+#[test]
+fn escape_finishes_copy_as_latex() {
+    let mut h = harness(std::fs::read(oracle("equations.pdf")).unwrap());
+    for key in [egui::Key::Escape, egui::Key::V] {
+        assert!(h.state_mut().execute("edit.copy_as_latex"));
+        h.run_steps(2);
+        assert_eq!(h.state().quick_tool, pdfcraft_ui_egui::QuickTool::CopyAsLatex);
+        h.key_press(key);
+        h.run_steps(2);
+        assert_eq!(h.state().quick_tool, pdfcraft_ui_egui::QuickTool::Select, "{key:?}");
+        assert!(!h.state().latex_copy_running());
+    }
 }
