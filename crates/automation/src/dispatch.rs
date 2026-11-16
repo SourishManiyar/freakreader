@@ -75,6 +75,7 @@ impl Automation {
             "text_extract" => self.text_extract(&a)?,
             "text_word_count" => self.text_word_count(&a)?,
             "text_recover_latex" => self.text_recover_latex(&a)?,
+            "text_glyph_details" => self.text_glyph_details(&a)?,
             "text_find" => self.text_find(&a)?,
             "text_replace" => self.text_replace(&a)?,
             "page_rotate" => {

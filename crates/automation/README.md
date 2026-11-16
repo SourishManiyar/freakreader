@@ -63,6 +63,20 @@ Nothing is guessed. A rectangle that is not a box, a page that is not there and 
 open are errors; copy permission is required. Read-only. Bounds: 4000 glyphs and 2000 rules per region,
 nesting 32 deep. The scores against the math oracle, and what is read and what is not, are in
 `crates/render/tests/data/math/oracle/README.md`; the reader is `pdfcraft_render::text::math::layout`.
+## Glyph details for mathematics
+
+`text_glyph_details {doc, pages?}` reads pages glyph by glyph, beside the text layer (which it does
+not change): per glyph the character code, a font index (the page's `fonts` list base font, name
+without subset prefix, program kind and size), glyph id and name, Unicode (`text`, null with
+`unmapped: true` when there is none: text extraction drops such glyphs, this keeps them), the em size,
+the em box, the exact bounds of the outline (`ink`), the baseline segment and the writing direction;
+and per page the rules (thin axis-aligned filled rectangles and straight solid strokes: fraction bars,
+radical overlines, table lines). Coordinates are points from the top-left of the displayed page, in
+content order. Limits: 100,000 glyphs, 20,000 rules and 2,048 fonts per page (`capped: true`), 100,000
+glyphs per call in whole pages (`next_page`); a page that cannot be read fails the call. Symbols of
+fonts such as CMEX have private-use Unicode: key them by font name and code. Not a math parser; see
+`pdfcraft_render::text::math` for the record and `crates/render/tests/data/math` for the LaTeX test
+pages and the TeX-made ground truth they are checked against.
 
 ## Text search and cache limits
 
