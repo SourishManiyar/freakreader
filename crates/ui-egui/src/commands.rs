@@ -599,7 +599,7 @@ impl PdfCraftApp {
             }
             "edit.copy_as_latex" => {
                 self.quick_tool = crate::QuickTool::CopyAsLatex;
-                self.notify_tr("Drag a rectangle around a formula to copy its LaTeX");
+                self.notify_tr("Drag a rectangle around a formula to copy its LaTeX. Esc to finish.");
             }
             "edit.copy" => {
                 if let (Some(i), Some(ctx)) = (active, self.ctx.clone()) {

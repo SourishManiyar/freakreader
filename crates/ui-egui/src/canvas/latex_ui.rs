@@ -221,7 +221,7 @@ impl PdfCraftApp {
         self.cancel_latex_copy();
         let [x0, y0, x1, y1] = region;
         if !region.iter().all(|v| v.is_finite()) || x1 - x0 < MIN_SIDE || y1 - y0 < MIN_SIDE {
-            self.notify_tr("Drag a rectangle around a formula to copy its LaTeX");
+            self.notify_tr("Drag a rectangle around a formula to copy its LaTeX. Esc to finish.");
             return;
         }
         // The tool outlives the tab it was chosen on: a document that doesn't allow copying reads nothing.
@@ -518,7 +518,7 @@ mod tests {
             app.toast = None;
             app.start_latex_copy(0, 0, area);
             assert!(!app.latex_copy_running(), "{area:?}");
-            assert_eq!(said(&app), "Drag a rectangle around a formula to copy its LaTeX", "{area:?}");
+            assert_eq!(said(&app), "Drag a rectangle around a formula to copy its LaTeX. Esc to finish.", "{area:?}");
         }
         // A view or page that is not there is ignored.
         app.start_latex_copy(7, 0, [0.0, 0.0, 10.0, 10.0]);
