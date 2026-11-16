@@ -142,6 +142,9 @@ impl PdfCraftApp {
             "dark_gamma": self.dark_gamma,
             // Null follows the system's text scaling.
             "ui_scale": self.ui_scale,
+            "text_size": self.text_size,
+            "ui_font": self.ui_font,
+            "link_preview_size": self.link_preview_size,
             "flatten_fill_sign": self.flatten_fill_sign_on_save,
             "ask_to_lock_signatures": self.ask_to_lock_signatures,
             "fill_text_size": self.fill_text_size,
@@ -500,6 +503,12 @@ impl PdfCraftApp {
         });
         // Settings are untrusted: a size out of range follows the system instead.
         self.ui_scale = v["ui_scale"].as_f64().and_then(ui_scale::valid);
+        // Settings are untrusted: a size the menus don't offer keeps 100%.
+        let offered = |key: &str, sizes: &[u16]| v[key].as_u64().and_then(|n| u16::try_from(n).ok()).filter(|n| sizes.contains(n)).unwrap_or(100);
+        self.text_size = offered("text_size", &theme::TEXT_SIZES);
+        // Settings are untrusted: an unknown face, or one this build lacks, is Inter.
+        self.ui_font = serde_json::from_value::<theme::UiFont>(v["ui_font"].clone()).ok().filter(|f| f.available()).unwrap_or_default();
+        self.link_preview_size = offered("link_preview_size", &crate::canvas::link_peek::PREVIEW_SIZES);
         // Settings are untrusted: an unusable pattern keeps the default.
         if let Some(f) = v["date_format"].as_str() {
             let _ = self.session.set_date_format(f);
