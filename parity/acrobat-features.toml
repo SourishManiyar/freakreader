@@ -26,6 +26,18 @@ evidence = ["crates/engine/src/word_count.rs::word_count_filters_are_independent
 notes = "Unicode words and characters for the current snapshot; all or current page in GUI, selected pages headlessly. Desktop background work with cancellation. Optional semantic table/code/Figure and invisible-text exclusions; no OCR or visual layout classification. Unsupported structure remains counted and is reported. Mixed ActualText exclusions fail explicitly. See docs/word-count.md."
 
 [[feature]]
+id = "core.math-glyph-details"
+title = "Glyph-level page data for reading typeset mathematics"
+area = "A"
+tier = "P3"
+milestone = "none"
+status = "shipped"
+commands = []
+tools = ["text_glyph_details"]
+evidence = ["crates/render/tests/it/math_glyphs.rs::scripts_and_fractions_match_what_tex_typeset", "crates/render/tests/it/math_glyphs.rs::delimiters_and_radicals_match_what_tex_typeset", "crates/render/tests/it/math_glyphs.rs::symbols_and_arrays_match_what_tex_typeset", "crates/render/tests/it/math_glyphs.rs::the_richer_record_sits_beside_the_text_layer", "crates/render/src/text/math/tests.rs::a_glyph_without_unicode_is_kept_and_flagged_where_the_text_layer_drops_it", "crates/render/src/text/math/tests.rs::thin_filled_rectangles_and_straight_lines_are_rules_and_nothing_else_is", "crates/render/src/text/math/tests.rs::a_type3_glyphs_ink_is_what_its_procedure_paints", "crates/render/src/text/math/tests.rs::the_caps_stop_recording_and_say_so", "crates/render/src/text/math/tests.rs::a_panic_inside_the_interpreter_comes_back_as_an_error_and_the_renderer_goes_on", "crates/automation/tests/it/math_glyph_details.rs::a_latex_page_is_read_glyph_by_glyph", "crates/automation/tests/it/math_glyph_details.rs::a_glyph_the_text_layer_leaves_out_is_kept_and_flagged", "crates/automation/src/tests.rs::text_glyph_details_returns_whole_pages_within_one_glyph_budget"]
+notes = "Not an Acrobat feature: groundwork for recognising mathematics, which Acrobat does not do. Beside the text layer (unchanged), text_glyph_details records every glyph a page draws with its character code, font (base font as written, name without the subset prefix, program kind type1/cff/opentype/standard/type3 and size), glyph name (the font's encoding's, else a CFF charset's), Unicode if any, the size of its em, the exact bounds of its outline (of what its procedure paints, for a Type 3 glyph), its baseline segment and writing direction. A glyph with no Unicode is kept and flagged unmapped; text extraction still drops it. Rules are recorded too: thin (at most 4 pt, at least twice as long as thick) axis-aligned filled rectangles and single straight solid strokes, which is how pdfTeX draws fraction bars, radical overlines and table lines. Checked against three LaTeX pages (pdfTeX, Computer Modern) whose glyph and rule lists come from TeX's own DVI (`dvitype`), not from the PDF: same fonts, codes and positions to 0.02 pt and nothing extra. Bounded: 100,000 glyphs, 20,000 rules, 2,048 fonts and 20,000 measured Type 3 glyphs per page (the page says capped), 100,000 glyphs per call in whole pages (next_page); an interpreter panic is an error for that page. Limits: glyphs outside the crop box are left out; CMEX extensible pieces read as private-use Unicode, so key symbols by font name and code; Type 0 (CID) fonts have no glyph name (use glyph_id and text); no italic, bold or math-font flag (the font name says); a rule is judged by its shape alone, not its colour or a clip; /ActualText, exclusions and reading order are not applied. No math parser or recognition yet; no UI."
+
+[[feature]]
 id = "core.open-pdf"
 title = "Open PDF files"
 area = "A"
