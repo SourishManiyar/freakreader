@@ -708,7 +708,8 @@ pub fn nav_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
     let Some((index, id)) = app.active_ids() else { return };
     let Some(doc) = app.session.get(id) else { return };
     let page_count = doc.info.pages.len();
-    let labels: Vec<String> = doc.info.pages.iter().map(|p| p.label.clone()).collect();
+    // Borrowed: this runs every frame, and a document can have many thousands of pages.
+    let pages = &doc.info.pages;
     let dark = app.dark_documents();
     let mut toggle_dark = false;
     let Some(view) = app.views.get_mut(index) else { return };
@@ -744,7 +745,7 @@ pub fn nav_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 let reselect = std::mem::take(&mut view.page_input_reselect);
                 // Navigation updates the idle display, never the text being edited.
                 if !ui.memory(|m| m.has_focus(page_input_id)) {
-                    view.page_input = view.current_page_label(labels.get(view.current).map(String::as_str));
+                    view.page_input = view.current_page_label(pages.get(view.current).map(|p| p.label.as_str()));
                 } else if reselect {
                     // The replacement changed the label while egui retained this editor's cursor.
                     let mut state = egui::TextEdit::load_state(ui.ctx(), page_input_id).unwrap_or_default();
@@ -765,12 +766,12 @@ pub fn nav_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                         // A page label first (logical page numbers, as Acrobat), then a number.
                         let typed = view.page_input.clone();
-                        view.go_to_typed(&typed, &labels);
+                        view.go_to_typed(&typed, pages.iter().map(|p| p.label.as_str()));
                     }
-                    view.page_input = view.current_page_label(labels.get(view.current).map(String::as_str));
+                    view.page_input = view.current_page_label(pages.get(view.current).map(|p| p.label.as_str()));
                 }
                 // "of 45", or "2/45" when the page has a label of its own (shown in the field).
-                let position = page_position(view.current, page_count, labels.get(view.current).map_or("", String::as_str));
+                let position = page_position(view.current, page_count, pages.get(view.current).map_or("", |p| p.label.as_str()));
                 let shown = if view.current < page_count { view.current + 1 } else { page_count };
                 let of = crate::i18n::fmt(tl!("Page {p} of {n}"), &[("p", &shown.to_string()), ("n", &page_count.to_string())]);
                 let count = if position == page_count.to_string() { crate::i18n::fmt(tl!("of {n}"), &[("n", &position)]) } else { position };
@@ -1088,5 +1089,59 @@ mod tab_widths {
         assert_eq!(MAC_CONTENT_LEFT - lights_end, margin);
         // `egui::Margin` is in `i8`.
         assert!(MAC_CONTENT_LEFT <= f32::from(i8::MAX));
+    }
+}
+
+#[cfg(test)]
+mod nav_bar_cost {
+    use super::*;
+
+    /// A document of `pages` empty pages, each with its own page object.
+    fn pdf(pages: usize) -> Vec<u8> {
+        let kids: Vec<String> = (0..pages).map(|i| format!("{} 0 R", i + 3)).collect();
+        let mut out = format!(
+            "%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [{}] /Count {pages} /MediaBox [0 0 300 400] >> endobj\n",
+            kids.join(" ")
+        );
+        for i in 0..pages {
+            out.push_str(&format!("{} 0 obj << /Type /Page /Parent 2 0 R >> endobj\n", i + 3));
+        }
+        out.push_str("trailer << /Root 1 0 R >>\n%%EOF");
+        out.into_bytes()
+    }
+
+    /// The navigation bar's average frame on a document of `pages` pages, best of five rounds
+    /// (another process taking the CPU only ever adds time).
+    fn frame(pages: usize) -> std::time::Duration {
+        let mut app = PdfCraftApp::new();
+        app.open_bytes("pages.pdf", None, pdf(pages)).expect("opens");
+        let ctx = egui::Context::default();
+        let run = |app: &mut PdfCraftApp| {
+            let raw = egui::RawInput { screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(1440.0, 900.0))), ..Default::default() };
+            let mut output = ctx.run_ui(raw, |ui| nav_bar(app, ui));
+            output.textures_delta.clear();
+        };
+        for _ in 0..5 {
+            run(&mut app);
+        }
+        let mut best = std::time::Duration::MAX;
+        for _ in 0..5 {
+            let start = std::time::Instant::now();
+            for _ in 0..20 {
+                run(&mut app);
+            }
+            best = best.min(start.elapsed() / 20);
+        }
+        best
+    }
+
+    /// The navigation bar draws every frame: its cost must not grow with the document's page
+    /// count (it copied every page's label each frame).
+    #[test]
+    fn the_navigation_bar_costs_the_same_on_a_long_document() {
+        let small = frame(10);
+        let large = frame(20_000);
+        eprintln!("nav bar frame: 10 pages {small:?}, 20000 pages {large:?}");
+        assert!(large < small * 2 + std::time::Duration::from_micros(100), "10 pages {small:?}, 20000 pages {large:?}");
     }
 }

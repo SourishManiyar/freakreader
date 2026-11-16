@@ -611,7 +611,7 @@ fn page_label_input_keeps_current_page_when_submitted_unchanged() {
     assert_eq!(after.dirty, dirty, "navigation does not edit the PDF");
     assert_eq!(h.state().session.save_bytes(id).unwrap(), before_bytes, "navigation preserves saved PDF bytes");
     let mut empty = pdfcraft_ui_egui::canvas::DocView::new(pdfcraft_engine::DocId(0), &Default::default(), Default::default());
-    assert!(!empty.go_to_typed("1", &[]), "an empty view has no current page to retain");
+    assert!(!empty.go_to_typed("1", std::iter::empty::<&str>()), "an empty view has no current page to retain");
 }
 
 #[test]
