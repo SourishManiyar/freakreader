@@ -1,4 +1,5 @@
 use crate::font::blob::{CffFontBlob, Type1FontBlob};
+use crate::font::outline::{FontProgram, FontProgramKind};
 use crate::font::standard_font::{StandardFont, StandardKind, select_standard_font};
 use crate::font::true_type::{Width, read_encoding, read_widths};
 use crate::font::{
@@ -164,6 +165,28 @@ impl Type1Font {
             Kind::Standard(s) => s.code_to_ps_name(code),
             Kind::Cff(c) => c.code_to_ps_name(code),
             Kind::Type1(t) => t.code_to_ps_name(code),
+        }
+    }
+
+    /// PdfCraft patch (math extraction): the glyph name for `code` (the encoding's, else for a
+    /// CFF program the charset's name of glyph `gid`).
+    pub(crate) fn glyph_name(&self, code: u32, gid: GlyphId) -> Option<String> {
+        let by_code = u8::try_from(code).ok().and_then(|c| self.code_to_ps_name(c));
+        let name = match (&self.1, by_code) {
+            (_, Some(name)) => Some(name),
+            (Kind::Cff(c), None) => c.glyph_name_of(gid),
+            _ => None,
+        }?;
+        // `.notdef` is the absence of a name.
+        (name != ".notdef").then(|| name.to_string())
+    }
+
+    /// PdfCraft patch (math extraction): the program, of whatever kind.
+    pub(crate) fn font_program(&self) -> FontProgram {
+        match &self.1 {
+            Kind::Standard(_) => FontProgram { kind: FontProgramKind::Standard, data: None },
+            Kind::Cff(c) => FontProgram { kind: FontProgramKind::Cff, data: Some(c.font.font_data()) },
+            Kind::Type1(t) => FontProgram { kind: FontProgramKind::Type1, data: Some(t.font.font_data()) },
         }
     }
 }
@@ -339,6 +362,13 @@ impl CffKind {
             gid_to_name,
             standard_font,
         })
+    }
+
+    /// PdfCraft patch (math extraction): the charset's name of glyph `gid`.
+    fn glyph_name_of(&self, gid: GlyphId) -> Option<&str> {
+        self.gid_to_name
+            .get(usize::try_from(gid.to_u32()).ok()?)?
+            .as_deref()
     }
 
     fn map_code(&self, code: u8) -> GlyphId {

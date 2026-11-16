@@ -121,7 +121,7 @@ fn merge(drawn: &[Drawn], text: String) -> Option<Drawn> {
 
 /// The widest or tallest box (view-space points) a glyph, or the paint standing in for one, may
 /// have and still be placed: anything bigger is damage, not text.
-const MAX_GLYPH_EXTENT: f64 = 10_000.0;
+pub(super) const MAX_GLYPH_EXTENT: f64 = 10_000.0;
 
 /// The quarter turn of direction `(dx, dy)` (view space, y down): 0 right, 1 down, 2 left, 3 up.
 fn quarter_turn(dx: f64, dy: f64) -> usize {
@@ -401,6 +401,61 @@ impl TextDevice {
     }
 }
 
+/// Where one glyph sits in view space: its em box and writing direction, which `draw_glyph` and the
+/// math record (`math::GlyphDetail`) both read the same way.
+pub(super) struct Placed {
+    /// The glyph's advance in glyph space (1000 units per em).
+    pub(super) advance: f64,
+    /// The writing direction in view space (y down), not normalised.
+    pub(super) dx: f64,
+    pub(super) dy: f64,
+    /// The em box's corners as drawn, in the order `TextGlyph::quad` has them.
+    pub(super) corners: [kurbo::Point; 4],
+    /// The bounding box of `corners`.
+    pub(super) bounds: Rect,
+}
+
+/// The em box of `glyph` drawn with `t` (glyph space → view space). Glyph space uses 1000 units per
+/// em for outline glyphs; the em box spans descender (−200) to ascender (800), the advance gives the
+/// width.
+pub(super) fn place(glyph: &Glyph<'_>, t: Affine) -> Placed {
+    let advance = match glyph {
+        // A vertical font's advance runs down the column; across it, the glyph is as wide as
+        // its horizontal width w0, centred on the column by default (ISO 32000-2 §9.7.4.3). Taking
+        // the outline's width instead gave a column of Latin letters boxes of uneven widths,
+        // off its centre, and a narrow letter cut the line's gap allowance below the spacing
+        // of widely tracked text, so the column fell apart into lines.
+        Glyph::Outline(g) => g
+            .vertical_glyph_width()
+            .or_else(|| g.advance_width())
+            .filter(|a| a.is_finite() && *a > 0.0)
+            .map(f64::from)
+            .unwrap_or_else(|| g.outline().bounding_box().width().max(500.0)),
+        Glyph::Type3(g) => g.advance_width().filter(|a| a.is_finite() && *a > 0.0).map(f64::from).unwrap_or(600.0),
+    };
+    // The baseline direction in view space (y down).
+    let coefficients = t.as_coeffs();
+    let vertical = matches!(glyph, Glyph::Outline(g) if g.is_vertical());
+    let (dx, dy) = if vertical {
+        // PDF vertical fonts advance along negative glyph-space y (WMode 1), while
+        // keeping the glyph outline upright. Its x axis is not the writing direction.
+        (-coefficients[2], -coefficients[3])
+    } else {
+        (coefficients[0], coefficients[1])
+    };
+    let em = Rect::new(0.0, -200.0, advance, 800.0);
+    let corners = if vertical {
+        [(em.x0, em.y1), (em.x0, em.y0), (em.x1, em.y0), (em.x1, em.y1)]
+    } else {
+        [(em.x0, em.y0), (em.x1, em.y0), (em.x1, em.y1), (em.x0, em.y1)]
+    }
+    .map(|(x, y)| t * kurbo::Point::new(x, y));
+    let bounds = corners.iter().fold(Rect::new(f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY), |b, p| {
+        Rect::new(b.x0.min(p.x), b.y0.min(p.y), b.x1.max(p.x), b.y1.max(p.y))
+    });
+    Placed { advance, dx, dy, corners, bounds }
+}
+
 /// `text` with each Latin compatibility ligature (U+FB00–U+FB06: ff, fi, fl, ffi, ffl, long s t,
 /// st) written as the letters it stands for, their compatibility decomposition. A font whose
 /// encoding names a ligature glyph (`/fi`) reads as the ligature character, and copied or searched
@@ -491,40 +546,10 @@ impl<'a> Device<'a> for TextDevice {
             let kind = if matches!(glyph, Glyph::Type3(_)) { "t3" } else { "ol" };
             eprintln!("{kind} {text:?} transform={:?} glyph_transform={:?}", transform.as_coeffs(), glyph_transform.as_coeffs());
         }
-        let advance = match glyph {
-            // A vertical font's advance runs down the column; across it, the glyph is as wide as
-            // its horizontal width w0, centred on the column by default (ISO 32000-2 §9.7.4.3). Taking
-            // the outline's width instead gave a column of Latin letters boxes of uneven widths,
-            // off its centre, and a narrow letter cut the line's gap allowance below the spacing
-            // of widely tracked text, so the column fell apart into lines.
-            Glyph::Outline(g) => g
-                .vertical_glyph_width()
-                .or_else(|| g.advance_width())
-                .filter(|a| a.is_finite() && *a > 0.0)
-                .map(f64::from)
-                .unwrap_or_else(|| g.outline().bounding_box().width().max(500.0)),
-            Glyph::Type3(g) => g.advance_width().filter(|a| a.is_finite() && *a > 0.0).map(f64::from).unwrap_or(600.0),
-        };
-        // The baseline direction in view space (y down).
-        let coefficients = t.as_coeffs();
-        let (dx, dy) = if matches!(glyph, Glyph::Outline(g) if g.is_vertical()) {
-            // PDF vertical fonts advance along negative glyph-space y (WMode 1), while
-            // keeping the glyph outline upright. Its x axis is not the writing direction.
-            (-coefficients[2], -coefficients[3])
-        } else {
-            (coefficients[0], coefficients[1])
-        };
+        let placed = place(glyph, t);
+        let (dx, dy) = (placed.dx, placed.dy);
         let dir = quarter_turn(dx, dy);
-        let em = Rect::new(0.0, -200.0, advance, 800.0);
-        let corners = if matches!(glyph, Glyph::Outline(g) if g.is_vertical()) {
-            [(em.x0, em.y1), (em.x0, em.y0), (em.x1, em.y0), (em.x1, em.y1)]
-        } else {
-            [(em.x0, em.y0), (em.x1, em.y0), (em.x1, em.y1), (em.x0, em.y1)]
-        }
-        .map(|(x, y)| t * kurbo::Point::new(x, y));
-        let b = corners.iter().fold(Rect::new(f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY), |b, p| {
-            Rect::new(b.x0.min(p.x), b.y0.min(p.y), b.x1.max(p.x), b.y1.max(p.y))
-        });
+        let (corners, b) = (placed.corners, placed.bounds);
         let outside_crop = b.x0.max(self.page.x0) >= b.x1.min(self.page.x1) || b.y0.max(self.page.y0) >= b.y1.min(self.page.y1);
         if !(b.x0.is_finite() && b.y0.is_finite() && b.x1.is_finite() && b.y1.is_finite())
             || b.width() > MAX_GLYPH_EXTENT

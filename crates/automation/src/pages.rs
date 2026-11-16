@@ -24,6 +24,50 @@ pub(crate) const FIND_MAX_WARNING_BYTES: usize = 1024;
 /// it gets none. `html_truncated` covers this and any page whose own copy hit its caps.
 const MAX_EXTRACT_HTML_BYTES: usize = 32 << 20;
 
+/// Glyphs one `text_glyph_details` call returns across its pages. A page is never cut to fit: the
+/// call stops before the page that would pass it and says where to go on (`next_page`).
+const MAX_DETAIL_GLYPHS: usize = 100_000;
+
+/// Pages whose glyph details are read together, so a call that fills its budget on the first pages
+/// does not read the rest of a long document.
+const DETAIL_PAGES_PER_BATCH: usize = 4;
+
+/// `v` to three decimals: a thousandth of a point is finer than any glyph box, and `f32` read as
+/// `f64` shows noise (9.963000297546387).
+fn r3(v: f32) -> f64 {
+    (f64::from(v) * 1000.0).round() / 1000.0
+}
+
+fn r3s<const N: usize>(v: [f32; N]) -> Vec<f64> {
+    v.into_iter().map(r3).collect()
+}
+
+fn page_details_json(page: usize, d: &pdfcraft_render::text::math::MathPage) -> Value {
+    let fonts: Vec<Value> = d
+        .fonts
+        .iter()
+        .enumerate()
+        .map(|(i, f)| json!({ "index": i, "base_font": f.base_font, "name": f.name, "kind": f.kind.as_str(), "program_bytes": f.program_bytes }))
+        .collect();
+    let glyphs: Vec<Value> = d
+        .glyphs
+        .iter()
+        .map(|g| {
+            json!({
+                "code": g.code, "font": g.font, "glyph_id": g.glyph_id, "name": g.name, "text": g.text, "unmapped": g.unmapped,
+                "size": r3(g.size), "rect": r3s(g.rect), "ink": g.ink.map(r3s), "baseline": [r3s(g.baseline[0]), r3s(g.baseline[1])],
+                "direction": r3s(g.direction), "invisible": g.invisible,
+            })
+        })
+        .collect();
+    let rules: Vec<Value> = d
+        .rules
+        .iter()
+        .map(|r| json!({ "rect": r3s(r.rect), "thickness": r3(r.thickness), "horizontal": r.horizontal, "stroked": r.stroked }))
+        .collect();
+    json!({ "page": page + 1, "fonts": fonts, "glyphs": glyphs, "rules": rules, "truncated": d.truncated, "capped": d.capped })
+}
+
 impl Automation {
     // ---- pages and text ----------------------------------------------------------------------
 
@@ -202,6 +246,42 @@ impl Automation {
             "pages_without_text": report.pages_without_text,
             "unclassified_structure": report.unclassified_structure,
         }))
+    }
+
+    /// Glyph-level page data for reading mathematics (`text_glyph_details`), see
+    /// `pdfcraft_render::text::math`.
+    pub(crate) fn text_glyph_details(&self, a: &Args) -> Result<Value> {
+        self.text_glyph_details_within(a, MAX_DETAIL_GLYPHS)
+    }
+
+    /// [`Self::text_glyph_details`] with at most `budget` glyphs across the pages returned.
+    pub(crate) fn text_glyph_details_within(&self, a: &Args, budget: usize) -> Result<Value> {
+        let doc = self.doc_to_copy(a)?;
+        let pages = match a.opt_ints("pages")? {
+            Some(_) => self.pages(a, "pages")?,
+            None => (0..doc.info.pages.len()).collect(),
+        };
+        let (mut out, mut glyphs_left, mut next) = (Vec::new(), budget, None);
+        'batches: for batch in pages.chunks(DETAIL_PAGES_PER_BATCH) {
+            for (page, details) in pdfcraft_engine::glyph_detail::glyph_details(doc.export_source(), batch).map_err(failed)? {
+                // A page is whole or not there: stop before the one that passes the budget (the first
+                // page is always returned, so a call makes progress).
+                match glyphs_left.checked_sub(details.glyphs.len()) {
+                    Some(left) => glyphs_left = left,
+                    None if out.is_empty() => glyphs_left = 0,
+                    None => {
+                        next = Some(page);
+                        break 'batches;
+                    }
+                }
+                out.push(page_details_json(page, &details));
+            }
+        }
+        let mut result = json!({ "pages": out });
+        if let Some(next) = next {
+            result["next_page"] = json!(next + 1);
+        }
+        Ok(result)
     }
 
     pub(crate) fn text_extract(&mut self, a: &Args) -> Result<Value> {

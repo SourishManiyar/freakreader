@@ -64,9 +64,32 @@ pub(crate) fn strip_subset_prefix(name: &str) -> &str {
     }
 }
 
+/// PdfCraft patch (math extraction): the longest `/BaseFont` (bytes) a glyph reports; a hostile
+/// file can name a font in megabytes, and every glyph of it would carry the name.
+const MAX_BASE_FONT_LEN: usize = 256;
+
+/// PdfCraft patch (math extraction): the name of the font program a font dictionary draws with,
+/// as `/BaseFont` gives it. A Type 0 font's own `/BaseFont` may carry its CMap's name after the
+/// font's (`CMMI10-Identity-H`), so the descendant's is read. A Type 3 font has no `/BaseFont`;
+/// the obsolete `/Name` stands in for it.
+fn base_font_name(dict: &Dict<'_>, subtype: &[u8]) -> Option<Arc<str>> {
+    let name_of = |d: &Dict<'_>, key| d.get::<Name<'_>>(key).map(|n| n.as_str().to_string());
+    let name = match subtype {
+        TYPE0 => dict
+            .get::<hayro_syntax::object::Array<'_>>(DESCENDANT_FONTS)
+            .and_then(|a| a.iter::<Dict<'_>>().next())
+            .and_then(|d| name_of(&d, BASE_FONT))
+            .or_else(|| name_of(dict, BASE_FONT)),
+        TYPE3 => name_of(dict, NAME),
+        _ => name_of(dict, BASE_FONT),
+    }?;
+    let end = name.floor_char_boundary(MAX_BASE_FONT_LEN.min(name.len()));
+    Some(Arc::from(&name[..end]))
+}
+
 use crate::util::hash128;
 use hayro_cmap::{BfString, CMap, CMapName, CharacterCollection};
-pub use outline::OutlineFontData;
+pub use outline::{FontProgram, FontProgramKind, OutlineFontData};
 pub use standard_font::StandardFont;
 
 /// A glyph that can be drawn.
@@ -113,6 +136,54 @@ impl Glyph<'_> {
             Glyph::Type3(g) => g.as_unicode(),
         }
     }
+
+    /// PdfCraft patch (math extraction): the character code the content stream showed (one byte
+    /// for a simple font, the CMap's code for a Type 0 font). TeX math fonts (CMMI, CMSY, CMEX)
+    /// identify their symbols by this code.
+    pub fn char_code(&self) -> u32 {
+        match self {
+            Glyph::Outline(g) => g.char_code(),
+            Glyph::Type3(g) => g.char_code(),
+        }
+    }
+
+    /// PdfCraft patch (math extraction): identifies the glyph's font, whatever its kind; glyphs
+    /// of one font share it (what [`OutlineGlyph::font_cache_key`] gives for outline fonts).
+    pub fn font_cache_key(&self) -> u128 {
+        match self {
+            Glyph::Outline(g) => g.font_cache_key(),
+            Glyph::Type3(g) => g.font_cache_key(),
+        }
+    }
+
+    /// PdfCraft patch (math extraction): the font program (kind and bytes) of an outline glyph;
+    /// `None` for a Type 3 glyph, which is drawn by its own procedures.
+    pub fn font_program(&self) -> Option<FontProgram> {
+        match self {
+            Glyph::Outline(g) => Some(g.font_program()),
+            Glyph::Type3(_) => None,
+        }
+    }
+
+    /// PdfCraft patch (math extraction): the font dictionary's `/BaseFont`, as written, subset
+    /// prefix included (`ABCDEF+CMMI10`); for a Type 0 font the descendant's, which names the
+    /// font program. `None` for a Type 3 font (it has none) and for a font that names none.
+    pub fn base_font(&self) -> Option<&str> {
+        match self {
+            Glyph::Outline(g) => g.base_font(),
+            Glyph::Type3(g) => g.base_font(),
+        }
+    }
+
+    /// PdfCraft patch (math extraction): the glyph's name, as the font's `/Encoding` (with its
+    /// `/Differences`) or built-in encoding gives it for the character code (`alpha`, `summationtext`).
+    /// `None` when the font has no name for the code, as a Type 0 font has none.
+    pub fn glyph_name(&self) -> Option<String> {
+        match self {
+            Glyph::Outline(g) => g.glyph_name(),
+            Glyph::Type3(g) => g.glyph_name(),
+        }
+    }
 }
 
 /// An identifier that uniquely identifies a glyph, for caching purposes.
@@ -134,6 +205,8 @@ pub struct OutlineGlyph {
     pub(crate) id: GlyphId,
     pub(crate) font: OutlineFont,
     pub(crate) char_code: u32,
+    /// PdfCraft patch (math extraction): the font dictionary's `/BaseFont`, see [`Glyph::base_font`].
+    pub(crate) base_font: Option<Arc<str>>,
 }
 
 impl OutlineGlyph {
@@ -171,6 +244,31 @@ impl OutlineGlyph {
     /// Get the glyph ID within the font.
     pub fn glyph_id(&self) -> GlyphId {
         self.id
+    }
+
+    /// PdfCraft patch (math extraction): the character code the content stream showed.
+    pub fn char_code(&self) -> u32 {
+        self.char_code
+    }
+
+    /// PdfCraft patch (math extraction): see [`Glyph::base_font`].
+    pub fn base_font(&self) -> Option<&str> {
+        self.base_font.as_deref()
+    }
+
+    /// PdfCraft patch (math extraction): see [`Glyph::glyph_name`]. A CFF font program without
+    /// an encoding entry for the code names the glyph by its charset.
+    pub fn glyph_name(&self) -> Option<String> {
+        self.font.glyph_name(self.char_code, self.id)
+    }
+
+    /// PdfCraft patch (math extraction): the font program this glyph is drawn from, of whatever
+    /// kind. Unlike [`font_data`](Self::font_data), which stays `None` for a Type 1 font so that
+    /// every caller of it still gets an OpenType or CFF program, this names the kind of the bytes
+    /// (a Type 1 program is not an sfnt and no parser for one may be given it) and holds
+    /// Type 1 programs too.
+    pub fn font_program(&self) -> FontProgram {
+        self.font.font_program()
     }
 
     /// PdfCraft patch: whether this glyph belongs to a vertical-writing Type0 font.
@@ -221,6 +319,8 @@ pub struct Type3Glyph<'a> {
     pub(crate) settings: InterpreterSettings,
     pub(crate) nesting_depth: u32,
     pub(crate) char_code: u32,
+    /// PdfCraft patch (math extraction): the font's `/Name`, see [`Type3Glyph::base_font`].
+    pub(crate) base_font: Option<Arc<str>>,
 }
 
 /// A glyph defined by PDF drawing instructions.
@@ -250,6 +350,29 @@ impl<'a> Type3Glyph<'a> {
     pub fn advance_width(&self) -> Option<f32> {
         u8::try_from(self.char_code).ok().map(|c| self.font.glyph_width(c))
     }
+
+    /// PdfCraft patch (math extraction): the character code the content stream showed.
+    pub fn char_code(&self) -> u32 {
+        self.char_code
+    }
+
+    /// PdfCraft patch (math extraction): a Type 3 font dictionary has no `/BaseFont` (Table 110),
+    /// so this is the `/Name` it may carry (obsolete, but TeX's dvips writes one), or `None`.
+    pub fn base_font(&self) -> Option<&str> {
+        self.base_font.as_deref()
+    }
+
+    /// PdfCraft patch (math extraction): identifies the font (not the glyph, as the
+    /// [`CacheKey`] of the glyph does), as [`OutlineGlyph::font_cache_key`] does for outline fonts.
+    pub fn font_cache_key(&self) -> u128 {
+        self.font.cache_key()
+    }
+
+    /// PdfCraft patch (math extraction): the glyph name `/Encoding` gives the code, which is also
+    /// the name of its glyph procedure in `/CharProcs`.
+    pub fn glyph_name(&self) -> Option<String> {
+        u8::try_from(self.char_code).ok().and_then(|c| self.font.glyph_name(c)).map(str::to_string)
+    }
 }
 
 impl CacheKey for Type3Glyph<'_> {
@@ -259,7 +382,7 @@ impl CacheKey for Type3Glyph<'_> {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct Font<'a>(u128, FontType<'a>);
+pub(crate) struct Font<'a>(u128, FontType<'a>, Option<Arc<str>>);
 
 impl<'a> Font<'a> {
     pub(crate) fn new(
@@ -297,7 +420,7 @@ impl<'a> Font<'a> {
 
         let cache_key = dict.cache_key();
 
-        Some(Self(cache_key, f_type))
+        Some(Self(cache_key, f_type, base_font_name(dict, subtype)))
     }
 
     /// PdfCraft patch (90): whether this is a Type 3 font without `/Widths` (or
@@ -312,7 +435,11 @@ impl<'a> Font<'a> {
     ) -> Option<Self> {
         let font = Type1Font::new_standard(standard_font, font_resolver)?;
 
-        Some(Self(0, FontType::Type1(Rc::new(font))))
+        Some(Self(
+            0,
+            FontType::Type1(Rc::new(font)),
+            Some(Arc::from(standard_font.as_str())),
+        ))
     }
 
     pub(crate) fn map_code(&self, code: u32) -> GlyphId {
@@ -355,6 +482,7 @@ impl<'a> Font<'a> {
                     id: glyph,
                     font,
                     char_code,
+                    base_font: self.2.clone(),
                 })
             }
             FontType::TrueType(t) => {
@@ -363,6 +491,7 @@ impl<'a> Font<'a> {
                     id: glyph,
                     font,
                     char_code,
+                    base_font: self.2.clone(),
                 })
             }
             FontType::Type0(t) => {
@@ -371,6 +500,7 @@ impl<'a> Font<'a> {
                     id: glyph,
                     font,
                     char_code,
+                    base_font: self.2.clone(),
                 })
             }
             FontType::Type3(t) => {
@@ -385,6 +515,7 @@ impl<'a> Font<'a> {
                     settings: ctx.settings.clone(),
                     nesting_depth,
                     char_code,
+                    base_font: self.2.clone(),
                 };
 
                 Glyph::Type3(Box::new(shape_glyph))

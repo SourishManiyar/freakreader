@@ -23,7 +23,7 @@ type CffFontYoke = Yoke<CFFYoke<'static>, FontData>;
 
 /// A font blob for type 1 fonts.
 #[derive(Clone)]
-pub(crate) struct Type1FontBlob(Arc<Type1Font>);
+pub(crate) struct Type1FontBlob(Arc<Type1Font>, FontData);
 
 impl Debug for Type1FontBlob {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -34,7 +34,14 @@ impl Debug for Type1FontBlob {
 impl Type1FontBlob {
     pub(crate) fn new(data: FontData) -> Option<Self> {
         let table = Type1Font::new(data.as_ref().as_ref()).ok()?;
-        Some(Self(Arc::new(table)))
+        // PdfCraft patch (math extraction): the program's bytes stay (a shared handle, not a
+        // copy) so `OutlineGlyph::font_program` can hand them out.
+        Some(Self(Arc::new(table), data))
+    }
+
+    /// PdfCraft patch (math extraction): the program as embedded.
+    pub(crate) fn font_data(&self) -> FontData {
+        self.1.clone()
     }
 
     pub(crate) fn table(&self) -> &Type1Font {

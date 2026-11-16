@@ -242,6 +242,11 @@ impl<'a> Type3<'a> {
     }
 
     /// PdfCraft patch: the glyph name `/Encoding` gives a code, as `map_code` reads it.
+    pub(crate) fn glyph_name(&self, code: u8) -> Option<&str> {
+        self.code_to_name(code)
+    }
+
+    /// PdfCraft patch: the glyph name `/Encoding` gives a code, as `map_code` reads it.
     fn code_to_name(&self, code: u8) -> Option<&str> {
         self.encodings
             .get(&code)
