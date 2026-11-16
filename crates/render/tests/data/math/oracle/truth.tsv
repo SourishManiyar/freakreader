@@ -120,6 +120,63 @@ E	neg_space	neg_space	equations	116	spacing	3	display	alone	197.012	30.908	222.9
 E	mathrel_custom	mathrel_custom	equations	117	spacing	3	display	alone	198.260	34.949	221.740	43.905	a \mathrel{\#} b
 E	colon_spacing	colon_spacing	equations	118	spacing	3	display	alone	185.991	34.395	234.009	44.459	\{x : x > 0\}
 E	mathop_custom	mathop_custom	equations	119	spacing	3	display	alone	182.182	34.395	237.818	49.883	\mathop{\mathrm{ess\,sup}}_{x} |f(x)|
+E	ho_sup_cubic	ho_sup_cubic	equations	120	scripts	1	inline	alone	19.950	21.803	76.711	30.843	u^3 - v^3 = w^3
+E	ho_sub_double	ho_sub_double	equations	121	scripts	1	display	alone	195.059	34.751	224.443	45.787	b_{p}^{q} + c_{r}^{s}
+E	ho_sup_neg	ho_sup_neg	equations	122	scripts	1	inline	alone	19.950	21.803	68.584	30.843	10^{-6} + k^{-1}
+E	ho_sub_chain	ho_sub_chain	equations	123	scripts	2	display	alone	189.070	36.056	229.933	45.428	y_{m_{l}} + z_{n_{p}}
+E	ho_sup_tower3	ho_sup_tower3	equations	124	scripts	2	display	alone	203.280	31.537	215.724	41.968	3^{3^{3}}
+E	ho_sup_euler	ho_sup_euler	equations	125	scripts	2	display	alone	169.291	32.911	250.709	42.799	e^{i\theta} = \cos\theta + i\sin\theta
+E	ho_frac_basic	ho_frac_basic	equations	126	fractions	1	display	alone	198.393	30.908	221.607	52.332	\frac{x-y}{x+y}
+E	ho_frac_inline	ho_frac_inline	equations	127	fractions	1	inline	alone	21.145	21.495	43.756	33.449	\frac{3}{4} + \frac{1}{8}
+E	ho_frac_nested2	ho_frac_nested2	equations	128	fractions	2	display	alone	206.593	30.908	213.407	55.525	\frac{\frac{a}{b}}{\frac{c}{d}}
+E	ho_frac_scripts	ho_frac_scripts	equations	129	fractions	2	display	alone	192.337	30.908	227.663	54.630	\frac{x^2}{y_1} + \frac{z^{n}}{w}
+E	ho_binom_big	ho_binom_big	equations	130	fractions	2	display	alone	184.304	30.908	234.500	54.920	\binom{N}{r} = \frac{N!}{r!}
+E	ho_frac_pair	ho_frac_pair	equations	131	fractions	2	display	alone	191.712	30.908	228.288	51.834	\frac{1}{2\pi}\frac{u+v}{u-v}
+E	ho_sqrt_x	ho_sqrt_x	equations	132	radicals	1	display	alone	202.951	33.807	217.049	43.870	\sqrt{x}
+E	ho_sqrt_sum	ho_sqrt_sum	equations	133	radicals	2	display	alone	179.161	31.684	240.839	43.740	\sqrt{a^2 + b^2 + c^2}
+E	ho_sqrt_root4	ho_sqrt_root4	equations	134	radicals	2	display	alone	201.201	34.775	219.422	44.839	\sqrt[4]{p q}
+E	ho_sqrt_nested	ho_sqrt_nested	equations	135	radicals	2	display	alone	189.748	31.307	230.253	49.341	\sqrt{2 + \sqrt{3}}
+E	ho_sqrt_frac	ho_sqrt_frac	equations	136	radicals	3	display	alone	192.573	31.307	227.427	55.318	\sqrt{\frac{x}{y+1}}
+E	ho_sum_limits	ho_sum_limits	equations	137	bigops	2	display	alone	196.889	31.905	222.613	61.207	\sum_{k=1}^{N} k^2
+E	ho_prod_inline	ho_prod_inline	equations	138	bigops	2	inline	alone	19.950	21.900	52.609	33.002	\prod_{i=1}^{n} a_i
+E	ho_bigcap	ho_bigcap	equations	139	bigops	2	display	alone	196.552	31.406	222.950	55.230	\bigcap_{j \in J} U_j
+E	ho_bigvee	ho_bigvee	equations	140	bigops	2	display	alone	182.531	31.406	236.971	53.723	\bigvee_{i} p_i \le \bigwedge_{i} q_i
+E	ho_int_basic	ho_int_basic	equations	141	integrals	1	inline	alone	19.950	21.347	61.693	33.555	\int_0^\pi \sin t\,dt
+E	ho_int_display	ho_int_display	equations	142	integrals	2	display	alone	152.959	30.908	267.041	56.027	\int_{a}^{b} h(s)\,ds = H(b) - H(a)
+E	ho_int_inf	ho_int_inf	equations	143	integrals	2	display	alone	177.892	30.908	242.108	55.017	\int_{-\infty}^{\infty} \frac{1}{1+x^2}\,dx
+E	ho_oint	ho_oint	equations	144	integrals	2	display	alone	190.530	30.908	229.470	53.647	\oint_C F \cdot dr
+E	ho_lim_basic	ho_lim_basic	equations	145	operators	2	display	alone	165.196	30.908	253.609	52.055	\lim_{h \to 0} \frac{f(x+h) - f(x)}{h}
+E	ho_sup_abs	ho_sup_abs	equations	146	operators	2	display	alone	190.624	34.395	229.376	51.640	\sup_{t \ge 0} |g(t)|
+E	ho_ln_inline	ho_ln_inline	equations	147	operators	1	inline	alone	19.950	22.440	76.685	32.504	\ln(1+z) \le z
+E	ho_det_prod	ho_det_prod	equations	148	operators	2	display	alone	180.064	31.406	239.438	53.723	\det A = \prod_i \lambda_i
+E	ho_paren_script	ho_paren_script	equations	149	delimiters	2	display	alone	188.204	30.908	231.298	56.951	\left( \frac{p}{q+1} \right)^2
+E	ho_brackets	ho_brackets	equations	150	delimiters	1	inline	alone	19.950	22.440	72.298	32.504	[a, b] \cup (c, d)
+E	ho_big_sizes	ho_big_sizes	equations	151	delimiters	3	display	alone	188.315	30.410	231.685	48.444	\bigl[ \Bigl( u \Bigr) - v \bigr]
+E	ho_abs_three	ho_abs_three	equations	152	delimiters	1	inline	alone	19.950	22.440	80.405	32.504	|u| \le |v| + |w|
+E	ho_angle_int	ho_angle_int	equations	153	delimiters	2	display	alone	180.625	30.908	239.375	53.149	\langle f, g \rangle = \int f g
+E	ho_floor_half	ho_floor_half	equations	154	delimiters	2	inline	alone	19.950	22.440	44.849	32.504	\lfloor n/2 \rfloor
+E	ho_greek_mix	ho_greek_mix	equations	155	greek	1	inline	alone	19.950	21.803	68.329	31.950	\sigma^2 + \omega + \psi
+E	ho_greek_caps	ho_greek_caps	equations	156	greek	1	display	alone	195.421	35.060	224.579	41.968	\Sigma \Omega \Psi \Lambda
+E	ho_greek_var	ho_greek_var	equations	157	greek	2	display	alone	179.090	34.949	240.910	43.905	\varrho \ne \rho, \quad \varsigma \ne \sigma
+E	ho_rel_order	ho_rel_order	equations	158	relations	1	inline	alone	19.950	22.994	83.308	31.950	x \ge y \le z \neq w
+E	ho_rel_sets	ho_rel_sets	equations	159	relations	1	inline	alone	19.950	23.104	69.915	31.950	P \subset Q \supseteq R
+E	ho_rel_approx	ho_rel_approx	equations	160	relations	2	display	alone	180.505	34.949	239.495	41.968	a \approx b \sim c \equiv d
+E	ho_blackboard	ho_blackboard	equations	161	alphabets	1	inline	alone	19.950	23.049	47.724	30.403	\mathbb{C} \supset \mathbb{R}
+E	ho_calligraphic	ho_calligraphic	equations	162	alphabets	1	inline	alone	19.950	22.440	66.999	32.504	\mathcal{F}(X) \to \mathcal{G}
+E	ho_bold_vec	ho_bold_vec	equations	163	alphabets	2	display	alone	186.717	36.056	233.283	42.799	\mathbf{u} + \mathbf{v} = \mathbf{w}
+E	ho_arrow_map	ho_arrow_map	equations	164	arrows	1	inline	alone	19.950	23.104	63.381	31.950	g \colon A \to B
+E	ho_arrow_impl	ho_arrow_impl	equations	165	arrows	2	display	alone	187.158	37.578	232.842	43.905	p \Rightarrow q \Leftarrow r
+E	ho_dots_sum	ho_dots_sum	equations	166	dots_primes	1	inline	alone	19.950	24.101	100.010	31.508	a_0 + a_1 + \cdots + a_m
+E	ho_prime_double	ho_prime_double	equations	167	dots_primes	1	display	alone	181.366	33.879	238.634	44.459	g''(x) - g'(x)
+E	ho_text_where	ho_text_where	equations	168	text	2	inline	alone	19.950	22.994	99.023	31.950	y = 0 \text{ where } z > 0
+E	ho_text_sub	ho_text_sub	equations	169	text	3	display	alone	189.464	36.056	230.038	43.463	v_{\text{in}} + v_{\text{out}}
+E	ho_pmatrix	ho_pmatrix	equations	170	matrices	2	display	alone	192.653	30.908	227.347	54.920	\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}
+E	ho_cases_step	ho_cases_step	equations	171	cases	2	display	alone	169.655	30.908	249.150	60.898	h(x) = \begin{cases} 0 & x < 0 \\ 1 & x \ge 0 \end{cases}
+E	ho_hat_bar	ho_hat_bar	equations	172	accents	1	inline	alone	19.950	22.994	43.291	30.843	\hat{u} + \bar{v}
+E	ho_vec_dot	ho_vec_dot	equations	173	accents	2	display	alone	200.957	32.121	219.538	41.968	\vec{a} \cdot \vec{b}
+E	ho_overline	ho_overline	equations	174	decorations	2	display	alone	192.936	33.355	227.064	41.968	\overline{a b} = \overline{a}\,\overline{b}
+E	ho_align_two	ho_align_two	equations	175	alignment	2	align	alone	189.925	46.018	230.075	66.875	p &= q + r \\ s &= t
+E	ho_spacing_thin	ho_spacing_thin	equations	176	spacing	3	display	alone	199.336	34.949	220.664	43.905	f\,g\;h
 E	sup_squares@onecol_a	sup_squares	paragraphs	0	scripts	1	inline	1col	187.887	25.803	243.910	35.950	x^2 + y^2 = r^2
 E	frac_text_style@onecol_a	frac_text_style	paragraphs	0	fractions	1	inline	1col	118.871	37.450	161.894	49.404	\frac{1}{2} + \frac{1}{3} = \frac{5}{6}
 E	sum_inline@onecol_a	sum_inline	paragraphs	0	bigops	2	inline	1col	378.811	37.409	415.552	48.957	\sum_{k=0}^{\infty} z^k
@@ -1292,6 +1349,473 @@ G	equations	119	mathop_custom	cmr10	655360	40	9838146	-1978859
 G	equations	119	mathop_custom	cmmi10	655360	120	10093009	-1978859
 G	equations	119	mathop_custom	cmr10	655360	41	10467565	-1978859
 G	equations	119	mathop_custom	cmsy10	655360	106	10722428	-1978859
+G	equations	120	ho_sup_cubic	cmmi10	655360	117	-3420651	-2765291
+G	equations	120	ho_sup_cubic	cmr7	458752	51	-3045485	-3003116
+G	equations	120	ho_sup_cubic	cmsy10	655360	0	-2605850	-2765291
+G	equations	120	ho_sup_cubic	cmmi10	655360	118	-1950492	-2765291
+G	equations	120	ho_sup_cubic	cmr7	458752	51	-1609311	-3003116
+G	equations	120	ho_sup_cubic	cmr10	655360	61	-1133268	-2765291
+G	equations	120	ho_sup_cubic	cmmi10	655360	119	-441502	-2765291
+G	equations	120	ho_sup_cubic	cmr7	458752	51	45316	-3003116
+G	equations	121	ho_sub_double	cmmi10	655360	98	8098384	-1978859
+G	equations	121	ho_sub_double	cmmi7	458752	113	8379642	-2249452
+G	equations	121	ho_sub_double	cmmi7	458752	112	8379642	-1816843
+G	equations	121	ho_sub_double	cmr10	655360	43	8828204	-1978859
+G	equations	121	ho_sub_double	cmmi10	655360	99	9483562	-1978859
+G	equations	121	ho_sub_double	cmmi7	458752	115	9767173	-2249452
+G	equations	121	ho_sub_double	cmmi7	458752	114	9767173	-1816843
+G	equations	122	ho_sup_neg	cmr10	655360	49	-3420651	-2765291
+G	equations	122	ho_sup_neg	cmr10	655360	48	-3092970	-2765291
+G	equations	122	ho_sup_neg	cmsy7	458752	0	-2765289	-3003116
+G	equations	122	ho_sup_neg	cmr7	458752	54	-2355688	-3003116
+G	equations	122	ho_sup_neg	cmr10	655360	43	-1916053	-2765291
+G	equations	122	ho_sup_neg	cmmi10	655360	107	-1260695	-2765291
+G	equations	122	ho_sup_neg	cmsy7	458752	0	-898881	-3003116
+G	equations	122	ho_sup_neg	cmr7	458752	49	-489280	-3003116
+G	equations	123	ho_sub_chain	cmmi10	655360	121	7704410	-1978859
+G	equations	123	ho_sub_chain	cmmi7	458752	109	8025721	-1880556
+G	equations	123	ho_sub_chain	cmmi5	327680	108	8490772	-1811015
+G	equations	123	ho_sub_chain	cmr10	655360	43	8859334	-1978859
+G	equations	123	ho_sub_chain	cmmi10	655360	122	9514692	-1978859
+G	equations	123	ho_sub_chain	cmmi7	458752	110	9819467	-1880556
+G	equations	123	ho_sub_chain	cmmi5	327680	112	10143433	-1815020
+G	equations	124	ho_sup_tower3	cmr10	655360	51	8639154	-1978859
+G	equations	124	ho_sup_tower3	cmr7	458752	51	8966835	-2249452
+G	equations	124	ho_sup_tower3	cmr5	327680	51	9228070	-2447226
+G	equations	125	ho_sup_euler	cmmi10	655360	101	6403315	-1978859
+G	equations	125	ho_sup_euler	cmmi7	458752	105	6708468	-2249452
+G	equations	125	ho_sup_euler	cmmi7	458752	18	6893888	-2249452
+G	equations	125	ho_sup_euler	cmr10	655360	61	7372431	-1978859
+G	equations	125	ho_sup_euler	cmr10	655360	99	8064197	-1978859
+G	equations	125	ho_sup_euler	cmr10	655360	111	8355468	-1978859
+G	equations	125	ho_sup_euler	cmr10	655360	115	8683149	-1978859
+G	equations	125	ho_sup_euler	cmmi10	655360	18	9050876	-1978859
+G	equations	125	ho_sup_euler	cmr10	655360	43	9522368	-1978859
+G	equations	125	ho_sup_euler	cmmi10	655360	105	10177726	-1978859
+G	equations	125	ho_sup_euler	cmr10	655360	115	10512730	-1978859
+G	equations	125	ho_sup_euler	cmr10	655360	105	10771233	-1978859
+G	equations	125	ho_sup_euler	cmr10	655360	110	10953278	-1978859
+G	equations	125	ho_sup_euler	cmmi10	655360	18	11426592	-1978859
+G	equations	126	ho_frac_basic	cmmi10	655360	120	8317699	-2317462
+G	equations	126	ho_frac_basic	cmsy10	655360	0	8837887	-2317462
+G	equations	126	ho_frac_basic	cmmi10	655360	121	9493245	-2317462
+R	equations	126	ho_frac_basic	8317699	-2024840	1520370	26213
+G	equations	126	ho_frac_basic	cmmi10	655360	120	8317699	-1424562
+G	equations	126	ho_frac_basic	cmr10	655360	43	8837887	-1424562
+G	equations	126	ho_frac_basic	cmmi10	655360	121	9493245	-1424562
+G	equations	127	ho_frac_inline	cmr7	458752	51	-3342008	-3023327
+R	equations	127	ho_frac_inline	-3342008	-2916025	261235	26213
+G	equations	127	ho_frac_inline	cmr7	458752	52	-3342008	-2539297
+G	equations	127	ho_frac_inline	cmr10	655360	43	-2856498	-2765291
+G	equations	127	ho_frac_inline	cmr7	458752	49	-2122497	-3023327
+R	equations	127	ho_frac_inline	-2122497	-2916025	261235	26213
+G	equations	127	ho_frac_inline	cmr7	458752	56	-2122497	-2539297
+G	equations	128	ho_frac_nested2	cmmi7	458752	97	8935748	-2502237
+R	equations	128	ho_frac_nested2	8935748	-2394935	284272	26213
+G	equations	128	ho_frac_nested2	cmmi7	458752	98	8962650	-2018207
+R	equations	128	ho_frac_nested2	8857105	-1913354	441558	26213
+G	equations	128	ho_frac_nested2	cmmi7	458752	99	8960780	-1571112
+R	equations	128	ho_frac_nested2	8941475	-1463810	272818	26213
+G	equations	128	ho_frac_nested2	cmmi7	458752	100	8941475	-1087082
+G	equations	129	ho_frac_scripts	cmmi10	655360	120	7919300	-2166290
+G	equations	129	ho_frac_scripts	cmr7	458752	50	8293856	-2404115
+R	equations	129	ho_frac_scripts	7919300	-1873668	668559	26213
+G	equations	129	ho_frac_scripts	cmmi10	655360	121	7945923	-1273390
+G	equations	129	ho_frac_scripts	cmr7	458752	49	8267234	-1175087
+G	equations	129	ho_frac_scripts	cmr10	655360	43	8812134	-1722934
+G	equations	129	ho_frac_scripts	cmmi10	655360	122	9546135	-2166290
+G	equations	129	ho_frac_scripts	cmmi7	458752	110	9879733	-2404115
+R	equations	129	ho_frac_scripts	9546135	-1873668	690332	26213
+G	equations	129	ho_frac_scripts	cmmi10	655360	119	9647892	-1273390
+G	equations	130	ho_binom_big	cmex10	655360	18	7390881	-2673542
+G	equations	130	ho_binom_big	cmmi10	655360	78	7873301	-2192832
+G	equations	130	ho_binom_big	cmmi10	655360	114	8015370	-1299931
+G	equations	130	ho_binom_big	cmex10	655360	19	8471315	-2673542
+G	equations	130	ho_binom_big	cmr10	655360	61	9135775	-1749476
+G	equations	130	ho_binom_big	cmmi10	655360	78	9906184	-2192832
+G	equations	130	ho_binom_big	cmr10	655360	33	10504198	-2192832
+R	equations	130	ho_binom_big	9906184	-1900210	780059	26213
+G	equations	130	ho_binom_big	cmmi10	655360	114	10048253	-1299932
+G	equations	130	ho_binom_big	cmr10	655360	33	10362129	-1299932
+G	equations	131	ho_frac_pair	cmr10	655360	49	8076732	-2277412
+R	equations	131	ho_frac_pair	7878189	-1984790	724767	26213
+G	equations	131	ho_frac_pair	cmr10	655360	50	7878189	-1384512
+G	equations	131	ho_frac_pair	cmmi10	655360	25	8205870	-1384512
+G	equations	131	ho_frac_pair	cmmi10	655360	117	8760242	-2277412
+G	equations	131	ho_frac_pair	cmr10	655360	43	9281040	-2277412
+G	equations	131	ho_frac_pair	cmmi10	655360	118	9936398	-2277412
+R	equations	131	ho_frac_pair	8760242	-1984790	1517337	26213
+G	equations	131	ho_frac_pair	cmmi10	655360	117	8760242	-1384512
+G	equations	131	ho_frac_pair	cmsy10	655360	0	9281040	-1384512
+G	equations	131	ho_frac_pair	cmmi10	655360	118	9936398	-1384512
+G	equations	132	ho_sqrt_x	cmsy10	655360	112	8617538	-2482894
+R	equations	132	ho_sqrt_x	9163673	-2482894	374556	26213
+G	equations	132	ho_sqrt_x	cmmi10	655360	120	9163673	-1978859
+G	equations	133	ho_sqrt_sum	cmex10	655360	112	7052566	-2622526
+R	equations	133	ho_sqrt_sum	7707927	-2622526	3395274	26213
+G	equations	133	ho_sqrt_sum	cmmi10	655360	97	7707927	-1978859
+G	equations	133	ho_sqrt_sum	cmr7	458752	50	8054343	-2168185
+G	equations	133	ho_sqrt_sum	cmr10	655360	43	8493978	-1978859
+G	equations	133	ho_sqrt_sum	cmmi10	655360	98	9149336	-1978859
+G	equations	133	ho_sqrt_sum	cmr7	458752	50	9430594	-2168185
+G	equations	133	ho_sqrt_sum	cmr10	655360	43	9870229	-1978859
+G	equations	133	ho_sqrt_sum	cmmi10	655360	99	10525587	-1978859
+G	equations	133	ho_sqrt_sum	cmr7	458752	50	10809198	-2168185
+G	equations	134	ho_sqrt_root4	cmr5	327680	52	8643471	-2161211
+G	equations	134	ho_sqrt_root4	cmsy10	655360	112	8502399	-2419178
+R	equations	134	ho_sqrt_root4	9048534	-2419178	645802	26213
+G	equations	134	ho_sqrt_root4	cmmi10	655360	112	9048534	-1978859
+G	equations	134	ho_sqrt_root4	cmmi10	655360	113	9378262	-1978859
+G	equations	135	ho_sqrt_nested	cmex10	655360	113	7748960	-2647329
+R	equations	135	ho_sqrt_nested	8404321	-2647329	2002487	26213
+G	equations	135	ho_sqrt_nested	cmr10	655360	50	8404321	-1736466
+G	equations	135	ho_sqrt_nested	cmr10	655360	43	8877634	-1736466
+G	equations	135	ho_sqrt_nested	cmsy10	655360	112	9532992	-2310588
+R	equations	135	ho_sqrt_nested	10079127	-2310588	327681	26213
+G	equations	135	ho_sqrt_nested	cmr10	655360	51	10079127	-1736466
+G	equations	136	ho_sqrt_frac	cmex10	655360	114	7934813	-2647329
+R	equations	136	ho_sqrt_frac	8590174	-2647329	1630781	26213
+G	equations	136	ho_sqrt_frac	cmmi10	655360	120	9218287	-2194700
+R	equations	136	ho_sqrt_frac	8668817	-1902078	1473495	26213
+G	equations	136	ho_sqrt_frac	cmmi10	655360	121	8668817	-1301800
+G	equations	136	ho_sqrt_frac	cmr10	655360	43	9159273	-1301800
+G	equations	136	ho_sqrt_frac	cmr10	655360	49	9814631	-1301800
+G	equations	137	ho_sum_limits	cmmi7	458752	78	8463211	-2320738
+G	equations	137	ho_sum_limits	cmex10	655360	88	8222047	-2124131
+G	equations	137	ho_sum_limits	cmmi7	458752	107	8218746	-713280
+G	equations	137	ho_sum_limits	cmr7	458752	61	8508426	-713280
+G	equations	137	ho_sum_limits	cmr7	458752	49	8910746	-713280
+G	equations	137	ho_sum_limits	cmmi10	655360	107	9281205	-1501535
+G	equations	137	ho_sum_limits	cmr7	458752	50	9643019	-1772128
+G	equations	138	ho_prod_inline	cmex10	655360	81	-3420651	-3256815
+G	equations	138	ho_prod_inline	cmmi7	458752	110	-2801698	-3094797
+G	equations	138	ho_prod_inline	cmmi7	458752	105	-2801698	-2568680
+G	equations	138	ho_prod_inline	cmr7	458752	61	-2616278	-2568680
+G	equations	138	ho_prod_inline	cmr7	458752	49	-2213958	-2568680
+G	equations	138	ho_prod_inline	cmmi10	655360	97	-1810731	-2765291
+G	equations	138	ho_prod_inline	cmmi7	458752	105	-1464315	-2666988
+G	equations	139	ho_bigcap	cmex10	655360	92	8297380	-2601455
+G	equations	139	ho_bigcap	cmmi7	458752	106	8196584	-1195700
+G	equations	139	ho_bigcap	cmsy7	458752	50	8439956	-1195700
+G	equations	139	ho_bigcap	cmmi7	458752	74	8793123	-1195700
+G	equations	139	ho_bigcap	cmmi10	655360	85	9235579	-1978859
+G	equations	139	ho_bigcap	cmmi7	458752	106	9683044	-1880556
+G	equations	140	ho_bigvee	cmex10	655360	95	7274244	-2601455
+G	equations	140	ho_bigvee	cmmi7	458752	105	7545624	-1205623
+G	equations	140	ho_bigvee	cmmi10	655360	112	8111648	-1978859
+G	equations	140	ho_bigvee	cmmi7	458752	105	8441376	-1880556
+G	equations	140	ho_bigvee	cmsy10	655360	20	8841604	-1978859
+G	equations	140	ho_bigvee	cmex10	655360	94	9533370	-2601455
+G	equations	140	ho_bigvee	cmmi7	458752	105	9804750	-1205623
+G	equations	140	ho_bigvee	cmmi10	655360	113	10370774	-1978859
+G	equations	140	ho_bigvee	cmmi7	458752	105	10663335	-1880556
+G	equations	141	ho_int_basic	cmex10	655360	82	-3420651	-3293223
+G	equations	141	ho_int_basic	cmmi7	458752	25	-2983744	-3131205
+G	equations	141	ho_int_basic	cmr7	458752	48	-3111175	-2532271
+G	equations	141	ho_int_basic	cmr10	655360	115	-2518825	-2765291
+G	equations	141	ho_int_basic	cmr10	655360	105	-2260322	-2765291
+G	equations	141	ho_int_basic	cmr10	655360	110	-2078277	-2765291
+G	equations	141	ho_int_basic	cmmi10	655360	116	-1604963	-2765291
+G	equations	141	ho_int_basic	cmmi10	655360	100	-1259081	-2765291
+G	equations	141	ho_int_basic	cmmi10	655360	116	-917975	-2765291
+G	equations	142	ho_int_display	cmex10	655360	90	5328975	-2543196
+G	equations	142	ho_int_display	cmmi7	458752	98	5984336	-2381178
+G	equations	142	ho_int_display	cmmi7	458752	97	5693065	-1054058
+G	equations	142	ho_int_display	cmmi10	655360	104	6356796	-1651171
+G	equations	142	ho_int_display	cmr10	655360	40	6734387	-1651171
+G	equations	142	ho_int_display	cmmi10	655360	115	6989250	-1651171
+G	equations	142	ho_int_display	cmr10	655360	41	7296450	-1651171
+G	equations	142	ho_int_display	cmmi10	655360	100	7660537	-1651171
+G	equations	142	ho_int_display	cmmi10	655360	115	8001643	-1651171
+G	equations	142	ho_int_display	cmr10	655360	61	8490883	-1651171
+G	equations	142	ho_int_display	cmmi10	655360	72	9182649	-1651171
+G	equations	142	ho_int_display	cmr10	655360	40	9780663	-1651171
+G	equations	142	ho_int_display	cmmi10	655360	98	10035526	-1651171
+G	equations	142	ho_int_display	cmr10	655360	41	10316784	-1651171
+G	equations	142	ho_int_display	cmsy10	655360	0	10717279	-1651171
+G	equations	142	ho_int_display	cmmi10	655360	72	11372637	-1651171
+G	equations	142	ho_int_display	cmr10	655360	40	11970651	-1651171
+G	equations	142	ho_int_display	cmmi10	655360	97	12225514	-1651171
+G	equations	142	ho_int_display	cmr10	655360	41	12571930	-1651171
+G	equations	143	ho_int_inf	cmex10	655360	90	6969107	-2664255
+G	equations	143	ho_int_inf	cmsy7	458752	49	7624468	-2502237
+G	equations	143	ho_int_inf	cmsy7	458752	0	7333197	-1175117
+G	equations	143	ho_int_inf	cmsy7	458752	49	7742798	-1175117
+G	equations	143	ho_int_inf	cmr10	655360	49	9220677	-2215586
+R	equations	143	ho_int_inf	8485902	-1922964	1797230	26213
+G	equations	143	ho_int_inf	cmr10	655360	49	8485902	-1322686
+G	equations	143	ho_int_inf	cmr10	655360	43	8959215	-1322686
+G	equations	143	ho_int_inf	cmmi10	655360	120	9614573	-1322686
+G	equations	143	ho_int_inf	cmr7	458752	50	9989129	-1512012
+G	equations	143	ho_int_inf	cmmi10	655360	100	10470999	-1772230
+G	equations	143	ho_int_inf	cmmi10	655360	120	10812105	-1772230
+G	equations	144	ho_oint	cmex10	655360	73	7800456	-2699755
+G	equations	144	ho_oint	cmmi7	458752	67	8164546	-1210617
+G	equations	144	ho_oint	cmmi10	655360	70	8714564	-1807730
+G	equations	144	ho_oint	cmsy10	655360	1	9372652	-1807730
+G	equations	144	ho_oint	cmmi10	655360	100	9700329	-1807730
+G	equations	144	ho_oint	cmmi10	655360	114	10041435	-1807730
+G	equations	145	ho_lim_basic	cmr10	655360	108	6224051	-1764879
+G	equations	145	ho_lim_basic	cmr10	655360	105	6406096	-1764879
+G	equations	145	ho_lim_basic	cmr10	655360	109	6588141	-1764879
+G	equations	145	ho_lim_basic	cmmi7	458752	104	6133900	-1337076
+G	equations	145	ho_lim_basic	cmsy7	458752	33	6440723	-1337076
+G	equations	145	ho_lim_basic	cmr7	458752	48	6963192	-1337076
+G	equations	145	ho_lim_basic	cmmi10	655360	102	7412294	-2208235
+G	equations	145	ho_lim_basic	cmr10	655360	40	7803692	-2208235
+G	equations	145	ho_lim_basic	cmmi10	655360	120	8058555	-2208235
+G	equations	145	ho_lim_basic	cmr10	655360	43	8578743	-2208235
+G	equations	145	ho_lim_basic	cmmi10	655360	104	9234101	-2208235
+G	equations	145	ho_lim_basic	cmr10	655360	41	9611692	-2208235
+G	equations	145	ho_lim_basic	cmsy10	655360	0	10012187	-2208235
+G	equations	145	ho_lim_basic	cmmi10	655360	102	10667545	-2208235
+G	equations	145	ho_lim_basic	cmr10	655360	40	11058943	-2208235
+G	equations	145	ho_lim_basic	cmmi10	655360	120	11313806	-2208235
+G	equations	145	ho_lim_basic	cmr10	655360	41	11688362	-2208235
+R	equations	145	ho_lim_basic	7412294	-1915613	4530931	26213
+G	equations	145	ho_lim_basic	cmmi10	655360	104	9488964	-1315335
+G	equations	146	ho_sup_abs	cmr10	655360	115	7806644	-1978859
+G	equations	146	ho_sup_abs	cmr10	655360	117	8065147	-1978859
+G	equations	146	ho_sup_abs	cmr10	655360	112	8429237	-1978859
+G	equations	146	ho_sup_abs	cmmi7	458752	116	7865581	-1427742
+G	equations	146	ho_sup_abs	cmsy7	458752	21	8063555	-1427742
+G	equations	146	ho_sup_abs	cmr7	458752	48	8473156	-1427742
+G	equations	146	ho_sup_abs	cmsy10	655360	106	8902551	-1978859
+G	equations	146	ho_sup_abs	cmmi10	655360	103	9084596	-1978859
+G	equations	146	ho_sup_abs	cmr10	655360	40	9420695	-1978859
+G	equations	146	ho_sup_abs	cmmi10	655360	116	9675558	-1978859
+G	equations	146	ho_sup_abs	cmr10	655360	41	9912216	-1978859
+G	equations	146	ho_sup_abs	cmsy10	655360	106	10167079	-1978859
+G	equations	147	ho_ln_inline	cmr10	655360	108	-3420651	-2765291
+G	equations	147	ho_ln_inline	cmr10	655360	110	-3238606	-2765291
+G	equations	147	ho_ln_inline	cmr10	655360	40	-2874516	-2765291
+G	equations	147	ho_ln_inline	cmr10	655360	49	-2619653	-2765291
+G	equations	147	ho_ln_inline	cmr10	655360	43	-2146340	-2765291
+G	equations	147	ho_ln_inline	cmmi10	655360	122	-1490982	-2765291
+G	equations	147	ho_ln_inline	cmr10	655360	41	-1157384	-2765291
+G	equations	147	ho_ln_inline	cmsy10	655360	20	-720481	-2765291
+G	equations	147	ho_ln_inline	cmmi10	655360	122	-28715	-2765291
+G	equations	148	ho_det_prod	cmr10	655360	100	7111940	-1978859
+G	equations	148	ho_det_prod	cmr10	655360	101	7476030	-1978859
+G	equations	148	ho_det_prod	cmr10	655360	116	7767301	-1978859
+G	equations	148	ho_det_prod	cmmi10	655360	65	8131388	-1978859
+G	equations	148	ho_det_prod	cmr10	655360	61	8804949	-1978859
+G	equations	148	ho_det_prod	cmex10	655360	89	9496715	-2601455
+G	equations	148	ho_det_prod	cmmi7	458752	105	9822708	-1205623
+G	equations	148	ho_det_prod	cmmi10	655360	21	10443345	-1978859
+G	equations	148	ho_det_prod	cmmi7	458752	105	10825640	-1880556
+G	equations	149	ho_paren_script	cmex10	655360	18	7647447	-2539920
+G	equations	149	ho_paren_script	cmmi10	655360	112	8766019	-2059210
+R	equations	149	ho_paren_script	8208510	-1766588	1444745	26213
+G	equations	149	ho_paren_script	cmmi10	655360	113	8208510	-1166310
+G	equations	149	ho_paren_script	cmr10	655360	43	8670216	-1166310
+G	equations	149	ho_paren_script	cmr10	655360	49	9325574	-1166310
+G	equations	149	ho_paren_script	cmex10	655360	19	9731898	-2539920
+G	equations	149	ho_paren_script	cmr7	458752	50	10214318	-2404115
+G	equations	150	ho_brackets	cmr10	655360	91	-3420651	-2765291
+G	equations	150	ho_brackets	cmmi10	655360	97	-3238606	-2765291
+G	equations	150	ho_brackets	cmmi10	655360	59	-2892190	-2765291
+G	equations	150	ho_brackets	cmmi10	655360	98	-2600921	-2765291
+G	equations	150	ho_brackets	cmr10	655360	93	-2319663	-2765291
+G	equations	150	ho_brackets	cmsy10	655360	91	-1991986	-2765291
+G	equations	150	ho_brackets	cmr10	655360	40	-1409446	-2765291
+G	equations	150	ho_brackets	cmmi10	655360	99	-1154583	-2765291
+G	equations	150	ho_brackets	cmmi10	655360	59	-870972	-2765291
+G	equations	150	ho_brackets	cmmi10	655360	100	-579703	-2765291
+G	equations	150	ho_brackets	cmr10	655360	41	-238597	-2765291
+G	equations	151	ho_big_sizes	cmex10	655360	2	7654751	-2509705
+G	equations	151	ho_big_sizes	cmex10	655360	16	7927819	-2706315
+G	equations	151	ho_big_sizes	cmmi10	655360	117	8319215	-1978859
+G	equations	151	ho_big_sizes	cmex10	655360	17	8694381	-2706315
+G	equations	151	ho_big_sizes	cmsy10	655360	0	9231409	-1978859
+G	equations	151	ho_big_sizes	cmmi10	655360	118	9886767	-1978859
+G	equations	151	ho_big_sizes	cmex10	655360	3	10227948	-2509705
+G	equations	152	ho_abs_three	cmsy10	655360	106	-3420651	-2765291
+G	equations	152	ho_abs_three	cmmi10	655360	117	-3238606	-2765291
+G	equations	152	ho_abs_three	cmsy10	655360	106	-2863440	-2765291
+G	equations	152	ho_abs_three	cmsy10	655360	20	-2499355	-2765291
+G	equations	152	ho_abs_three	cmsy10	655360	106	-1807589	-2765291
+G	equations	152	ho_abs_three	cmmi10	655360	118	-1625544	-2765291
+G	equations	152	ho_abs_three	cmsy10	655360	106	-1284363	-2765291
+G	equations	152	ho_abs_three	cmr10	655360	43	-956686	-2765291
+G	equations	152	ho_abs_three	cmsy10	655360	106	-301328	-2765291
+G	equations	152	ho_abs_three	cmmi10	655360	119	-119283	-2765291
+G	equations	152	ho_abs_three	cmsy10	655360	106	367535	-2765291
+G	equations	153	ho_angle_int	cmsy10	655360	104	7148898	-1807730
+G	equations	153	ho_angle_int	cmmi10	655360	102	7403761	-1807730
+G	equations	153	ho_angle_int	cmmi10	655360	59	7758750	-1807730
+G	equations	153	ho_angle_int	cmmi10	655360	103	8050019	-1807730
+G	equations	153	ho_angle_int	cmsy10	655360	105	8386118	-1807730
+G	equations	153	ho_angle_int	cmr10	655360	61	8823021	-1807730
+G	equations	153	ho_angle_int	cmex10	655360	90	9514787	-2699755
+G	equations	153	ho_angle_int	cmmi10	655360	102	10279372	-1807730
+G	equations	153	ho_angle_int	cmmi10	655360	103	10670770	-1807730
+G	equations	154	ho_floor_half	cmsy10	655360	98	-3420651	-2765291
+G	equations	154	ho_floor_half	cmmi10	655360	110	-3129380	-2765291
+G	equations	154	ho_floor_half	cmmi10	655360	61	-2736010	-2765291
+G	equations	154	ho_floor_half	cmr10	655360	50	-2408329	-2765291
+G	equations	154	ho_floor_half	cmsy10	655360	99	-2080648	-2765291
+G	equations	155	ho_greek_mix	cmmi10	655360	27	-3420651	-2765291
+G	equations	155	ho_greek_mix	cmr7	458752	50	-3022657	-3003116
+G	equations	155	ho_greek_mix	cmr10	655360	43	-2583022	-2765291
+G	equations	155	ho_greek_mix	cmmi10	655360	33	-1927664	-2765291
+G	equations	155	ho_greek_mix	cmr10	655360	43	-1350588	-2765291
+G	equations	155	ho_greek_mix	cmmi10	655360	32	-695230	-2765291
+G	equations	156	ho_greek_caps	cmr10	655360	6	8122149	-1978859
+G	equations	156	ho_greek_caps	cmr10	655360	10	8595465	-1978859
+G	equations	156	ho_greek_caps	cmr10	655360	9	9068781	-1978859
+G	equations	156	ho_greek_caps	cmr10	655360	3	9578507	-1978859
+G	equations	157	ho_greek_var	cmmi10	655360	37	7047869	-1978859
+G	equations	157	ho_greek_var	cmsy10	655360	54	7568740	-1978859
+G	equations	157	ho_greek_var	cmr10	655360	61	7568740	-1978859
+G	equations	157	ho_greek_var	cmmi10	655360	26	8260506	-1978859
+G	equations	157	ho_greek_var	cmmi10	655360	59	8599337	-1978859
+G	equations	157	ho_greek_var	cmmi10	655360	38	9545967	-1978859
+G	equations	157	ho_greek_var	cmsy10	655360	54	10018139	-1978859
+G	equations	157	ho_greek_var	cmr10	655360	61	10018139	-1978859
+G	equations	157	ho_greek_var	cmmi10	655360	27	10709905	-1978859
+G	equations	158	ho_rel_order	cmmi10	655360	120	-3420651	-2765291
+G	equations	158	ho_rel_order	cmsy10	655360	21	-2864055	-2765291
+G	equations	158	ho_rel_order	cmmi10	655360	121	-2172289	-2765291
+G	equations	158	ho_rel_order	cmsy10	655360	20	-1645425	-2765291
+G	equations	158	ho_rel_order	cmmi10	655360	122	-953659	-2765291
+G	equations	158	ho_rel_order	cmsy10	655360	54	-438021	-2765291
+G	equations	158	ho_rel_order	cmr10	655360	61	-438021	-2765291
+G	equations	158	ho_rel_order	cmmi10	655360	119	253745	-2765291
+G	equations	159	ho_rel_sets	cmmi10	655360	80	-3420651	-2765291
+G	equations	159	ho_rel_sets	cmsy10	655360	26	-2726838	-2765291
+G	equations	159	ho_rel_sets	cmmi10	655360	81	-2035072	-2765291
+G	equations	159	ho_rel_sets	cmsy10	655360	19	-1334934	-2765291
+G	equations	159	ho_rel_sets	cmmi10	655360	82	-643168	-2765291
+G	equations	160	ho_rel_approx	cmmi10	655360	97	7140979	-1978859
+G	equations	160	ho_rel_approx	cmsy10	655360	25	7669435	-1978859
+G	equations	160	ho_rel_approx	cmmi10	655360	98	8361201	-1978859
+G	equations	160	ho_rel_approx	cmsy10	655360	24	8824499	-1978859
+G	equations	160	ho_rel_approx	cmmi10	655360	99	9516265	-1978859
+G	equations	160	ho_rel_approx	cmsy10	655360	17	9981916	-1978859
+G	equations	160	ho_rel_approx	cmmi10	655360	100	10673682	-1978859
+G	equations	161	ho_blackboard	msbm10	655360	67	-3420651	-2765291
+G	equations	161	ho_blackboard	cmsy10	655360	27	-2765295	-2765291
+G	equations	161	ho_blackboard	msbm10	655360	82	-2073529	-2765291
+G	equations	162	ho_calligraphic	cmsy10	655360	70	-3420651	-2765291
+G	equations	162	ho_calligraphic	cmr10	655360	40	-2884532	-2765291
+G	equations	162	ho_calligraphic	cmmi10	655360	88	-2629669	-2765291
+G	equations	162	ho_calligraphic	cmr10	655360	41	-2035295	-2765291
+G	equations	162	ho_calligraphic	cmsy10	655360	33	-1598392	-2765291
+G	equations	162	ho_calligraphic	cmsy10	655360	71	-760991	-2765291
+G	equations	163	ho_bold_vec	cmbx10	655360	117	7549630	-1978859
+G	equations	163	ho_bold_vec	cmr10	655360	43	8113962	-1978859
+G	equations	163	ho_bold_vec	cmbx10	655360	118	8769320	-1978859
+G	equations	163	ho_bold_vec	cmr10	655360	61	9359593	-1978859
+G	equations	163	ho_bold_vec	cmbx10	655360	119	10051359	-1978859
+G	equations	164	ho_arrow_map	cmmi10	655360	103	-3420651	-2765291
+G	equations	164	ho_arrow_map	cmr10	655360	58	-3011736	-2765291
+G	equations	164	ho_arrow_map	cmmi10	655360	65	-2611243	-2765291
+G	equations	164	ho_arrow_map	cmsy10	655360	33	-1937682	-2765291
+G	equations	164	ho_arrow_map	cmmi10	655360	66	-1100281	-2765291
+G	equations	165	ho_arrow_impl	cmmi10	655360	112	7578604	-1978859
+G	equations	165	ho_arrow_impl	cmsy10	655360	41	8090372	-1978859
+G	equations	165	ho_arrow_impl	cmmi10	655360	113	8927773	-1978859
+G	equations	165	ho_arrow_impl	cmsy10	655360	40	9425887	-1978859
+G	equations	165	ho_arrow_impl	cmmi10	655360	114	10263288	-1978859
+G	equations	166	ho_dots_sum	cmmi10	655360	97	-3420651	-2765291
+G	equations	166	ho_dots_sum	cmr7	458752	48	-3074235	-2666988
+G	equations	166	ho_dots_sum	cmr10	655360	43	-2634600	-2765291
+G	equations	166	ho_dots_sum	cmmi10	655360	97	-1979242	-2765291
+G	equations	166	ho_dots_sum	cmr7	458752	49	-1632826	-2666988
+G	equations	166	ho_dots_sum	cmr10	655360	43	-1193191	-2765291
+G	equations	166	ho_dots_sum	cmsy10	655360	1	-537833	-2765291
+G	equations	166	ho_dots_sum	cmsy10	655360	1	-246564	-2765291
+G	equations	166	ho_dots_sum	cmsy10	655360	1	44705	-2765291
+G	equations	166	ho_dots_sum	cmr10	655360	43	372382	-2765291
+G	equations	166	ho_dots_sum	cmmi10	655360	97	1027740	-2765291
+G	equations	166	ho_dots_sum	cmmi7	458752	109	1374156	-2666988
+G	equations	167	ho_prime_double	cmmi10	655360	103	7197594	-1978859
+G	equations	167	ho_prime_double	cmsy7	458752	48	7533693	-2249452
+G	equations	167	ho_prime_double	cmsy7	458752	48	7684790	-2249452
+G	equations	167	ho_prime_double	cmr10	655360	40	7868655	-1978859
+G	equations	167	ho_prime_double	cmmi10	655360	120	8123518	-1978859
+G	equations	167	ho_prime_double	cmr10	655360	41	8498074	-1978859
+G	equations	167	ho_prime_double	cmsy10	655360	0	8898569	-1978859
+G	equations	167	ho_prime_double	cmmi10	655360	103	9553927	-1978859
+G	equations	167	ho_prime_double	cmsy7	458752	48	9890026	-2249452
+G	equations	167	ho_prime_double	cmr10	655360	40	10073891	-1978859
+G	equations	167	ho_prime_double	cmmi10	655360	120	10328754	-1978859
+G	equations	167	ho_prime_double	cmr10	655360	41	10703310	-1978859
+G	equations	168	ho_text_where	cmmi10	655360	121	-3420651	-2765291
+G	equations	168	ho_text_where	cmr10	655360	61	-2893787	-2765291
+G	equations	168	ho_text_where	cmr10	655360	48	-2202021	-2765291
+G	equations	168	ho_text_where	cmr10	655360	119	-1655887	-2765291
+G	equations	168	ho_text_where	cmr10	655360	104	-1182571	-2765291
+G	equations	168	ho_text_where	cmr10	655360	101	-818481	-2765291
+G	equations	168	ho_text_where	cmr10	655360	114	-527210	-2765291
+G	equations	168	ho_text_where	cmr10	655360	101	-270527	-2765291
+G	equations	168	ho_text_where	cmmi10	655360	122	239197	-2765291
+G	equations	168	ho_text_where	cmmi10	655360	62	754835	-2765291
+G	equations	168	ho_text_where	cmr10	655360	48	1446601	-2765291
+G	equations	169	ho_text_sub	cmmi10	655360	118	7730299	-1978859
+G	equations	169	ho_text_sub	cmr7	458752	105	8047967	-1880556
+G	equations	169	ho_text_sub	cmr7	458752	110	8196334	-1880556
+G	equations	169	ho_text_sub	cmr10	655360	43	8664186	-1978859
+G	equations	169	ho_text_sub	cmmi10	655360	118	9319544	-1978859
+G	equations	169	ho_text_sub	cmr7	458752	111	9637212	-1880556
+G	equations	169	ho_text_sub	cmr7	458752	117	9898447	-1880556
+G	equations	169	ho_text_sub	cmr7	458752	116	10187899	-1880556
+G	equations	170	ho_pmatrix	cmex10	655360	18	7940103	-2673542
+G	equations	170	ho_pmatrix	cmr10	655360	49	8422523	-2149248
+G	equations	170	ho_pmatrix	cmr10	655360	50	9405564	-2149248
+G	equations	170	ho_pmatrix	cmr10	655360	51	8422523	-1362816
+G	equations	170	ho_pmatrix	cmr10	655360	52	9405564	-1362816
+G	equations	170	ho_pmatrix	cmex10	655360	19	9733245	-2673542
+G	equations	171	ho_cases_step	cmmi10	655360	104	6427215	-1552866
+G	equations	171	ho_cases_step	cmr10	655360	40	6804806	-1552866
+G	equations	171	ho_cases_step	cmmi10	655360	120	7059669	-1552866
+G	equations	171	ho_cases_step	cmr10	655360	41	7434225	-1552866
+G	equations	171	ho_cases_step	cmr10	655360	61	7871128	-1552866
+G	equations	171	ho_cases_step	cmex10	655360	40	8562894	-2673542
+G	equations	171	ho_cases_step	cmr10	655360	48	9090825	-1999823
+G	equations	171	ho_cases_step	cmmi10	655360	120	10073867	-1999823
+G	equations	171	ho_cases_step	cmmi10	655360	60	10630463	-1999823
+G	equations	171	ho_cases_step	cmr10	655360	48	11322229	-1999823
+G	equations	171	ho_cases_step	cmr10	655360	49	9090825	-1056108
+G	equations	171	ho_cases_step	cmmi10	655360	120	10073867	-1056108
+G	equations	171	ho_cases_step	cmsy10	655360	21	10630463	-1056108
+G	equations	171	ho_cases_step	cmr10	655360	48	11322229	-1056108
+G	equations	172	ho_hat_bar	cmr10	655360	94	-3378703	-2765291
+G	equations	172	ho_hat_bar	cmmi10	655360	117	-3420651	-2765291
+G	equations	172	ho_hat_bar	cmr10	655360	43	-2899853	-2765291
+G	equations	172	ho_hat_bar	cmr10	655360	22	-2219540	-2765291
+G	equations	172	ho_hat_bar	cmmi10	655360	118	-2244495	-2765291
+G	equations	173	ho_vec_dot	cmmi10	655360	126	8486357	-1978859
+G	equations	173	ho_vec_dot	cmmi10	655360	97	8527392	-1978859
+G	equations	173	ho_vec_dot	cmsy10	655360	1	9019440	-1978859
+G	equations	173	ho_vec_dot	cmmi10	655360	126	9273503	-2151802
+G	equations	173	ho_vec_dot	cmmi10	655360	98	9347117	-1978859
+R	equations	174	ho_overline	7958695	-2512609	627674	26213
+G	equations	174	ho_overline	cmmi10	655360	97	7958695	-1978859
+G	equations	174	ho_overline	cmmi10	655360	98	8305111	-1978859
+G	equations	174	ho_overline	cmr10	655360	61	8768409	-1978859
+R	equations	174	ho_overline	9460175	-2339666	346416	26213
+G	equations	174	ho_overline	cmmi10	655360	97	9460175	-1978859
+R	equations	174	ho_overline	9915815	-2512609	281258	26213
+G	equations	174	ho_overline	cmmi10	655360	98	9915815	-1978859
+G	equations	175	ho_align_two	cmmi10	655360	112	7760646	-1323499
+G	equations	175	ho_align_two	cmr10	655360	61	8272414	-1323499
+G	equations	175	ho_align_two	cmmi10	655360	113	8964180	-1323499
+G	equations	175	ho_align_two	cmr10	655360	43	9425886	-1323499
+G	equations	175	ho_align_two	cmmi10	655360	114	10081244	-1323499
+G	equations	175	tag	cmr10	655360	40	20739011	-1323499
+G	equations	175	tag	cmr10	655360	49	20993874	-1323499
+G	equations	175	tag	cmr10	655360	41	21321555	-1323499
+G	equations	175	ho_align_two	cmmi10	655360	115	7783174	-340459
+G	equations	175	ho_align_two	cmr10	655360	61	8272414	-340459
+G	equations	175	ho_align_two	cmmi10	655360	116	8964180	-340459
+G	equations	175	tag	cmr10	655360	40	20739011	-340459
+G	equations	175	tag	cmr10	655360	50	20993874	-340459
+G	equations	175	tag	cmr10	655360	41	21321555	-340459
+G	equations	176	ho_spacing_thin	cmmi10	655360	102	8379708	-1978859
+G	equations	176	ho_spacing_thin	cmmi10	655360	103	8880330	-1978859
+G	equations	176	ho_spacing_thin	cmmi10	655360	104	9398469	-1978859
 G	paragraphs	0	-	cmr10	655360	67	-3157524	-2502164
 G	paragraphs	0	-	cmr10	655360	111	-2684208	-2502164
 G	paragraphs	0	-	cmr10	655360	110	-2356527	-2502164

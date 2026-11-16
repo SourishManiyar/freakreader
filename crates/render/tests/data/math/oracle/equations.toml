@@ -928,6 +928,473 @@ env = "display"
 tex = '\mathop{\mathrm{ess\,sup}}_{x} |f(x)|'
 hard = "a home-made operator name with limits below"
 
+# ---- held-out equations -----------------------------------------------------------------------
+#
+# Written before the first recoverer was run, to keep a measure the recoverer was not tuned on:
+# the same categories as the list above, with different shapes and identifiers. Their ids start with
+# `ho_` (the report keeps their scores apart) and each says `holdout = true`. They are typeset alone
+# only. Look at their per-category rates; do not read individual failures to fit a recoverer to them.
+
+[[equation]]
+id = "ho_sup_cubic"
+category = "scripts"
+tier = 1
+env = "inline"
+tex = 'u^3 - v^3 = w^3'
+holdout = true
+
+[[equation]]
+id = "ho_sub_double"
+category = "scripts"
+tier = 1
+env = "display"
+tex = 'b_{p}^{q} + c_{r}^{s}'
+holdout = true
+
+[[equation]]
+id = "ho_sup_neg"
+category = "scripts"
+tier = 1
+env = "inline"
+tex = '10^{-6} + k^{-1}'
+holdout = true
+
+[[equation]]
+id = "ho_sub_chain"
+category = "scripts"
+tier = 2
+env = "display"
+tex = 'y_{m_{l}} + z_{n_{p}}'
+holdout = true
+
+[[equation]]
+id = "ho_sup_tower3"
+category = "scripts"
+tier = 2
+env = "display"
+tex = '3^{3^{3}}'
+holdout = true
+
+[[equation]]
+id = "ho_sup_euler"
+category = "scripts"
+tier = 2
+env = "display"
+tex = 'e^{i\theta} = \cos\theta + i\sin\theta'
+holdout = true
+
+[[equation]]
+id = "ho_frac_basic"
+category = "fractions"
+tier = 1
+env = "display"
+tex = '\frac{x-y}{x+y}'
+holdout = true
+
+[[equation]]
+id = "ho_frac_inline"
+category = "fractions"
+tier = 1
+env = "inline"
+tex = '\frac{3}{4} + \frac{1}{8}'
+holdout = true
+
+[[equation]]
+id = "ho_frac_nested2"
+category = "fractions"
+tier = 2
+env = "display"
+tex = '\frac{\frac{a}{b}}{\frac{c}{d}}'
+holdout = true
+
+[[equation]]
+id = "ho_frac_scripts"
+category = "fractions"
+tier = 2
+env = "display"
+tex = '\frac{x^2}{y_1} + \frac{z^{n}}{w}'
+holdout = true
+
+[[equation]]
+id = "ho_binom_big"
+category = "fractions"
+tier = 2
+env = "display"
+tex = '\binom{N}{r} = \frac{N!}{r!}'
+holdout = true
+
+[[equation]]
+id = "ho_frac_pair"
+category = "fractions"
+tier = 2
+env = "display"
+tex = '\frac{1}{2\pi}\frac{u+v}{u-v}'
+holdout = true
+
+[[equation]]
+id = "ho_sqrt_x"
+category = "radicals"
+tier = 1
+env = "display"
+tex = '\sqrt{x}'
+holdout = true
+
+[[equation]]
+id = "ho_sqrt_sum"
+category = "radicals"
+tier = 2
+env = "display"
+tex = '\sqrt{a^2 + b^2 + c^2}'
+holdout = true
+
+[[equation]]
+id = "ho_sqrt_root4"
+category = "radicals"
+tier = 2
+env = "display"
+tex = '\sqrt[4]{p q}'
+holdout = true
+
+[[equation]]
+id = "ho_sqrt_nested"
+category = "radicals"
+tier = 2
+env = "display"
+tex = '\sqrt{2 + \sqrt{3}}'
+holdout = true
+
+[[equation]]
+id = "ho_sqrt_frac"
+category = "radicals"
+tier = 3
+env = "display"
+tex = '\sqrt{\frac{x}{y+1}}'
+hard = "the radical sign is assembled from pieces for tall contents"
+holdout = true
+
+[[equation]]
+id = "ho_sum_limits"
+category = "bigops"
+tier = 2
+env = "display"
+tex = '\sum_{k=1}^{N} k^2'
+holdout = true
+
+[[equation]]
+id = "ho_prod_inline"
+category = "bigops"
+tier = 2
+env = "inline"
+tex = '\prod_{i=1}^{n} a_i'
+holdout = true
+
+[[equation]]
+id = "ho_bigcap"
+category = "bigops"
+tier = 2
+env = "display"
+tex = '\bigcap_{j \in J} U_j'
+holdout = true
+
+[[equation]]
+id = "ho_bigvee"
+category = "bigops"
+tier = 2
+env = "display"
+tex = '\bigvee_{i} p_i \le \bigwedge_{i} q_i'
+holdout = true
+
+[[equation]]
+id = "ho_int_basic"
+category = "integrals"
+tier = 1
+env = "inline"
+tex = '\int_0^\pi \sin t\,dt'
+holdout = true
+
+[[equation]]
+id = "ho_int_display"
+category = "integrals"
+tier = 2
+env = "display"
+tex = '\int_{a}^{b} h(s)\,ds = H(b) - H(a)'
+holdout = true
+
+[[equation]]
+id = "ho_int_inf"
+category = "integrals"
+tier = 2
+env = "display"
+tex = '\int_{-\infty}^{\infty} \frac{1}{1+x^2}\,dx'
+holdout = true
+
+[[equation]]
+id = "ho_oint"
+category = "integrals"
+tier = 2
+env = "display"
+tex = '\oint_C F \cdot dr'
+holdout = true
+
+[[equation]]
+id = "ho_lim_basic"
+category = "operators"
+tier = 2
+env = "display"
+tex = '\lim_{h \to 0} \frac{f(x+h) - f(x)}{h}'
+holdout = true
+
+[[equation]]
+id = "ho_sup_abs"
+category = "operators"
+tier = 2
+env = "display"
+tex = '\sup_{t \ge 0} |g(t)|'
+holdout = true
+
+[[equation]]
+id = "ho_ln_inline"
+category = "operators"
+tier = 1
+env = "inline"
+tex = '\ln(1+z) \le z'
+holdout = true
+
+[[equation]]
+id = "ho_det_prod"
+category = "operators"
+tier = 2
+env = "display"
+tex = '\det A = \prod_i \lambda_i'
+holdout = true
+
+[[equation]]
+id = "ho_paren_script"
+category = "delimiters"
+tier = 2
+env = "display"
+tex = '\left( \frac{p}{q+1} \right)^2'
+holdout = true
+
+[[equation]]
+id = "ho_brackets"
+category = "delimiters"
+tier = 1
+env = "inline"
+tex = '[a, b] \cup (c, d)'
+holdout = true
+
+[[equation]]
+id = "ho_big_sizes"
+category = "delimiters"
+tier = 3
+env = "display"
+tex = '\bigl[ \Bigl( u \Bigr) - v \bigr]'
+hard = "a delimiter's size is chosen by hand, not by what it encloses"
+holdout = true
+
+[[equation]]
+id = "ho_abs_three"
+category = "delimiters"
+tier = 1
+env = "inline"
+tex = '|u| \le |v| + |w|'
+holdout = true
+
+[[equation]]
+id = "ho_angle_int"
+category = "delimiters"
+tier = 2
+env = "display"
+tex = '\langle f, g \rangle = \int f g'
+holdout = true
+
+[[equation]]
+id = "ho_floor_half"
+category = "delimiters"
+tier = 2
+env = "inline"
+tex = '\lfloor n/2 \rfloor'
+holdout = true
+
+[[equation]]
+id = "ho_greek_mix"
+category = "greek"
+tier = 1
+env = "inline"
+tex = '\sigma^2 + \omega + \psi'
+holdout = true
+
+[[equation]]
+id = "ho_greek_caps"
+category = "greek"
+tier = 1
+env = "display"
+tex = '\Sigma \Omega \Psi \Lambda'
+holdout = true
+
+[[equation]]
+id = "ho_greek_var"
+category = "greek"
+tier = 2
+env = "display"
+tex = '\varrho \ne \rho, \quad \varsigma \ne \sigma'
+holdout = true
+
+[[equation]]
+id = "ho_rel_order"
+category = "relations"
+tier = 1
+env = "inline"
+tex = 'x \ge y \le z \neq w'
+holdout = true
+
+[[equation]]
+id = "ho_rel_sets"
+category = "relations"
+tier = 1
+env = "inline"
+tex = 'P \subset Q \supseteq R'
+holdout = true
+
+[[equation]]
+id = "ho_rel_approx"
+category = "relations"
+tier = 2
+env = "display"
+tex = 'a \approx b \sim c \equiv d'
+holdout = true
+
+[[equation]]
+id = "ho_blackboard"
+category = "alphabets"
+tier = 1
+env = "inline"
+tex = '\mathbb{C} \supset \mathbb{R}'
+holdout = true
+
+[[equation]]
+id = "ho_calligraphic"
+category = "alphabets"
+tier = 1
+env = "inline"
+tex = '\mathcal{F}(X) \to \mathcal{G}'
+holdout = true
+
+[[equation]]
+id = "ho_bold_vec"
+category = "alphabets"
+tier = 2
+env = "display"
+tex = '\mathbf{u} + \mathbf{v} = \mathbf{w}'
+holdout = true
+
+[[equation]]
+id = "ho_arrow_map"
+category = "arrows"
+tier = 1
+env = "inline"
+tex = 'g \colon A \to B'
+holdout = true
+
+[[equation]]
+id = "ho_arrow_impl"
+category = "arrows"
+tier = 2
+env = "display"
+tex = 'p \Rightarrow q \Leftarrow r'
+holdout = true
+
+[[equation]]
+id = "ho_dots_sum"
+category = "dots_primes"
+tier = 1
+env = "inline"
+tex = 'a_0 + a_1 + \cdots + a_m'
+holdout = true
+
+[[equation]]
+id = "ho_prime_double"
+category = "dots_primes"
+tier = 1
+env = "display"
+tex = '''g''(x) - g'(x)'''
+holdout = true
+
+[[equation]]
+id = "ho_text_where"
+category = "text"
+tier = 2
+env = "inline"
+tex = 'y = 0 \text{ where } z > 0'
+holdout = true
+
+[[equation]]
+id = "ho_text_sub"
+category = "text"
+tier = 3
+env = "display"
+tex = 'v_{\text{in}} + v_{\text{out}}'
+hard = "words in a subscript are text, which is set with different spacing"
+holdout = true
+
+[[equation]]
+id = "ho_pmatrix"
+category = "matrices"
+tier = 2
+env = "display"
+tex = '\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}'
+holdout = true
+
+[[equation]]
+id = "ho_cases_step"
+category = "cases"
+tier = 2
+env = "display"
+tex = 'h(x) = \begin{cases} 0 & x < 0 \\ 1 & x \ge 0 \end{cases}'
+holdout = true
+
+[[equation]]
+id = "ho_hat_bar"
+category = "accents"
+tier = 1
+env = "inline"
+tex = '\hat{u} + \bar{v}'
+holdout = true
+
+[[equation]]
+id = "ho_vec_dot"
+category = "accents"
+tier = 2
+env = "display"
+tex = '\vec{a} \cdot \vec{b}'
+holdout = true
+
+[[equation]]
+id = "ho_overline"
+category = "decorations"
+tier = 2
+env = "display"
+tex = '\overline{a b} = \overline{a}\,\overline{b}'
+holdout = true
+
+[[equation]]
+id = "ho_align_two"
+category = "alignment"
+tier = 2
+env = "align"
+tex = 'p &= q + r \\ s &= t'
+holdout = true
+
+[[equation]]
+id = "ho_spacing_thin"
+category = "spacing"
+tier = 3
+env = "display"
+tex = 'f\,g\;h'
+hard = "spaces leave no glyph; only the gaps tell them apart"
+holdout = true
+
 # ---- paragraph pages ----------------------------------------------------------------------------
 #
 # Running text around equations of the list, so a region must be isolated from the words around

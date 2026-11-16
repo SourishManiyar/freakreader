@@ -83,6 +83,8 @@ struct Equation {
     env: String,
     tex: String,
     hard: Option<String>,
+    /// Held out: not used to develop a recoverer. The id starts with `ho_` exactly when this is true.
+    holdout: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -128,6 +130,9 @@ fn read_list(path: &Path) -> anyhow::Result<List> {
         let at = |what: &str| format!("equation `{}`: {what}", e.id);
         if !valid_id(&e.id) || !ids.insert(e.id.as_str()) {
             bail!("{}", at("the id must be unique, [a-z0-9_]"));
+        }
+        if e.holdout.unwrap_or(false) != e.id.starts_with("ho_") {
+            bail!("{}", at("a held-out equation says `holdout = true` and its id starts with `ho_`; no other does"));
         }
         if !CATEGORIES.contains(&e.category.as_str()) {
             bail!("{}", at(&format!("unknown category; one of {CATEGORIES:?}")));

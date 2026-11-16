@@ -3313,14 +3313,14 @@ sha256 = "8f7ff58c4729bd3bfd8d2cbaf14c9ddca2b940e799db02ae9d0e7a843889d094"
 
 [[asset]]
 path = "crates/render/tests/data/math/oracle/equations.pdf"
-title = "LaTeX math oracle: one equation per page, 120 equations of the oracle's list"
+title = "LaTeX math oracle: one equation per page, 177 equations of the oracle's list (120 development, 57 held out)"
 author = "PdfCraft contributors (typeset from equations.tex with pdfTeX); embedded Computer Modern, AMS Euler and AMS symbol Type 1 subsets by the American Mathematical Society"
 source = "Contributor-original LaTeX source (crates/render/tests/data/math/oracle/equations.tex, generated from crates/render/tests/data/math/oracle/equations.toml), compiled by `cargo xtask math-oracle generate` with TeX Live 2023 (pdfTeX 1.40.25); the embedded font subsets come from the TeX Live amsfonts package 3.04 (https://ctan.org/pkg/amsfonts)"
 licence = "(MIT OR Apache-2.0) AND OFL-1.1"
 licence_file = "crates/render/tests/data/math/OFL-AMSFonts.txt"
 kind = "document"
 usage = "Math-oracle tests and report (crates/render/tests/it/math_oracle.rs, crates/render/examples/math_oracle.rs): typeset equations whose LaTeX source and DVI glyph list are known, for scoring LaTeX recovery"
-sha256 = "dc50c917f4a4ba7a13a6f91616c127503de50ce815276d75dcfb9afdcd1a2b51"
+sha256 = "df263d82aa27bbe05232d255ca729a74142b47bbf717e9493fdf30fe66f95683"
 
 [[asset]]
 path = "crates/render/tests/data/math/oracle/paragraphs.pdf"
@@ -3342,7 +3342,7 @@ licence = "MIT OR Apache-2.0"
 licence_file = "LICENSE-MIT"
 kind = "data"
 usage = "Expected glyphs, rules and equation membership for the math-oracle tests and report (crates/render/tests/it/math_oracle.rs)"
-sha256 = "4f3038a944d94d05fe19d69b9fe068949caeea299f112ad9984a8b07c2c061ef"
+sha256 = "f25bd9fd6fd7ae1a39452e7e21dad27b1c3657ee6eed62575249355a47682223"
 
 [[asset]]
 path = "crates/render/tests/data/math/oracle/mutants.tsv"
@@ -3353,7 +3353,7 @@ licence = "MIT OR Apache-2.0"
 licence_file = "LICENSE-MIT"
 kind = "data"
 usage = "Expected glyphs, rules and equation membership for the math-oracle tests and report (crates/render/tests/it/math_oracle.rs)"
-sha256 = "41926026bf5a8d50b1734918c288b357ab2d25c5eb55747d3a0241411422a6be"
+sha256 = "5ab26761a79de982a2e43adc6cec5b400f50c102d8e948155a5f60a3ffd76f40"
 
 [[asset]]
 path = "crates/render/src/text/math/symbols/commands.txt"

@@ -52,6 +52,37 @@ M	greek_run/change-greek	greek_run	change-greek	\alpha \mu \nu \xi \pi \rho \sig
 M	mapsto/drop-superscript	mapsto	drop-superscript	x \mapsto x
 M	prime_power/drop-superscript	prime_power	drop-superscript	f' = (f')^2
 M	nth_derivative/drop-superscript	nth_derivative	drop-superscript	f(x)
+M	ho_sup_cubic/drop-superscript	ho_sup_cubic	drop-superscript	u - v^3 = w^3
+M	ho_sub_double/drop-superscript	ho_sub_double	drop-superscript	b_{p} + c_{r}^{s}
+M	ho_sup_neg/drop-superscript	ho_sup_neg	drop-superscript	10 + k^{-1}
+M	ho_sup_tower3/drop-superscript	ho_sup_tower3	drop-superscript	3
+M	ho_sup_euler/drop-superscript	ho_sup_euler	drop-superscript	e = \cos\theta + i\sin\theta
+M	ho_sup_euler/change-greek	ho_sup_euler	change-greek	e^{i\alpha} = \cos\theta + i\sin\theta
+M	ho_frac_basic/swap-fraction	ho_frac_basic	swap-fraction	\frac{x+y}{x-y}
+M	ho_frac_inline/swap-fraction	ho_frac_inline	swap-fraction	\frac{4}{3} + \frac{1}{8}
+M	ho_frac_nested2/swap-fraction	ho_frac_nested2	swap-fraction	\frac{\frac{c}{d}}{\frac{a}{b}}
+M	ho_frac_scripts/drop-superscript	ho_frac_scripts	drop-superscript	\frac{x}{y_1} + \frac{z^{n}}{w}
+M	ho_frac_scripts/swap-fraction	ho_frac_scripts	swap-fraction	\frac{y_1}{x^2} + \frac{z^{n}}{w}
+M	ho_binom_big/swap-fraction	ho_binom_big	swap-fraction	\binom{N}{r} = \frac{r!}{N!}
+M	ho_frac_pair/swap-fraction	ho_frac_pair	swap-fraction	\frac{2\pi}{1}\frac{u+v}{u-v}
+M	ho_frac_pair/change-greek	ho_frac_pair	change-greek	\frac{1}{2\alpha}\frac{u+v}{u-v}
+M	ho_sqrt_sum/drop-superscript	ho_sqrt_sum	drop-superscript	\sqrt{a + b^2 + c^2}
+M	ho_sqrt_frac/swap-fraction	ho_sqrt_frac	swap-fraction	\sqrt{\frac{y+1}{x}}
+M	ho_sum_limits/drop-superscript	ho_sum_limits	drop-superscript	\sum_{k=1} k^2
+M	ho_prod_inline/drop-superscript	ho_prod_inline	drop-superscript	\prod_{i=1} a_i
+M	ho_int_basic/drop-superscript	ho_int_basic	drop-superscript	\int_0 \sin t\,dt
+M	ho_int_basic/change-greek	ho_int_basic	change-greek	\int_0^\alpha \sin t\,dt
+M	ho_int_display/drop-superscript	ho_int_display	drop-superscript	\int_{a} h(s)\,ds = H(b) - H(a)
+M	ho_int_inf/drop-superscript	ho_int_inf	drop-superscript	\int_{-\infty} \frac{1}{1+x^2}\,dx
+M	ho_int_inf/swap-fraction	ho_int_inf	swap-fraction	\int_{-\infty}^{\infty} \frac{1+x^2}{1}\,dx
+M	ho_lim_basic/swap-fraction	ho_lim_basic	swap-fraction	\lim_{h \to 0} \frac{h}{f(x+h) - f(x)}
+M	ho_det_prod/change-greek	ho_det_prod	change-greek	\det A = \prod_i \alpha_i
+M	ho_paren_script/drop-superscript	ho_paren_script	drop-superscript	\left( \frac{p}{q+1} \right)
+M	ho_paren_script/swap-fraction	ho_paren_script	swap-fraction	\left( \frac{q+1}{p} \right)^2
+M	ho_greek_mix/drop-superscript	ho_greek_mix	drop-superscript	\sigma + \omega + \psi
+M	ho_greek_mix/change-greek	ho_greek_mix	change-greek	\alpha^2 + \omega + \psi
+M	ho_greek_caps/change-greek	ho_greek_caps	change-greek	\Delta \Omega \Psi \Lambda
+M	ho_greek_var/change-greek	ho_greek_var	change-greek	\alpha \ne \rho, \quad \varsigma \ne \sigma
 G	mutants	0	sup_squares/drop-superscript	cmmi10	655360	120	-3420651	-2765291
 G	mutants	0	sup_squares/drop-superscript	cmr10	655360	43	-2900463	-2765291
 G	mutants	0	sup_squares/drop-superscript	cmmi10	655360	121	-2245105	-2765291
@@ -536,3 +567,274 @@ G	mutants	51	nth_derivative/drop-superscript	cmmi10	655360	102	8440044	-1978859
 G	mutants	51	nth_derivative/drop-superscript	cmr10	655360	40	8831442	-1978859
 G	mutants	51	nth_derivative/drop-superscript	cmmi10	655360	120	9086305	-1978859
 G	mutants	51	nth_derivative/drop-superscript	cmr10	655360	41	9460861	-1978859
+G	mutants	52	ho_sup_cubic/drop-superscript	cmmi10	655360	117	-3420651	-2765291
+G	mutants	52	ho_sup_cubic/drop-superscript	cmsy10	655360	0	-2899853	-2765291
+G	mutants	52	ho_sup_cubic/drop-superscript	cmmi10	655360	118	-2244495	-2765291
+G	mutants	52	ho_sup_cubic/drop-superscript	cmr7	458752	51	-1903314	-3003116
+G	mutants	52	ho_sup_cubic/drop-superscript	cmr10	655360	61	-1427271	-2765291
+G	mutants	52	ho_sup_cubic/drop-superscript	cmmi10	655360	119	-735505	-2765291
+G	mutants	52	ho_sup_cubic/drop-superscript	cmr7	458752	51	-248687	-3003116
+G	mutants	53	ho_sub_double/drop-superscript	cmmi10	655360	98	8098384	-1978859
+G	mutants	53	ho_sub_double/drop-superscript	cmmi7	458752	112	8379642	-1880556
+G	mutants	53	ho_sub_double/drop-superscript	cmr10	655360	43	8828204	-1978859
+G	mutants	53	ho_sub_double/drop-superscript	cmmi10	655360	99	9483562	-1978859
+G	mutants	53	ho_sub_double/drop-superscript	cmmi7	458752	115	9767173	-2249452
+G	mutants	53	ho_sub_double/drop-superscript	cmmi7	458752	114	9767173	-1816843
+G	mutants	54	ho_sup_neg/drop-superscript	cmr10	655360	49	-3420651	-2765291
+G	mutants	54	ho_sup_neg/drop-superscript	cmr10	655360	48	-3092970	-2765291
+G	mutants	54	ho_sup_neg/drop-superscript	cmr10	655360	43	-2619657	-2765291
+G	mutants	54	ho_sup_neg/drop-superscript	cmmi10	655360	107	-1964299	-2765291
+G	mutants	54	ho_sup_neg/drop-superscript	cmsy7	458752	0	-1602485	-3003116
+G	mutants	54	ho_sup_neg/drop-superscript	cmr7	458752	49	-1192884	-3003116
+G	mutants	55	ho_sup_tower3/drop-superscript	cmr10	655360	51	8914043	-1978859
+G	mutants	56	ho_sup_euler/drop-superscript	cmmi10	655360	101	6644277	-1978859
+G	mutants	56	ho_sup_euler/drop-superscript	cmr10	655360	61	7131470	-1978859
+G	mutants	56	ho_sup_euler/drop-superscript	cmr10	655360	99	7823236	-1978859
+G	mutants	56	ho_sup_euler/drop-superscript	cmr10	655360	111	8114507	-1978859
+G	mutants	56	ho_sup_euler/drop-superscript	cmr10	655360	115	8442188	-1978859
+G	mutants	56	ho_sup_euler/drop-superscript	cmmi10	655360	18	8809915	-1978859
+G	mutants	56	ho_sup_euler/drop-superscript	cmr10	655360	43	9281407	-1978859
+G	mutants	56	ho_sup_euler/drop-superscript	cmmi10	655360	105	9936765	-1978859
+G	mutants	56	ho_sup_euler/drop-superscript	cmr10	655360	115	10271769	-1978859
+G	mutants	56	ho_sup_euler/drop-superscript	cmr10	655360	105	10530272	-1978859
+G	mutants	56	ho_sup_euler/drop-superscript	cmr10	655360	110	10712317	-1978859
+G	mutants	56	ho_sup_euler/drop-superscript	cmmi10	655360	18	11185631	-1978859
+G	mutants	57	ho_sup_euler/change-greek	cmmi10	655360	101	6364830	-1978859
+G	mutants	57	ho_sup_euler/change-greek	cmmi7	458752	105	6669983	-2249452
+G	mutants	57	ho_sup_euler/change-greek	cmmi7	458752	11	6855403	-2249452
+G	mutants	57	ho_sup_euler/change-greek	cmr10	655360	61	7410917	-1978859
+G	mutants	57	ho_sup_euler/change-greek	cmr10	655360	99	8102683	-1978859
+G	mutants	57	ho_sup_euler/change-greek	cmr10	655360	111	8393954	-1978859
+G	mutants	57	ho_sup_euler/change-greek	cmr10	655360	115	8721635	-1978859
+G	mutants	57	ho_sup_euler/change-greek	cmmi10	655360	18	9089362	-1978859
+G	mutants	57	ho_sup_euler/change-greek	cmr10	655360	43	9560854	-1978859
+G	mutants	57	ho_sup_euler/change-greek	cmmi10	655360	105	10216212	-1978859
+G	mutants	57	ho_sup_euler/change-greek	cmr10	655360	115	10551216	-1978859
+G	mutants	57	ho_sup_euler/change-greek	cmr10	655360	105	10809719	-1978859
+G	mutants	57	ho_sup_euler/change-greek	cmr10	655360	110	10991764	-1978859
+G	mutants	57	ho_sup_euler/change-greek	cmmi10	655360	18	11465078	-1978859
+G	mutants	58	ho_frac_basic/swap-fraction	cmmi10	655360	120	8317699	-2317462
+G	mutants	58	ho_frac_basic/swap-fraction	cmr10	655360	43	8837887	-2317462
+G	mutants	58	ho_frac_basic/swap-fraction	cmmi10	655360	121	9493245	-2317462
+R	mutants	58	ho_frac_basic/swap-fraction	8317699	-2024840	1520370	26213
+G	mutants	58	ho_frac_basic/swap-fraction	cmmi10	655360	120	8317699	-1424562
+G	mutants	58	ho_frac_basic/swap-fraction	cmsy10	655360	0	8837887	-1424562
+G	mutants	58	ho_frac_basic/swap-fraction	cmmi10	655360	121	9493245	-1424562
+G	mutants	59	ho_frac_inline/swap-fraction	cmr7	458752	52	-3342008	-3023327
+R	mutants	59	ho_frac_inline/swap-fraction	-3342008	-2916025	261235	26213
+G	mutants	59	ho_frac_inline/swap-fraction	cmr7	458752	51	-3342008	-2539297
+G	mutants	59	ho_frac_inline/swap-fraction	cmr10	655360	43	-2856498	-2765291
+G	mutants	59	ho_frac_inline/swap-fraction	cmr7	458752	49	-2122497	-3023327
+R	mutants	59	ho_frac_inline/swap-fraction	-2122497	-2916025	261235	26213
+G	mutants	59	ho_frac_inline/swap-fraction	cmr7	458752	56	-2122497	-2539297
+G	mutants	60	ho_frac_nested2/swap-fraction	cmmi7	458752	99	8960780	-2502237
+R	mutants	60	ho_frac_nested2/swap-fraction	8941475	-2394935	272818	26213
+G	mutants	60	ho_frac_nested2/swap-fraction	cmmi7	458752	100	8941475	-2018207
+R	mutants	60	ho_frac_nested2/swap-fraction	8857105	-1913354	441558	26213
+G	mutants	60	ho_frac_nested2/swap-fraction	cmmi7	458752	97	8935748	-1571112
+R	mutants	60	ho_frac_nested2/swap-fraction	8935748	-1463810	284272	26213
+G	mutants	60	ho_frac_nested2/swap-fraction	cmmi7	458752	98	8962650	-1087082
+G	mutants	61	ho_frac_scripts/drop-superscript	cmmi10	655360	120	8066302	-2264412
+R	mutants	61	ho_frac_scripts/drop-superscript	7945923	-1971790	615314	26213
+G	mutants	61	ho_frac_scripts/drop-superscript	cmmi10	655360	121	7945923	-1371512
+G	mutants	61	ho_frac_scripts/drop-superscript	cmr7	458752	49	8267234	-1273209
+G	mutants	61	ho_frac_scripts/drop-superscript	cmr10	655360	43	8785512	-1821056
+G	mutants	61	ho_frac_scripts/drop-superscript	cmmi10	655360	122	9519513	-2264412
+G	mutants	61	ho_frac_scripts/drop-superscript	cmmi7	458752	110	9853111	-2502237
+R	mutants	61	ho_frac_scripts/drop-superscript	9519513	-1971790	690332	26213
+G	mutants	61	ho_frac_scripts/drop-superscript	cmmi10	655360	119	9621270	-1371512
+G	mutants	62	ho_frac_scripts/swap-fraction	cmmi10	655360	121	7945923	-2264412
+G	mutants	62	ho_frac_scripts/swap-fraction	cmr7	458752	49	8267234	-2166109
+R	mutants	62	ho_frac_scripts/swap-fraction	7919300	-1971790	668559	26213
+G	mutants	62	ho_frac_scripts/swap-fraction	cmmi10	655360	120	7919300	-1371512
+G	mutants	62	ho_frac_scripts/swap-fraction	cmr7	458752	50	8293856	-1560838
+G	mutants	62	ho_frac_scripts/swap-fraction	cmr10	655360	43	8812134	-1821056
+G	mutants	62	ho_frac_scripts/swap-fraction	cmmi10	655360	122	9546135	-2264412
+G	mutants	62	ho_frac_scripts/swap-fraction	cmmi7	458752	110	9879733	-2502237
+R	mutants	62	ho_frac_scripts/swap-fraction	9546135	-1971790	690332	26213
+G	mutants	62	ho_frac_scripts/swap-fraction	cmmi10	655360	119	9647892	-1371512
+G	mutants	63	ho_binom_big/swap-fraction	cmex10	655360	18	7390881	-2673542
+G	mutants	63	ho_binom_big/swap-fraction	cmmi10	655360	78	7873301	-2192832
+G	mutants	63	ho_binom_big/swap-fraction	cmmi10	655360	114	8015370	-1299931
+G	mutants	63	ho_binom_big/swap-fraction	cmex10	655360	19	8471315	-2673542
+G	mutants	63	ho_binom_big/swap-fraction	cmr10	655360	61	9135775	-1749476
+G	mutants	63	ho_binom_big/swap-fraction	cmmi10	655360	114	10048253	-2192832
+G	mutants	63	ho_binom_big/swap-fraction	cmr10	655360	33	10362129	-2192832
+R	mutants	63	ho_binom_big/swap-fraction	9906184	-1900210	780059	26213
+G	mutants	63	ho_binom_big/swap-fraction	cmmi10	655360	78	9906184	-1299932
+G	mutants	63	ho_binom_big/swap-fraction	cmr10	655360	33	10504198	-1299932
+G	mutants	64	ho_frac_pair/swap-fraction	cmr10	655360	50	7878189	-2277412
+G	mutants	64	ho_frac_pair/swap-fraction	cmmi10	655360	25	8205870	-2277412
+R	mutants	64	ho_frac_pair/swap-fraction	7878189	-1984790	724767	26213
+G	mutants	64	ho_frac_pair/swap-fraction	cmr10	655360	49	8076732	-1384512
+G	mutants	64	ho_frac_pair/swap-fraction	cmmi10	655360	117	8760242	-2277412
+G	mutants	64	ho_frac_pair/swap-fraction	cmr10	655360	43	9281040	-2277412
+G	mutants	64	ho_frac_pair/swap-fraction	cmmi10	655360	118	9936398	-2277412
+R	mutants	64	ho_frac_pair/swap-fraction	8760242	-1984790	1517337	26213
+G	mutants	64	ho_frac_pair/swap-fraction	cmmi10	655360	117	8760242	-1384512
+G	mutants	64	ho_frac_pair/swap-fraction	cmsy10	655360	0	9281040	-1384512
+G	mutants	64	ho_frac_pair/swap-fraction	cmmi10	655360	118	9936398	-1384512
+G	mutants	65	ho_frac_pair/change-greek	cmr10	655360	49	8076732	-2277412
+R	mutants	65	ho_frac_pair/change-greek	7865901	-1984790	749342	26213
+G	mutants	65	ho_frac_pair/change-greek	cmr10	655360	50	7865901	-1384512
+G	mutants	65	ho_frac_pair/change-greek	cmmi10	655360	11	8193582	-1384512
+G	mutants	65	ho_frac_pair/change-greek	cmmi10	655360	117	8772529	-2277412
+G	mutants	65	ho_frac_pair/change-greek	cmr10	655360	43	9293327	-2277412
+G	mutants	65	ho_frac_pair/change-greek	cmmi10	655360	118	9948685	-2277412
+R	mutants	65	ho_frac_pair/change-greek	8772529	-1984790	1517337	26213
+G	mutants	65	ho_frac_pair/change-greek	cmmi10	655360	117	8772529	-1384512
+G	mutants	65	ho_frac_pair/change-greek	cmsy10	655360	0	9293327	-1384512
+G	mutants	65	ho_frac_pair/change-greek	cmmi10	655360	118	9948685	-1384512
+G	mutants	66	ho_sqrt_sum/drop-superscript	cmex10	655360	112	7199568	-2622526
+R	mutants	66	ho_sqrt_sum/drop-superscript	7854929	-2622526	3101271	26213
+G	mutants	66	ho_sqrt_sum/drop-superscript	cmmi10	655360	97	7854929	-1978859
+G	mutants	66	ho_sqrt_sum/drop-superscript	cmr10	655360	43	8346977	-1978859
+G	mutants	66	ho_sqrt_sum/drop-superscript	cmmi10	655360	98	9002335	-1978859
+G	mutants	66	ho_sqrt_sum/drop-superscript	cmr7	458752	50	9283593	-2168185
+G	mutants	66	ho_sqrt_sum/drop-superscript	cmr10	655360	43	9723228	-1978859
+G	mutants	66	ho_sqrt_sum/drop-superscript	cmmi10	655360	99	10378586	-1978859
+G	mutants	66	ho_sqrt_sum/drop-superscript	cmr7	458752	50	10662197	-2168185
+G	mutants	67	ho_sqrt_frac/swap-fraction	cmex10	655360	114	7934813	-2647329
+R	mutants	67	ho_sqrt_frac/swap-fraction	8590174	-2647329	1630781	26213
+G	mutants	67	ho_sqrt_frac/swap-fraction	cmmi10	655360	121	8668817	-2060897
+G	mutants	67	ho_sqrt_frac/swap-fraction	cmr10	655360	43	9159273	-2060897
+G	mutants	67	ho_sqrt_frac/swap-fraction	cmr10	655360	49	9814631	-2060897
+R	mutants	67	ho_sqrt_frac/swap-fraction	8668817	-1768275	1473495	26213
+G	mutants	67	ho_sqrt_frac/swap-fraction	cmmi10	655360	120	9218287	-1167997
+G	mutants	68	ho_sum_limits/drop-superscript	cmex10	655360	88	8222047	-2601455
+G	mutants	68	ho_sum_limits/drop-superscript	cmmi7	458752	107	8218746	-1190604
+G	mutants	68	ho_sum_limits/drop-superscript	cmr7	458752	61	8508426	-1190604
+G	mutants	68	ho_sum_limits/drop-superscript	cmr7	458752	49	8910746	-1190604
+G	mutants	68	ho_sum_limits/drop-superscript	cmmi10	655360	107	9281205	-1978859
+G	mutants	68	ho_sum_limits/drop-superscript	cmr7	458752	50	9643019	-2249452
+G	mutants	69	ho_prod_inline/drop-superscript	cmex10	655360	81	-3420651	-3256815
+G	mutants	69	ho_prod_inline/drop-superscript	cmmi7	458752	105	-2801698	-2568680
+G	mutants	69	ho_prod_inline/drop-superscript	cmr7	458752	61	-2616278	-2568680
+G	mutants	69	ho_prod_inline/drop-superscript	cmr7	458752	49	-2213958	-2568680
+G	mutants	69	ho_prod_inline/drop-superscript	cmmi10	655360	97	-1810731	-2765291
+G	mutants	69	ho_prod_inline/drop-superscript	cmmi7	458752	105	-1464315	-2666988
+G	mutants	70	ho_int_basic/drop-superscript	cmex10	655360	82	-3420651	-3293223
+G	mutants	70	ho_int_basic/drop-superscript	cmr7	458752	48	-3111175	-2532271
+G	mutants	70	ho_int_basic/drop-superscript	cmr10	655360	115	-2707948	-2765291
+G	mutants	70	ho_int_basic/drop-superscript	cmr10	655360	105	-2449445	-2765291
+G	mutants	70	ho_int_basic/drop-superscript	cmr10	655360	110	-2267400	-2765291
+G	mutants	70	ho_int_basic/drop-superscript	cmmi10	655360	116	-1794086	-2765291
+G	mutants	70	ho_int_basic/drop-superscript	cmmi10	655360	100	-1448204	-2765291
+G	mutants	70	ho_int_basic/drop-superscript	cmmi10	655360	116	-1107098	-2765291
+G	mutants	71	ho_int_basic/change-greek	cmex10	655360	82	-3420651	-3293223
+G	mutants	71	ho_int_basic/change-greek	cmmi7	458752	11	-2983744	-3131205
+G	mutants	71	ho_int_basic/change-greek	cmr7	458752	48	-3111175	-2532271
+G	mutants	71	ho_int_basic/change-greek	cmr10	655360	115	-2501046	-2765291
+G	mutants	71	ho_int_basic/change-greek	cmr10	655360	105	-2242543	-2765291
+G	mutants	71	ho_int_basic/change-greek	cmr10	655360	110	-2060498	-2765291
+G	mutants	71	ho_int_basic/change-greek	cmmi10	655360	116	-1587184	-2765291
+G	mutants	71	ho_int_basic/change-greek	cmmi10	655360	100	-1241302	-2765291
+G	mutants	71	ho_int_basic/change-greek	cmmi10	655360	116	-900196	-2765291
+G	mutants	72	ho_int_display/drop-superscript	cmex10	655360	90	5447708	-2699755
+G	mutants	72	ho_int_display/drop-superscript	cmmi7	458752	97	5811798	-1210617
+G	mutants	72	ho_int_display/drop-superscript	cmmi10	655360	104	6238062	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmr10	655360	40	6615653	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmmi10	655360	115	6870516	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmr10	655360	41	7177716	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmmi10	655360	100	7541803	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmmi10	655360	115	7882909	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmr10	655360	61	8372149	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmmi10	655360	72	9063915	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmr10	655360	40	9661929	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmmi10	655360	98	9916792	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmr10	655360	41	10198050	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmsy10	655360	0	10598545	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmmi10	655360	72	11253903	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmr10	655360	40	11851917	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmmi10	655360	97	12106780	-1807730
+G	mutants	72	ho_int_display/drop-superscript	cmr10	655360	41	12453196	-1807730
+G	mutants	73	ho_int_inf/drop-superscript	cmex10	655360	90	6969107	-2699755
+G	mutants	73	ho_int_inf/drop-superscript	cmsy7	458752	0	7333197	-1210617
+G	mutants	73	ho_int_inf/drop-superscript	cmsy7	458752	49	7742798	-1210617
+G	mutants	73	ho_int_inf/drop-superscript	cmr10	655360	49	9220677	-2251086
+R	mutants	73	ho_int_inf/drop-superscript	8485902	-1958464	1797230	26213
+G	mutants	73	ho_int_inf/drop-superscript	cmr10	655360	49	8485902	-1358186
+G	mutants	73	ho_int_inf/drop-superscript	cmr10	655360	43	8959215	-1358186
+G	mutants	73	ho_int_inf/drop-superscript	cmmi10	655360	120	9614573	-1358186
+G	mutants	73	ho_int_inf/drop-superscript	cmr7	458752	50	9989129	-1547512
+G	mutants	73	ho_int_inf/drop-superscript	cmmi10	655360	100	10470999	-1807730
+G	mutants	73	ho_int_inf/drop-superscript	cmmi10	655360	120	10812105	-1807730
+G	mutants	74	ho_int_inf/swap-fraction	cmex10	655360	90	6969107	-2614959
+G	mutants	74	ho_int_inf/swap-fraction	cmsy7	458752	49	7624468	-2452941
+G	mutants	74	ho_int_inf/swap-fraction	cmsy7	458752	0	7333197	-1125821
+G	mutants	74	ho_int_inf/swap-fraction	cmsy7	458752	49	7742798	-1125821
+G	mutants	74	ho_int_inf/swap-fraction	cmr10	655360	49	8485902	-2166290
+G	mutants	74	ho_int_inf/swap-fraction	cmr10	655360	43	8959215	-2166290
+G	mutants	74	ho_int_inf/swap-fraction	cmmi10	655360	120	9614573	-2166290
+G	mutants	74	ho_int_inf/swap-fraction	cmr7	458752	50	9989129	-2404115
+R	mutants	74	ho_int_inf/swap-fraction	8485902	-1873668	1797230	26213
+G	mutants	74	ho_int_inf/swap-fraction	cmr10	655360	49	9220677	-1273390
+G	mutants	74	ho_int_inf/swap-fraction	cmmi10	655360	100	10470999	-1722934
+G	mutants	74	ho_int_inf/swap-fraction	cmmi10	655360	120	10812105	-1722934
+G	mutants	75	ho_lim_basic/swap-fraction	cmr10	655360	108	6224051	-1801288
+G	mutants	75	ho_lim_basic/swap-fraction	cmr10	655360	105	6406096	-1801288
+G	mutants	75	ho_lim_basic/swap-fraction	cmr10	655360	109	6588141	-1801288
+G	mutants	75	ho_lim_basic/swap-fraction	cmmi7	458752	104	6133900	-1373485
+G	mutants	75	ho_lim_basic/swap-fraction	cmsy7	458752	33	6440723	-1373485
+G	mutants	75	ho_lim_basic/swap-fraction	cmr7	458752	48	6963192	-1373485
+G	mutants	75	ho_lim_basic/swap-fraction	cmmi10	655360	104	9488964	-2244644
+R	mutants	75	ho_lim_basic/swap-fraction	7412294	-1952022	4530931	26213
+G	mutants	75	ho_lim_basic/swap-fraction	cmmi10	655360	102	7412294	-1351744
+G	mutants	75	ho_lim_basic/swap-fraction	cmr10	655360	40	7803692	-1351744
+G	mutants	75	ho_lim_basic/swap-fraction	cmmi10	655360	120	8058555	-1351744
+G	mutants	75	ho_lim_basic/swap-fraction	cmr10	655360	43	8578743	-1351744
+G	mutants	75	ho_lim_basic/swap-fraction	cmmi10	655360	104	9234101	-1351744
+G	mutants	75	ho_lim_basic/swap-fraction	cmr10	655360	41	9611692	-1351744
+G	mutants	75	ho_lim_basic/swap-fraction	cmsy10	655360	0	10012187	-1351744
+G	mutants	75	ho_lim_basic/swap-fraction	cmmi10	655360	102	10667545	-1351744
+G	mutants	75	ho_lim_basic/swap-fraction	cmr10	655360	40	11058943	-1351744
+G	mutants	75	ho_lim_basic/swap-fraction	cmmi10	655360	120	11313806	-1351744
+G	mutants	75	ho_lim_basic/swap-fraction	cmr10	655360	41	11688362	-1351744
+G	mutants	76	ho_det_prod/change-greek	cmr10	655360	100	7093470	-1978859
+G	mutants	76	ho_det_prod/change-greek	cmr10	655360	101	7457560	-1978859
+G	mutants	76	ho_det_prod/change-greek	cmr10	655360	116	7748831	-1978859
+G	mutants	76	ho_det_prod/change-greek	cmmi10	655360	65	8112918	-1978859
+G	mutants	76	ho_det_prod/change-greek	cmr10	655360	61	8786479	-1978859
+G	mutants	76	ho_det_prod/change-greek	cmex10	655360	89	9478245	-2601455
+G	mutants	76	ho_det_prod/change-greek	cmmi7	458752	105	9804238	-1205623
+G	mutants	76	ho_det_prod/change-greek	cmmi10	655360	11	10424875	-1978859
+G	mutants	76	ho_det_prod/change-greek	cmmi7	458752	105	10844110	-1880556
+G	mutants	77	ho_paren_script/drop-superscript	cmex10	655360	18	7794448	-2673542
+G	mutants	77	ho_paren_script/drop-superscript	cmmi10	655360	112	8913020	-2192832
+R	mutants	77	ho_paren_script/drop-superscript	8355511	-1900210	1444745	26213
+G	mutants	77	ho_paren_script/drop-superscript	cmmi10	655360	113	8355511	-1299932
+G	mutants	77	ho_paren_script/drop-superscript	cmr10	655360	43	8817217	-1299932
+G	mutants	77	ho_paren_script/drop-superscript	cmr10	655360	49	9472575	-1299932
+G	mutants	77	ho_paren_script/drop-superscript	cmex10	655360	19	9878899	-2673542
+G	mutants	78	ho_paren_script/swap-fraction	cmex10	655360	18	7647447	-2539920
+G	mutants	78	ho_paren_script/swap-fraction	cmmi10	655360	113	8208510	-2059210
+G	mutants	78	ho_paren_script/swap-fraction	cmr10	655360	43	8670216	-2059210
+G	mutants	78	ho_paren_script/swap-fraction	cmr10	655360	49	9325574	-2059210
+R	mutants	78	ho_paren_script/swap-fraction	8208510	-1766588	1444745	26213
+G	mutants	78	ho_paren_script/swap-fraction	cmmi10	655360	112	8766019	-1166310
+G	mutants	78	ho_paren_script/swap-fraction	cmex10	655360	19	9731898	-2539920
+G	mutants	78	ho_paren_script/swap-fraction	cmr7	458752	50	10214318	-2404115
+G	mutants	79	ho_greek_mix/drop-superscript	cmmi10	655360	27	-3420651	-2765291
+G	mutants	79	ho_greek_mix/drop-superscript	cmr10	655360	43	-2877025	-2765291
+G	mutants	79	ho_greek_mix/drop-superscript	cmmi10	655360	33	-2221667	-2765291
+G	mutants	79	ho_greek_mix/drop-superscript	cmr10	655360	43	-1644591	-2765291
+G	mutants	79	ho_greek_mix/drop-superscript	cmmi10	655360	32	-989233	-2765291
+G	mutants	80	ho_greek_mix/change-greek	cmmi10	655360	11	-3420651	-2765291
+G	mutants	80	ho_greek_mix/change-greek	cmr7	458752	50	-2998990	-3003116
+G	mutants	80	ho_greek_mix/change-greek	cmr10	655360	43	-2559355	-2765291
+G	mutants	80	ho_greek_mix/change-greek	cmmi10	655360	33	-1903997	-2765291
+G	mutants	80	ho_greek_mix/change-greek	cmr10	655360	43	-1326921	-2765291
+G	mutants	80	ho_greek_mix/change-greek	cmmi10	655360	32	-671563	-2765291
+G	mutants	81	ho_greek_caps/change-greek	cmr10	655360	1	8085740	-1978859
+G	mutants	81	ho_greek_caps/change-greek	cmr10	655360	10	8631875	-1978859
+G	mutants	81	ho_greek_caps/change-greek	cmr10	655360	9	9105191	-1978859
+G	mutants	81	ho_greek_caps/change-greek	cmr10	655360	3	9614917	-1978859
+G	mutants	82	ho_greek_var/change-greek	cmmi10	655360	11	7006454	-1978859
+G	mutants	82	ho_greek_var/change-greek	cmsy10	655360	54	7610155	-1978859
+G	mutants	82	ho_greek_var/change-greek	cmr10	655360	61	7610155	-1978859
+G	mutants	82	ho_greek_var/change-greek	cmmi10	655360	26	8301921	-1978859
+G	mutants	82	ho_greek_var/change-greek	cmmi10	655360	59	8640752	-1978859
+G	mutants	82	ho_greek_var/change-greek	cmmi10	655360	38	9587382	-1978859
+G	mutants	82	ho_greek_var/change-greek	cmsy10	655360	54	10059554	-1978859
+G	mutants	82	ho_greek_var/change-greek	cmr10	655360	61	10059554	-1978859
+G	mutants	82	ho_greek_var/change-greek	cmmi10	655360	27	10751320	-1978859
