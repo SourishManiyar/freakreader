@@ -9,6 +9,7 @@ mod inline_image_ei;
 mod jbig2_invariants;
 mod knockout_backdrop;
 mod luminosity_group_space;
+mod math_faces;
 mod math_glyphs;
 mod math_oracle;
 mod math_recover;

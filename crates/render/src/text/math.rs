@@ -542,6 +542,7 @@ pub mod ast;
 pub mod layout;
 pub mod recover;
 pub mod symbols;
+pub mod unicode;
 
 #[cfg(test)]
 mod tests;

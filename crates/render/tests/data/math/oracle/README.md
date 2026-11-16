@@ -80,6 +80,122 @@ The TeX-backed tests are `#[ignore]`d in the plain test run because CI requires 
 (`PDFCRAFT_ORACLES_REQUIRED`) and does not install TeX Live; the tests that read committed files,
 including that every committed mutant is told apart, run everywhere.
 
+## Faces: the list in other fonts
+
+The main set is Computer Modern, which the symbol table knows by font and code. The **faces** are
+the same equation list typeset in fonts it does not know, for the reader's Unicode path
+(`pdfcraft_render::text::math::unicode`), which reads a glyph by the Unicode text the PDF gives it:
+
+| face | engine | fonts | where |
+|---|---|---|---|
+| `stix2` | LuaLaTeX, unicode-math | STIX Two Math, STIX Two Text | committed (`faces/`) |
+| `fira` | LuaLaTeX, unicode-math | Fira Math, Fira Sans | committed |
+| `libertinus` | LuaLaTeX, unicode-math | Libertinus Math, Libertinus Serif | committed |
+| `stix2-xe` | XeLaTeX, unicode-math | STIX Two Math, STIX Two Text | local only |
+| `termes`, `pagella`, `bonum` | LuaLaTeX, unicode-math | TeX Gyre Termes, Pagella, Bonum (Math and text) | local only |
+| `lm-math` | LuaLaTeX, unicode-math | Latin Modern Math, Latin Modern Roman | local only |
+| `newtx` | pdfLaTeX | newtxtext, newtxmath (Times) | local only |
+| `mathptmx` | pdfLaTeX | Times (Nimbus) with Computer Modern and symbol-font math | local only |
+| `txfonts` | pdfLaTeX | txfonts (Times) | local only |
+
+**Licences decide where a face lives.** A PDF embeds subsets of its fonts, so only faces whose fonts
+are all OFL-1.1 (STIX Two, Fira, Libertinus; licence texts in `faces/OFL-*.txt`) are committed. TeX
+Gyre and Latin Modern are under the GUST Font License and the Times clones under the GPL or AGPL with
+a font exception, none of them on the allowlist: those faces are generated into the git-ignored
+`target/math-oracle-faces/` and scored by `#[ignore]`d tests on a machine with TeX Live, never
+committed. The XeLaTeX face is OFL too, but kept local so the repository holds one STIX Two PDF.
+Times New Roman and Cambria Math are proprietary: no face uses them, and neither is measured.
+
+**How a face's truth is made.** XeTeX writes XDV and LuaTeX's DVI names OpenType fonts no TFM
+describes, so `dvitype` cannot list them; a face's truth is its PDF instead. Each equation is set
+alone on a page of its own, numbered environments unnumbered (`equation` as `\[…\]`, `align` as
+`align*`), and the box is everything drawn on the page. A candidate is typeset the same way by the
+same engine with the same fonts, and the two pages are compared as the main set compares DVI items:
+the same glyphs (font name, size, code) and rules at the same places up to a translation, within
+0.01 pt, read from both PDFs by the renderer (`harness::page_items`). The identity answer scores
+100% in every face and every deliberate mistake (`Mutation`) is told apart in `stix2`
+(`tex_rejects_every_mutant_in_a_face`). An equation a face cannot set (a glyph missing from its
+fonts, a fallback to a font outside its list, a page that overflows) is left out of that face and
+listed in its `.tsv`.
+
+```sh
+cargo xtask math-oracle faces                 # every face whose engine is installed (one TeX run at a time)
+cargo xtask math-oracle faces --only stix2    # one face
+cargo xtask math-oracle faces --check         # regenerate the committed faces and require identical bytes
+cargo xtask math-oracle report --faces        # score every face generated here
+cargo xtask math-oracle report --face newtx --failures   # a development face, its wrong answers
+cargo xtask math-oracle report --face stix2 --explain int_power
+```
+
+LuaLaTeX keeps a font cache under `TEXMFVAR`; it must be writable (set `TEXMFVAR` to a scratch
+directory if the default is not).
+
+### Scores of the Unicode path
+
+Measured on 2026-11-16 on branch `feat/copy-as-latex-unicode-math` (the commit that adds this
+section), with LuaHBTeX 1.17.0, XeTeX 0.999995 and pdfTeX 1.40.25 (TeX Live 2023/Debian) as the
+typeset check. Numbers are typeset-equal / n, and in parentheses the **precision**: of the answers
+given, how many are right. "Identity" is the truth's own source, which proves the check. The columns
+are as for the main set: the reader's best answer, only its confident answers, and both again with
+the environment (inline or display) told.
+
+**Development and held-out faces.** `stix2` and `newtx` were the development faces: the Unicode path
+was written against them, their failures read one by one. The others were scored only as a whole,
+first at an intermediate state of the reader:
+
+| face | n | identity | best answer | confident | best, environment told | confident, environment told |
+|---|--:|---|---|---|---|---|
+| fira | 170 | 170/170 (100.0%) | 115/170 (91.3%) | 65/170 (100.0%) | 116/170 (92.1%) | 74/170 (100.0%) |
+| libertinus | 176 | 176/176 (100.0%) | 115/176 (87.8%) | 58/176 (100.0%) | 116/176 (88.5%) | 65/176 (100.0%) |
+| stix2-xe | 177 | 177/177 (100.0%) | 124/177 (93.9%) | 83/177 (97.6%) | 125/177 (94.7%) | 93/177 (97.9%) |
+| termes | 176 | 175/176 (99.4%) | 129/176 (92.8%) | 89/176 (100.0%) | 130/176 (93.5%) | 98/176 (100.0%) |
+| pagella | 176 | 175/176 (99.4%) | 130/176 (93.5%) | 95/176 (100.0%) | 131/176 (94.2%) | 104/176 (100.0%) |
+| bonum | 176 | 176/176 (100.0%) | 121/176 (86.4%) | 51/176 (100.0%) | 122/176 (87.1%) | 57/176 (100.0%) |
+| lm-math | 176 | 176/176 (100.0%) | 124/176 (88.6%) | 72/176 (100.0%) | 125/176 (89.3%) | 81/176 (100.0%) |
+| mathptmx | 177 | 177/177 (100.0%) | 91/177 (68.4%) | 35/177 (94.6%) | 91/177 (68.4%) | 39/177 (95.1%) |
+| txfonts | 177 | 177/177 (100.0%) | 98/177 (84.5%) | 71/177 (100.0%) | 99/177 (85.3%) | 80/177 (100.0%) |
+
+That first look found four wrong confident answers, two in `stix2-xe` and two in `mathptmx`, and an
+identity failure in `termes` and `pagella` (two pages with the same box; the identity now also
+matches what the page draws). **After it, the failures of `stix2-xe`, `mathptmx` and `fira` were read
+one by one**, and the reader changed: the table's Computer Modern metrics are no longer lent to
+symbols of other fonts (the CM `\int`'s italic correction had made a lone `−` a lower limit, written
+`\int\limits_{-}_{\infty}`), scripts are never written twice on one side, a large operator of a
+scaled-up font (mathptmx's Symbol-font `\sum`) is measured in the text size, and two readings the
+glyphs cannot tell apart became doubts (an accent over one letter of a word, Fira Math's
+`\widehat{xyz}`; italic Times letters that are math italic or `\mathit`). So these faces are no
+longer unseen data either; only a new face can measure the Unicode path afresh. The scores now:
+
+| face | n | identity | best answer | confident | best, environment told | confident, environment told |
+|---|--:|---|---|---|---|---|
+| stix2 | 176 | 176/176 (100.0%) | 127/176 (94.8%) | 88/176 (100.0%) | 128/176 (95.5%) | 98/176 (100.0%) |
+| newtx | 177 | 177/177 (100.0%) | 85/177 (73.9%) | 49/177 (100.0%) | 86/177 (74.8%) | 56/177 (100.0%) |
+| fira | 170 | 170/170 (100.0%) | 123/170 (92.5%) | 69/170 (100.0%) | 124/170 (93.2%) | 78/170 (100.0%) |
+| libertinus | 176 | 176/176 (100.0%) | 117/176 (84.2%) | 63/176 (100.0%) | 118/176 (84.9%) | 70/176 (100.0%) |
+| stix2-xe | 177 | 177/177 (100.0%) | 131/177 (94.9%) | 92/177 (100.0%) | 132/177 (95.7%) | 102/177 (100.0%) |
+| termes | 176 | 176/176 (100.0%) | 126/176 (92.0%) | 87/176 (100.0%) | 127/176 (92.7%) | 96/176 (100.0%) |
+| pagella | 176 | 176/176 (100.0%) | 129/176 (92.8%) | 95/176 (100.0%) | 130/176 (93.5%) | 104/176 (100.0%) |
+| bonum | 176 | 176/176 (100.0%) | 118/176 (86.1%) | 50/176 (100.0%) | 119/176 (86.9%) | 56/176 (100.0%) |
+| lm-math | 176 | 176/176 (100.0%) | 126/176 (90.0%) | 72/176 (100.0%) | 127/176 (90.7%) | 81/176 (100.0%) |
+| mathptmx | 177 | 177/177 (100.0%) | 95/177 (70.9%) | 37/177 (100.0%) | 96/177 (71.6%) | 41/177 (100.0%) |
+| txfonts | 177 | 177/177 (100.0%) | 98/177 (84.5%) | 69/177 (100.0%) | 99/177 (85.3%) | 78/177 (100.0%) |
+
+Over every face the confident answers are all right (precision 100.0%, with and without the
+environment). The Computer Modern scores above are unchanged by the Unicode path (the same
+106/143, 95, 52/57, 44 and 50, measured again at the same time).
+
+What keeps answers tentative or unanswered in these faces, besides what the main set's reader does not
+read: delimiters grown past their plain size (`\left` against `\big`; the font's size ladder is not in
+the PDF), a gap after an italic letter that is its italic correction or a thin space, word spaces at the
+edge of `\text` and `\mathrm` against `\text`, characters Unicode gives several commands (`|` is `\mid`
+or `\shortmid`), and in Times faces glyphs with no Unicode text and letters of symbol fonts whose names
+say no alphabet (newtx's `txsym` draws `\mathbb{R}` as a plain `R`). The Times faces score lowest:
+their virtual fonts draw glyphs away from TeX's boxes and their italic corrections are large.
+
+`crates/render/tests/it/math_faces.rs` holds every face to a confident precision of at least 98% and
+each to floors a little under these numbers; raise them with the reader, do not lower one to make a
+number pass.
+
 ## A real-paper set (not fetched)
 
 Synthetic pages say nothing about papers typeset with other classes, fonts and macro packages. A
@@ -191,8 +307,8 @@ Over everything: development `layout` 106/143 typeset-equal (74.1%), 95.5% of it
 Matrices and `array`s, `cases`, `align`/`gather` rows (stacked rows of marks with no rule between
 them), braces over and under (`\overbrace`), stacked symbols (`\overset`, `\stackrel`,
 `\xrightarrow`, `\substack`), `\binom`, `\middle`, scripts on an empty base, `\cfrac`, and
-any glyph of a font or code the symbol table does not know: the answer is `None` (or tentative with
-the reason) and the diagnostics name what was met. The categories `matrices`, `cases`, `alignment` and
+a code of a known font the symbol table does not have (a glyph of any other font goes to the Unicode
+path, see "Faces"): the answer is `None` (or tentative with the reason) and the diagnostics name what was met. The categories `matrices`, `cases`, `alignment` and
 `decorations` score low for that reason and are not failures of the kind the other categories show: the
 reader answers few of them, and what it answers with confidence is right (the one wrong answer among
 them, in `matrices`, is a tentative one). `\dfrac` in text and `\tfrac` in a display cannot be told

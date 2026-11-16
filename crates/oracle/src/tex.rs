@@ -22,6 +22,7 @@
 //! a candidate TeX cannot typeset is [`Verdict::Failed`] with the end of TeX's log, not a panic.
 
 mod dvi;
+pub mod faces;
 mod mutate;
 mod score;
 mod truth;
