@@ -3,7 +3,7 @@
 use crate::support;
 
 use egui_kittest::Harness;
-use egui_kittest::kittest::{By, NodeT, Queryable};
+use egui_kittest::kittest::{NodeT, Queryable};
 use pdfcraft_ui_egui::PdfCraftApp;
 
 /// A tiny PDF with two pages, two bookmarks and one sticky note.
@@ -695,8 +695,8 @@ fn tabs_shrink_to_fit_then_arrows_step_through_them_and_open_stays_in_sight() {
         }
     });
     let open = h.get_by_label("Open").rect();
-    let discord = h.get_by_label("Discord").rect();
-    assert!(open.right() <= discord.left(), "Open {open:?} must not run under Discord {discord:?}");
+    let help = h.get_by_label("Keyboard shortcuts").rect();
+    assert!(open.right() <= help.left(), "Open {open:?} must not run under the buttons on the right {help:?}");
     let mut previous_right = f32::MIN;
     for i in 0..5 {
         let tab = h.get_by_label(&name(i)).rect();
@@ -720,15 +720,15 @@ fn tabs_shrink_to_fit_then_arrows_step_through_them_and_open_stays_in_sight() {
     assert_eq!(enabled(&h, "Scroll tabs right"), Some(true), "and then there is more to the right");
     let open = h.get_by_label("Open").rect();
     let right = h.get_by_label("Scroll tabs right").rect();
-    assert!(right.right() <= open.left() + 0.5 && open.right() <= h.get_by_label("Discord").rect().left());
-    // Twenty: Open stays in sight left of Discord.
+    assert!(right.right() <= open.left() + 0.5 && open.right() <= h.get_by_label("Keyboard shortcuts").rect().left());
+    // Twenty: Open stays in sight left of the buttons on the right.
     for i in 0..13 {
         h.state_mut().open_bytes(&format!("more-{i:02}.pdf"), None, FIXTURE.to_vec()).unwrap();
     }
     h.run_steps(4);
     let open = h.get_by_label("Open").rect();
-    let discord = h.get_by_label("Discord").rect();
-    assert!(open.left() > 0.0 && open.right() <= discord.left(), "Open {open:?} stays in sight left of Discord {discord:?}");
+    let help = h.get_by_label("Keyboard shortcuts").rect();
+    assert!(open.left() > 0.0 && open.right() <= help.left(), "Open {open:?} stays in sight left of the buttons on the right {help:?}");
 }
 
 /// macOS (#789): with the integrated title bar, the strip is the 28 pt band AppKit centres the
@@ -741,7 +741,7 @@ fn the_integrated_title_bar_is_the_traffic_light_band() {
         app.open_bytes("band.pdf", None, FIXTURE.to_vec()).unwrap();
     });
     let band = 28.0;
-    for label in ["Home", "band.pdf", "Open", "Discord", "Keyboard shortcuts"] {
+    for label in ["Home", "band.pdf", "Open", "Keyboard shortcuts"] {
         let r = h.get_by_label(label).rect();
         assert!(r.top() >= 0.0 && r.bottom() <= band, "{label}: {r:?} inside the {band} pt title bar");
         assert!(r.height() >= 24.0, "{label}: {r:?} stays clickable");
@@ -842,7 +842,8 @@ fn find_counts_matches_across_pages() {
         app.set_option("find", "brown").unwrap();
     });
     crate::support::settle(&mut h);
-    h.get_by_label_contains("of 2");
+    // The find bar's count, distinct from the navigation bar's page count ("of 2").
+    h.get_by_label("1 of 2");
     let v = &h.state().views[0];
     let f = v.find.as_ref().expect("find open");
     assert_eq!(f.matches.iter().map(|(p, _)| *p).collect::<Vec<_>>(), vec![0, 1]);
@@ -1943,14 +1944,16 @@ fn the_edit_panel_keeps_the_add_update_remove_menu() {
     assert_eq!(h.state().dialog, Some(pdfcraft_ui_egui::Dialog::Marks(pdfcraft_engine::MarkKind::Watermark)));
 }
 
-/// #3282: in a short window the rail's panel buttons scroll above the page navigation instead of
-/// being drawn under the page number field.
+/// #3282: in a short window the rail's panel buttons scroll above the rail's dock button instead
+/// of being drawn under it, and the dock button stays put at the rail's foot. (Page navigation is
+/// in the bar under the menus, not on the rail.)
 #[test]
-fn short_window_rail_buttons_scroll_clear_of_page_navigation() {
+fn short_window_rail_buttons_scroll_clear_of_the_dock_button() {
     use pdfcraft_ui_egui::side_panels::ToolsSide;
 
     for side in [ToolsSide::Right, ToolsSide::Left] {
-        let (width, height) = (1000.0, 560.0);
+        // Short enough that the panel buttons can't all show above the dock button.
+        let (width, height) = (1000.0, 450.0);
         let mut h = Harness::builder().with_size(egui::vec2(width, height)).build_eframe(move |_cc| {
             let mut app = PdfCraftApp::new();
             app.set_option("language", "en").unwrap();
@@ -1966,19 +1969,16 @@ fn short_window_rail_buttons_scroll_clear_of_page_navigation() {
         let rail = |h: &Harness<'static, PdfCraftApp>, label: &str| {
             h.query_all_by_label(label).map(|n| n.rect()).find(|r| in_rail(*r)).unwrap_or_else(|| panic!("{label} in the rail"))
         };
-        let page = h.get(By::new().role(egui::accesskit::Role::TextInput).value("1")).rect();
-        assert!(in_rail(page) && page.bottom() <= height, "page field {page:?} in the rail");
         let dock_label = match side {
             ToolsSide::Right => "Dock navigation rail on Left",
             ToolsSide::Left => "Dock navigation rail on Right",
         };
         let dock = rail(&h, dock_label);
-        assert!(dock.top() >= page.bottom() && dock.bottom() <= height, "dock button {dock:?} stays below navigation and inside the window");
-        assert!(rail(&h, "Comments").bottom() <= page.top(), "the first button sits above the page field");
-        assert!(rail(&h, "Tags").top() >= page.top(), "the window is short enough that the buttons must scroll");
         let first = rail(&h, "Comments");
-        let over = first.center();
-        h.event(egui::Event::PointerMoved(over));
+        assert!(dock.bottom() <= height, "dock button {dock:?} stays inside the window");
+        assert!(first.bottom() <= dock.top(), "the first button {first:?} sits above the dock button {dock:?}");
+        assert!(rail(&h, "Tags").bottom() > dock.top(), "the window is short enough that the buttons must scroll");
+        h.event(egui::Event::PointerMoved(first.center()));
         for _ in 0..8 {
             h.event(egui::Event::MouseWheel {
                 unit: egui::MouseWheelUnit::Point,
@@ -1991,8 +1991,8 @@ fn short_window_rail_buttons_scroll_clear_of_page_navigation() {
         }
         let tags = rail(&h, "Tags");
         assert!(tags.top() >= first.top(), "Tags {tags:?} is fully visible in the scrolling area");
-        assert!(tags.bottom() <= page.top(), "Tags {tags:?} scrolls into view above the page field {page:?}");
-        assert_eq!(h.get(By::new().role(egui::accesskit::Role::TextInput).value("1")).rect(), page, "navigation stays put");
+        assert!(tags.bottom() <= dock.top(), "Tags {tags:?} scrolls into view above the dock button {dock:?}");
+        assert_eq!(rail(&h, dock_label), dock, "the dock button stays put");
     }
 }
 

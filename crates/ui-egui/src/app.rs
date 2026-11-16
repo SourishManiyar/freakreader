@@ -102,6 +102,7 @@ impl PdfCraftApp {
             // A fresh install follows the desktop's appearance (#1248); saved settings override.
             theme_preference: ThemePreference::System,
             reading_colors: Default::default(),
+            dark_gamma: pdfcraft_render::DARK_GAMMA_DEFAULT,
             show_page_edge_shadows: true,
             #[cfg(target_os = "linux")]
             desktop_theme: None,
@@ -881,6 +882,9 @@ impl PdfCraftApp {
         let hidden = self.hidden_interface();
         if !hidden.mode_bar(self.native_menu.is_some()) {
             chrome::mode_bar(self, ui);
+        }
+        if !hidden.toolbar {
+            chrome::nav_bar(self, ui);
         }
         // Another mode or the Home tab puts the OCR Verify screen away, as Exit does; Correct
         // recognized text brings it back with its review as it was.

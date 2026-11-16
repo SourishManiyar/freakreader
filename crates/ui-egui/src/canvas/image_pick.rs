@@ -234,6 +234,8 @@ mod picture_tests {
         let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
             let mut app = PdfCraftApp::new();
             app.open_bytes("marks.pdf", None, page_with_a_comment_and_a_link()).unwrap();
+            // The whole page in the window: at fit width it runs below it, with the comment.
+            app.set_option("zoom", "100").unwrap();
             app
         });
         let mut on_screen = None;

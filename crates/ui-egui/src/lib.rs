@@ -375,6 +375,9 @@ pub struct PdfCraftApp {
     /// The reading-colours preference (Preferences ▸ Reading colours): applied to every open
     /// document, and documents open with it (Acrobat's Replace Document Colors).
     pub reading_colors: pdfcraft_render::ReadingColors,
+    /// The documents' dark mode's gamma in hundredths (Preferences ▸ Reading colours), kept
+    /// while the dark mode is off so turning it back on brings the same tones.
+    pub dark_gamma: u16,
     /// App-wide page decoration only; never part of a PDF edit or render request.
     pub show_page_edge_shadows: bool,
     /// The Linux portal is enabled only by the native host, and starts on the first System choice.

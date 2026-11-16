@@ -2178,9 +2178,11 @@ fn routine_continuous_scrolling_does_not_add_navigation_history() {
     let (mut h, c) = harness_pages(20);
     ok(&mut h, &c, "ui.set", json!({"key": "animation_effects", "value": "off"}));
     h.hover_at(egui::pos2(700.0, 450.0));
+    // Past the first page whatever its height at fit width (the wider pages area makes it taller).
+    let page = h.state().views[0].page_screen_rect(0).expect("the first page is on screen");
     h.event(egui::Event::MouseWheel {
         unit: egui::MouseWheelUnit::Point,
-        delta: egui::vec2(0.0, -1200.0),
+        delta: egui::vec2(0.0, -(page.height() + 600.0)),
         modifiers: egui::Modifiers::NONE,
         phase: egui::TouchPhase::Move,
         source: egui::MouseWheelSource::Unknown,

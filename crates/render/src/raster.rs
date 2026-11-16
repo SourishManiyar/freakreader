@@ -29,7 +29,7 @@ use hayro::hayro_interpret::{InterpreterSettings, InterpreterWarning};
 use hayro::hayro_syntax::Pdf;
 use hayro::vello_cpu::color::AlphaColor;
 use hayro::vello_cpu::color::palette::css::{TRANSPARENT, WHITE};
-use hayro::{RenderCache, RenderSettings, render_into, render_size};
+use hayro::{RenderCache, RenderSettings, render_into, render_into_reporting, render_size};
 
 use crate::{Pixels, ReadingColors};
 
@@ -484,7 +484,26 @@ fn render_page<'a>(
         preview_settings.preview = req.preview;
         // A print preview shows what prints, and printing is not the View event.
         preview_settings.view_auto_state &= req.tag & PRINT_TAG == 0;
-        render_into(page, cache, &preview_settings, &rs, pixels.bytes_mut());
+        let report = render_into_reporting(page, cache, &preview_settings, &rs, pixels.bytes_mut());
+        // The dark mode's gamma shapes the rendered tones, but not pictures: a second pass draws
+        // only what keeps its own colours on a transparent page, and the gamma leaves alone
+        // what it covers. A gamma of 1, or a transparent page (laid over another raster), has
+        // nothing to shape. When the first pass drew nothing that keeps its colours (a page of
+        // text and line art), the second would draw nothing: it is skipped, and the gamma
+        // shapes every pixel, as an empty mask would have it do.
+        if let Some(params) = reading.params.filter(|p| p.gamma.is_some_and(|g| g != 100) && !config.transparent) {
+            if report.kept_paints {
+                let mut mask = Pixels::zeroed(w.into(), h.into()).ok_or_else(|| format!("page {} is too large to render", req.page + 1))?;
+                let hide = color_replacement.map(|r| hayro::ColorReplacement { hide_paints: true, ..r });
+                let mask_settings = RenderSettings { bg_color: TRANSPARENT, color_replacement: hide, ..rs };
+                render_into(page, cache, &preview_settings, &mask_settings, mask.bytes_mut());
+                #[cfg(test)]
+                MASK_PASSES.with(|n| n.set(n.get() + 1));
+                crate::reading::dark_gamma(pixels.bytes_mut(), Some(&*mask), &params);
+            } else {
+                crate::reading::dark_gamma(pixels.bytes_mut(), None, &params);
+            }
+        }
         Ok((w.into(), h.into(), pixels, None))
     }));
     match result {
@@ -492,6 +511,12 @@ fn render_page<'a>(
         Ok(Err(e)) => Err((e, false)),
         Err(panic) => Err((format!("renderer crashed on page {}: {}", req.page + 1, panic_message(&panic)), true)),
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Tests: the dark mode's picture passes rendered on this thread.
+    pub(crate) static MASK_PASSES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 fn finish(req: RenderRequest, start: Stopwatch, r: Result<Output, (String, bool)>, warnings: Vec<RenderWarning>) -> RenderedPage {

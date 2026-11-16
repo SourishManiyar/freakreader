@@ -844,6 +844,10 @@ pub(crate) struct Renderer {
     /// PdfCraft patch (17): while the page's annotations are being drawn, paints keep their
     /// colours — reading colours replace document colours, never annotation colours.
     in_annotations: bool,
+    /// PdfCraft patch (33): something was drawn that a [`ColorReplacement::hide_paints`] pass
+    /// of the same page would draw too (see [`crate::RenderReport`]). Set conservatively: it may
+    /// be set when that pass would draw nothing, never left unset when it would draw something.
+    pub(crate) kept_paints: bool,
     /// PdfCraft patch (22): one entry per transparency group pushed, whether it is a knockout
     /// group (`Device::set_knockout`).
     knockout: Vec<bool>,
@@ -1001,6 +1005,7 @@ impl Renderer {
             ctx: RenderContext::new_with(width, height, settings),
             color_replacement,
             in_annotations: false,
+            kept_paints: false,
             knockout: Vec::new(),
             erasing: false,
             knockout_passes: Vec::new(),
@@ -1108,6 +1113,7 @@ impl Renderer {
                 // original values, so it is never remapped by the reading-colours setting.
                 color_replacement: None,
                 in_annotations: false,
+                kept_paints: false,
                 knockout: Vec::new(),
                 erasing: false,
                 knockout_passes: Vec::new(),
@@ -1655,6 +1661,7 @@ impl Renderer {
             // remapped by the reading-colours setting.
             color_replacement: None,
             in_annotations: false,
+            kept_paints: false,
             knockout: Vec::new(),
             erasing: false,
             knockout_passes: Vec::new(),
@@ -1706,6 +1713,8 @@ impl Renderer {
 
         self.ctx.set_transform(transform);
         self.ctx.set_paint(image);
+        // PdfCraft patch (33): pictures (and groups drawn offscreen) are never hidden.
+        self.kept_paints = true;
         self.ctx
             .fill_rect(&Rect::new(0.0, 0.0, width as f64, height as f64));
     }
@@ -1725,6 +1734,7 @@ impl Renderer {
             ctx: RenderContext::new_with(width, height, derive_settings(self.ctx.render_settings())),
             color_replacement: None,
             in_annotations: self.in_annotations,
+            kept_paints: false,
             inside_pattern: self.inside_pattern,
             soft_mask_cache: HashMap::default(),
             tiling_cells: TilingCells::default(),
@@ -1823,6 +1833,31 @@ impl Renderer {
         }
     }
 
+    /// PdfCraft patch (33): note that `paint` (as the content gave it, before any mapping) is
+    /// drawn, and whether a [`ColorReplacement::hide_paints`] pass would draw it too: the same
+    /// test as [`Self::replaced`] then [`Self::hidden`] with `hide_paints` set.
+    fn note_paint(&mut self, paint: &Paint<'_>, is_text: bool) {
+        if self.kept_paints {
+            return;
+        }
+        let hidden = match (self.color_replacement, paint) {
+            (Some(r), Paint::Color(c)) => {
+                let rgba = c.to_rgba().to_rgba8();
+                let mapped = if self.in_annotations { rgba } else { ColorReplacement { hide_paints: true, ..r }.map(rgba, is_text) };
+                mapped[3] == 0
+            }
+            _ => false,
+        };
+        self.kept_paints = !hidden;
+    }
+
+    /// PdfCraft patch (32): whether `paint` is one [`ColorReplacement::hide_paints`] took out,
+    /// which is then not drawn at all.
+    fn hidden(&self, paint: &Paint<'_>) -> bool {
+        self.color_replacement.is_some_and(|r| r.hide_paints)
+            && matches!(paint, Paint::Color(c) if c.to_rgba().to_rgba8()[3] == 0)
+    }
+
     /// The device-space area a shading painted on `path` covers: the path's bounding box, with
     /// the stroke width around it for a stroke, on the canvas.
     fn shading_bbox(&self, path: &BezPath, is_stroke: bool) -> Rect {
@@ -1889,6 +1924,8 @@ impl Renderer {
     }
 
     fn draw_shape(&mut self, path: &BezPath, is_stroke: bool) {
+        // PdfCraft patch (33): a knockout shading, never hidden.
+        self.kept_paints = true;
         if is_stroke {
             self.ctx.stroke_path(path);
         } else {
@@ -2139,8 +2176,12 @@ impl Renderer {
             return;
         }
 
+        self.note_paint(paint, is_text);
         // PdfCraft patch: apply the reading-colours mapping before painting.
         let paint = self.replaced(paint, is_text);
+        if self.hidden(&paint) {
+            return;
+        }
         let PaintSetup::Clip(clip_path) = self.set_paint(&paint, path, true) else { return };
         if let Some(clip_path) = clip_path.as_ref() {
             self.push_clip_path_inner(clip_path, FillRule::NonZero);
@@ -2168,8 +2209,12 @@ impl Renderer {
             return;
         }
 
+        self.note_paint(paint, is_text);
         // PdfCraft patch: apply the reading-colours mapping before painting.
         let paint = self.replaced(paint, is_text);
+        if self.hidden(&paint) {
+            return;
+        }
         let PaintSetup::Clip(clip_path) = self.set_paint(&paint, path, false) else { return };
         if let Some(clip_path) = clip_path.as_ref() {
             self.push_clip_path_inner(clip_path, fill_rule);
@@ -2403,6 +2448,8 @@ impl<'a> Device<'a> for Renderer {
                                     if let Some(clip_path) = clip_path.as_ref() {
                                         self.push_clip_path_inner(clip_path, FillRule::NonZero);
                                     }
+                                    // PdfCraft patch (33): counted as kept whatever its paint.
+                                    self.kept_paints = true;
                                     self.ctx.fill_rect(&stencil_rect);
                                     if clip_path.is_some() {
                                         self.ctx.pop_clip_path();
@@ -2754,8 +2801,12 @@ impl<'a> Device<'a> for Renderer {
                     return;
                 }
 
+                self.note_paint(paint, false);
                 // PdfCraft patch: apply the reading-colours mapping before painting.
                 let paint = self.replaced(paint, false);
+                if self.hidden(&paint) {
+                    return;
+                }
                 let PaintSetup::Clip(clip_path) = self.set_paint(&paint, &path, false) else { return };
                 if let Some(clip_path) = clip_path.as_ref() {
                     self.push_clip_path_inner(clip_path, *fill_rule);
@@ -2892,6 +2943,7 @@ fn draw_soft_mask(mask: &SoftMask<'_>, settings: RenderSettings, width: u16, hei
         // content is never remapped by the reading-colours setting.
         color_replacement: None,
         in_annotations: false,
+        kept_paints: false,
         knockout: Vec::new(),
         erasing: false,
         knockout_passes: Vec::new(),

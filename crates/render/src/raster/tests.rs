@@ -8533,6 +8533,60 @@ fn reading_colors_map_solid_paints_and_leave_images() {
     assert_eq!(pixel(&on, 150, 55), &[255, 255, 255, 255], "the image's white quadrant stays white");
 }
 
+/// Dark mode: the page clears dark, black ink turns light, a red line stays red (its lightness
+/// turned over, not its hue, as a plain inversion would make it cyan) and the picture's pixels
+/// are byte-identical to the plain render.
+#[test]
+fn dark_mode_turns_ink_over_keeps_hues_and_leaves_pictures() {
+    let content = "0 0 0 rg 10 10 30 20 re f\n1 0 0 rg 10 35 30 10 re f\nq 20 0 0 10 60 20 cm /Im Do Q";
+    let pdf = format!(
+        "%PDF-1.4\n\
+             1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n\
+             2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n\
+             3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 100 50] /Contents 4 0 R /Resources << /XObject << /Im 6 0 R >> >> >> endobj\n\
+             4 0 obj << /Length {} >> stream\n{content}\nendstream endobj\n\
+             6 0 obj << /Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length 25 >> stream\nFF000000FF00000000FFFFFFFF>\nendstream endobj\n\
+             trailer << /Root 1 0 R >>\n%%EOF",
+        content.len()
+    )
+    .into_bytes();
+    let req = RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: 0, preview: false };
+    let render = |reading_colors: ReadingColors| {
+        let mut r = PageRenderer::new(Arc::new(pdf.clone()), RenderConfig { reading_colors, ..Default::default() });
+        let page = r.render(req);
+        assert!(page.error.is_none(), "{:?}", page.error);
+        page
+    };
+    let off = render(ReadingColors::default());
+    let dark = render(ReadingColors::dark(crate::DARK_GAMMA_DEFAULT));
+    fn pixel(page: &RenderedPage, x: u32, y: u32) -> [u8; 4] {
+        let p = &page.rgba[((y * page.width + x) * 4) as usize..][..4];
+        [p[0], p[1], p[2], p[3]]
+    }
+    assert_eq!(pixel(&dark, 5, 5), [0x1e, 0x1e, 0x1e, 255], "the page is dark");
+    assert_eq!(pixel(&dark, 50, 60), [0xe6, 0xe6, 0xe6, 255], "black ink is light");
+    let red = pixel(&dark, 50, 20);
+    assert!(red[0] > red[1].saturating_add(60) && red[0] > red[2].saturating_add(60), "the red line is still red: {red:?}");
+    for y in 44..56u32 {
+        for x in 124..156u32 {
+            assert_eq!(pixel(&dark, x, y), pixel(&off, x, y), "picture pixel {x},{y}");
+        }
+    }
+    // Gamma shapes the tones between page and text: the ends are the same at any gamma, a
+    // higher one brightens what lies between (the red, and antialiased edges) and a lower one
+    // dims it, and the picture is the same at every gamma.
+    let (bold, thin) = (render(ReadingColors::dark(250)), render(ReadingColors::dark(50)));
+    for p in [&bold, &thin] {
+        assert_eq!((pixel(p, 5, 5), pixel(p, 50, 60)), (pixel(&dark, 5, 5), pixel(&dark, 50, 60)));
+        for y in 44..56u32 {
+            for x in 124..156u32 {
+                assert_eq!(pixel(p, x, y), pixel(&off, x, y), "picture pixel {x},{y}");
+            }
+        }
+    }
+    assert!(pixel(&bold, 50, 20)[0] > red[0] && pixel(&thin, 50, 20)[0] < red[0], "{:?} {red:?} {:?}", pixel(&bold, 50, 20), pixel(&thin, 50, 20));
+}
+
 /// #2975: a stencil mask (`/ImageMask true`) is painted in the fill colour at the fill
 /// opacity, once: at `ca 0.5` it is as opaque as a rectangle filled at `ca 0.5` beside it
 /// (it was a quarter as opaque, the opacity applied by both the image's group and its paint).
@@ -11788,4 +11842,104 @@ fn a_companion_pool_renders_the_same_document_apart_from_its_parent() {
     // An inline parent has an inline companion, which renders as it is asked.
     let inline = RenderPool::new_inline(Arc::new(ONE_PAGE.to_vec()), RenderConfig::default()).companion();
     assert!(inline.is_inline());
+}
+
+/// One page `w` × `h` points with `content`, Helvetica as `/F1`, a 2×2 picture as `/Im`, a
+/// shading as `/Sh` and, when `annotation`, a square comment drawn in black, which the dark
+/// mode leaves black (comments keep their colours).
+fn dark_fixture(w: u32, h: u32, content: &str, annotation: bool) -> Vec<u8> {
+    let annots = if annotation { "/Annots [8 0 R]" } else { "" };
+    format!(
+        "%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n\
+         2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n\
+         3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 {w} {h}] /Contents 4 0 R {annots} /Resources << /Font << /F1 5 0 R >> /XObject << /Im 6 0 R >> /Shading << /Sh 7 0 R >> >> >> endobj\n\
+         4 0 obj << /Length {} >> stream\n{content}\nendstream endobj\n\
+         5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n\
+         6 0 obj << /Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length 25 >> stream\nFF000000FF00000000FFFFFFFF>\nendstream endobj\n\
+         7 0 obj << /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 {w} 0] /Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >> >> endobj\n\
+         8 0 obj << /Type /Annot /Subtype /Square /Rect [5 5 40 40] /C [1 0 0] /Border [0 0 3] /AP << /N 9 0 R >> >> endobj\n\
+         9 0 obj << /Type /XObject /Subtype /Form /BBox [0 0 35 35] /Length 26 >> stream\n0 0 0 RG 3 w 2 2 31 31 re S\nendstream endobj\n\
+         trailer << /Root 1 0 R >>\n%%EOF",
+        content.len()
+    )
+    .into_bytes()
+}
+
+/// The dark mode's picture pass is skipped when it cannot change the result: on a page of text
+/// and line art, which the dark mode turns over entirely, the page is rendered once, and its
+/// bytes are what the gamma gives over an empty mask. Pictures, shadings, comments and paints
+/// the mapping leaves alone (`only_black`) still get their pass.
+#[test]
+fn dark_mode_skips_the_picture_pass_when_it_cannot_change_the_result() {
+    let text = "BT /F1 9 Tf 10 80 Td (Text and lines) Tj ET 0 0 0 RG 2 w 10 10 m 90 60 l S 0.2 0.3 0.8 rg 50 20 30 20 re f";
+    let req = RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: 0, preview: false };
+    let render = |pdf: &[u8], reading_colors: ReadingColors| {
+        let before = MASK_PASSES.with(std::cell::Cell::get);
+        let page = PageRenderer::new(Arc::new(pdf.to_vec()), RenderConfig { reading_colors, ..Default::default() }).render(req);
+        assert!(page.error.is_none(), "{:?}", page.error);
+        (page, MASK_PASSES.with(std::cell::Cell::get) - before)
+    };
+    let plain = dark_fixture(100, 100, text, false);
+    let gamma = ReadingColors::dark(170);
+    let (shaped, passes) = render(&plain, gamma);
+    assert_eq!(passes, 0, "text and line art need no picture pass");
+    // The same bytes as the pass would have given: an all-transparent mask over the render at
+    // gamma 1.
+    let (mut expected, _) = render(&plain, ReadingColors::dark(100));
+    let params = gamma.params.expect("dark mode");
+    let empty = vec![0u8; expected.rgba.len()];
+    crate::reading::dark_gamma(expected.rgba.bytes_mut(), Some(&empty), &params);
+    assert_eq!(&*shaped.rgba, &*expected.rgba);
+    assert_ne!(&*shaped.rgba, &*render(&plain, ReadingColors::dark(100)).0.rgba, "the gamma did shape the page");
+    // A gamma of 1 never needs it, nor does a transparent page.
+    assert_eq!(render(&dark_fixture(100, 100, &format!("{text} q 20 0 0 10 60 20 cm /Im Do Q"), false), ReadingColors::dark(100)).1, 0);
+
+    let only_black = ReadingColors::parse_dark("dark", None, None, Some(true), None, Some(1.7)).unwrap();
+    for (what, pdf, colors) in [
+        ("a picture", dark_fixture(100, 100, &format!("{text} q 20 0 0 10 60 20 cm /Im Do Q"), false), gamma),
+        ("a shading", dark_fixture(100, 100, &format!("{text} q 10 10 20 20 re W n /Sh sh Q"), false), gamma),
+        ("a comment", dark_fixture(100, 100, text, true), gamma),
+        ("a colour only_black leaves alone", plain.clone(), only_black),
+    ] {
+        assert_eq!(render(&pdf, colors).1, 1, "{what} keeps its colours: the pass runs");
+    }
+}
+
+/// What the first pass reports is sound: whenever it says nothing was drawn that keeps its
+/// colours, the `hide_paints` pass draws nothing at all, so skipping it changes nothing.
+#[test]
+fn a_page_reported_without_kept_paints_has_an_empty_picture_pass() {
+    let text = "BT /F1 9 Tf 10 80 Td (Words) Tj ET 0 0 0 RG 2 w 10 10 m 90 60 l S 0 0 1 rg 50 20 30 20 re f";
+    let cases = [
+        (text.to_string(), false, false),
+        (format!("{text} 0 g 0 Tr BT /F1 20 Tf 5 5 Td (more) Tj ET"), false, false),
+        (format!("{text} q 20 0 0 10 60 20 cm /Im Do Q"), false, true),
+        (format!("{text} q 10 10 20 20 re W n /Sh sh Q"), false, true),
+        (text.to_string(), true, true),
+    ];
+    let config = RenderConfig::default();
+    let settings = config.settings();
+    for (content, annotation, kept) in cases {
+        let pdf = Pdf::new(dark_fixture(100, 100, &content, annotation)).expect("parses");
+        let pages = pdf.pages();
+        let page = pages.first().expect("one page");
+        let cache = RenderCache::new();
+        let replacement = hayro::ColorReplacement::from(ReadingColors::dark(170).params.expect("dark mode"));
+        let rs = RenderSettings {
+            x_scale: 2.0,
+            y_scale: 2.0,
+            width: Some(200),
+            height: Some(200),
+            color_replacement: Some(replacement),
+            ..Default::default()
+        };
+        let mut first = vec![0u8; 200 * 200 * 4];
+        let report = render_into_reporting(page, &cache, &settings, &rs, &mut first);
+        assert_eq!(report.kept_paints, kept, "{content} (comment: {annotation})");
+        let hide =
+            RenderSettings { bg_color: TRANSPARENT, color_replacement: Some(hayro::ColorReplacement { hide_paints: true, ..replacement }), ..rs };
+        let mut mask = vec![0u8; 200 * 200 * 4];
+        render_into(page, &cache, &settings, &hide, &mut mask);
+        assert_eq!(mask.iter().any(|b| *b != 0), kept, "{content} (comment: {annotation}): the pass draws exactly when reported");
+    }
 }
