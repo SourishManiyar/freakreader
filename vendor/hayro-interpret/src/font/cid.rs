@@ -1,5 +1,6 @@
 use crate::font::blob::{CffFontBlob, OpenTypeFontBlob, Type1FontBlob};
 use crate::font::generated::glyph_names;
+use crate::font::outline::{FontProgram, FontProgramKind};
 use crate::font::standard_font::select_standard_font;
 use crate::font::{
     FallbackFontQuery, FontFlags, FontQuery, read_to_unicode, stretch_glyph, strip_subset_prefix,
@@ -403,6 +404,24 @@ impl Type0Font {
             FontType::OpenType(t) => Some(t.font_data()),
             FontType::Cff(c) => Some(c.font_data()),
             FontType::Type1(_) => None,
+        }
+    }
+
+    /// PdfCraft patch (math extraction): the program, of whatever kind.
+    pub(crate) fn font_program(&self) -> FontProgram {
+        match &self.font_type {
+            FontType::OpenType(t) => FontProgram {
+                kind: FontProgramKind::OpenType,
+                data: Some(t.font_data()),
+            },
+            FontType::Cff(c) => FontProgram {
+                kind: FontProgramKind::Cff,
+                data: Some(c.font_data()),
+            },
+            FontType::Type1(t) => FontProgram {
+                kind: FontProgramKind::Type1,
+                data: Some(t.font_data()),
+            },
         }
     }
 

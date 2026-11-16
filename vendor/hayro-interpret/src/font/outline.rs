@@ -27,6 +27,36 @@ pub struct OutlineFontData {
     pub is_monospace: bool,
 }
 
+/// PdfCraft patch (math extraction): which kind of program a [`FontProgram`] holds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FontProgramKind {
+    /// A Type 1 program (`/FontFile`: PFA/PFB-style cleartext and an eexec section). Not an sfnt.
+    Type1,
+    /// A bare CFF program (`/FontFile3`, `Type1C` or `CIDFontType0C`).
+    Cff,
+    /// An sfnt: TrueType or OpenType (with `glyf` or `CFF ` outlines).
+    OpenType,
+    /// Not embedded: one of the standard 14 faces, or the substitute for a missing font.
+    Standard,
+}
+
+/// PdfCraft patch (math extraction): the program a glyph's font draws from.
+#[derive(Clone)]
+pub struct FontProgram {
+    /// What `data` is.
+    pub kind: FontProgramKind,
+    /// The program's bytes as embedded (decoded from the stream filters). `None` when the font
+    /// is not embedded ([`FontProgramKind::Standard`]).
+    pub data: Option<crate::font::FontData>,
+}
+
+impl std::fmt::Debug for FontProgram {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let len = self.data.as_ref().map(|d| (**d).as_ref().len());
+        f.debug_struct("FontProgram").field("kind", &self.kind).field("len", &len).finish()
+    }
+}
+
 pub(crate) struct OutlinePath(BezPath);
 
 impl OutlinePath {
@@ -114,6 +144,25 @@ impl OutlineFont {
             Self::Type1(t) => t.glyph_width(char_code as u8),
             Self::TrueType(t) => Some(t.glyph_width(char_code as u8)),
             Self::Type0(t) => Some(t.code_advance(char_code).x as f32),
+        }
+    }
+
+    /// PdfCraft patch (math extraction): the glyph's name, see `Glyph::glyph_name`.
+    pub(crate) fn glyph_name(&self, code: u32, gid: GlyphId) -> Option<String> {
+        match self {
+            Self::Type1(t) => t.glyph_name(code, gid),
+            Self::TrueType(t) => t.glyph_name(code),
+            Self::Type0(_) => None,
+        }
+    }
+
+    /// PdfCraft patch (math extraction): the font program of whatever kind, see
+    /// `OutlineGlyph::font_program`.
+    pub(crate) fn font_program(&self) -> FontProgram {
+        match self {
+            Self::Type1(t) => t.font_program(),
+            Self::TrueType(t) => t.font_program(),
+            Self::Type0(t) => t.font_program(),
         }
     }
 

@@ -562,6 +562,16 @@ impl PageRenderer {
             .map_err(|e| format!("text extraction failed: {}", panic_message(&e)))?
     }
 
+    /// Every glyph and rule of one page for reading mathematics (character codes, font and glyph
+    /// names, exact ink boxes, baselines; unmapped glyphs kept), see [`crate::text::math`]. Never
+    /// rasterizes or panics: an interpreter panic comes back as an error.
+    pub fn glyph_details(&mut self, page: usize) -> Result<crate::text::math::MathPage, String> {
+        let pdf = self.pdf.as_ref().ok_or("the document could not be parsed")?;
+        self.stats.text_interpretations = self.stats.text_interpretations.saturating_add(1);
+        catch_unwind(AssertUnwindSafe(|| crate::text::math::extract_math_page(pdf, page, &self.settings)))
+            .map_err(|e| format!("glyph extraction crashed on page {}: {}", page.saturating_add(1), panic_message(&e)))?
+    }
+
     /// Render one page. Never panics.
     pub fn render(&mut self, req: RenderRequest) -> RenderedPage {
         let start = Stopwatch::start();

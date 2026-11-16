@@ -406,6 +406,7 @@ use hayro::hayro_interpret::TransformExt;
 
 mod device;
 mod layout;
+pub mod math;
 mod order;
 
 use device::{CELL_GAP, WORD_GAP};

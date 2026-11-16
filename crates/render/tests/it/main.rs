@@ -9,6 +9,7 @@ mod inline_image_ei;
 mod jbig2_invariants;
 mod knockout_backdrop;
 mod luminosity_group_space;
+mod math_glyphs;
 mod named_form_properties;
 mod nonseparable_gray;
 mod open_type_cff_simple_font;

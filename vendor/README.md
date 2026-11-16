@@ -127,6 +127,24 @@ D50/equal-energy neutral and chromatic oracles, D65 identity, and direct/Indexed
 consistency (including an asymmetric chromatic Range), and zero/overflowing
 cone-response fallback.
 
+## Glyph data for math extraction
+
+`hayro-interpret` exposes what the text layer drops, additively (no existing accessor or result
+changes): `Glyph::{char_code, base_font, glyph_name, font_cache_key, font_program}`, the same on
+`OutlineGlyph` and `Type3Glyph` where they apply, and `font::{FontProgram, FontProgramKind}`.
+`base_font` is the font dictionary's `/BaseFont` as written (the descendant's for a Type 0 font; a
+Type 3 font's `/Name`), cut at 256 bytes. `glyph_name` is the name the font's encoding gives the
+code (a CFF program's charset names a code the encoding doesn't); a Type 0 font has none.
+`font_program` is the Type-1-safe sibling of `OutlineGlyph::font_data`: `font_data` still returns
+`None` for a Type 1 font (so its every caller still gets an sfnt or CFF program), while
+`font_program` says which kind the bytes are (`Type1`, `Cff`, `OpenType`, `Standard` for none
+embedded) and holds Type 1 programs too, which `Type1FontBlob` now keeps as a shared handle (no copy)
+beside its parsed table. Used by `pdfcraft-render`'s `text::math` (`PageRenderer::glyph_details`).
+Covered by `text::math::tests::a_glyph_without_unicode_is_kept_and_flagged_where_the_text_layer_drops_it`,
+`text::math::tests::an_embedded_program_is_named_by_kind_and_its_ink_is_measured_from_the_outline`,
+`text::math::tests::a_type3_glyphs_ink_is_what_its_procedure_paints` and the LaTeX pages of
+`crates/render/tests/it/math_glyphs.rs` (embedded Type 1 programs, checked against TeX's own glyph list).
+
 ## Clipping-only text reporting (#3109 / #3116)
 
 `hayro-interpret/src/interpret/text.rs` reports mode 7 glyphs after installing their

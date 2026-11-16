@@ -19,6 +19,7 @@ use skrifa::attribute::Style;
 use skrifa::raw::TableProvider;
 use skrifa::raw::tables::cmap::PlatformId;
 use skrifa::raw::tables::post::DEFAULT_GLYPH_NAMES;
+use crate::font::outline::{FontProgram, FontProgramKind};
 use skrifa::{GlyphId, MetadataProvider};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -101,6 +102,27 @@ impl TrueTypeFont {
         match &self.kind {
             Kind::Embedded(e) => Some(e.base_font.font_data()),
             Kind::Standard(_) => None,
+        }
+    }
+
+    /// PdfCraft patch (math extraction): the glyph name `/Encoding` gives `code`.
+    pub(crate) fn glyph_name(&self, code: u32) -> Option<String> {
+        let code = u8::try_from(code).ok()?;
+        match &self.kind {
+            Kind::Embedded(e) => e.code_to_name(code),
+            Kind::Standard(s) => s.code_to_ps_name(code),
+        }
+        .map(str::to_string)
+    }
+
+    /// PdfCraft patch (math extraction): the program, of whatever kind.
+    pub(crate) fn font_program(&self) -> FontProgram {
+        match &self.kind {
+            Kind::Embedded(e) => FontProgram {
+                kind: FontProgramKind::OpenType,
+                data: Some(e.base_font.font_data()),
+            },
+            Kind::Standard(_) => FontProgram { kind: FontProgramKind::Standard, data: None },
         }
     }
 
