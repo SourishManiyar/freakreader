@@ -3356,6 +3356,72 @@ usage = "Expected glyphs, rules and equation membership for the math-oracle test
 sha256 = "5ab26761a79de982a2e43adc6cec5b400f50c102d8e948155a5f60a3ffd76f40"
 
 [[asset]]
+path = "crates/render/tests/data/math/oracle/faces/stix2.pdf"
+title = "LaTeX math oracle face `stix2`: 176 equations of the oracle's list, one per page, set in STIX Two Math and STIX Two Text with unicode-math"
+author = "PdfCraft contributors (typeset from stix2.tex with LuaLaTeX); embedded font subsets by The STIX Fonts Project Authors"
+source = "Contributor-original LaTeX source (crates/render/tests/data/math/oracle/faces/stix2.tex, generated from crates/render/tests/data/math/oracle/equations.toml), compiled by `cargo xtask math-oracle faces` with TeX Live 2023 (LuaHBTeX 1.17.0); the embedded font subsets come from STIX Two Math and STIX Two Text 2.12 (TeX Live stix2-otf, https://ctan.org/pkg/stix2-otf)"
+licence = "(MIT OR Apache-2.0) AND OFL-1.1"
+licence_file = "crates/render/tests/data/math/oracle/faces/OFL-STIXTwo.txt"
+kind = "document"
+usage = "Math-oracle face tests and report (crates/render/tests/it/math_faces.rs, crates/render/examples/math_oracle.rs --faces): equations in fonts the symbol table does not know, for scoring the reader's Unicode path"
+sha256 = "9f0363d9be54097dd2a2154c1facb3e6d7d1d0ac77aeacba9845fc10cee4d29c"
+
+[[asset]]
+path = "crates/render/tests/data/math/oracle/faces/stix2.tsv"
+title = "Math-oracle face `stix2`: which equation of the list is on which page of stix2.pdf, and those its fonts cannot set"
+author = "PdfCraft contributors"
+source = "Contributor-original: written by `cargo xtask math-oracle faces` from equations.toml; no third-party content"
+licence = "MIT OR Apache-2.0"
+licence_file = "LICENSE-MIT"
+kind = "data"
+usage = "Equation list of the math-oracle face stix2 (crates/render/tests/it/math_faces.rs)"
+sha256 = "9c1f82a4638269d63c343ba8d1e4c1c496bc304878b367e40430b16608549b82"
+
+[[asset]]
+path = "crates/render/tests/data/math/oracle/faces/fira.pdf"
+title = "LaTeX math oracle face `fira`: 170 equations of the oracle's list, one per page, set in Fira Math and Fira Sans with unicode-math"
+author = "PdfCraft contributors (typeset from fira.tex with LuaLaTeX); embedded font subsets by Xiangdong Zeng (Fira Math); The Mozilla Foundation and Telefonica S.A. (Fira Sans)"
+source = "Contributor-original LaTeX source (crates/render/tests/data/math/oracle/faces/fira.tex, generated from crates/render/tests/data/math/oracle/equations.toml), compiled by `cargo xtask math-oracle faces` with TeX Live 2023 (LuaHBTeX 1.17.0); the embedded font subsets come from Fira Math 0.3.4 (TeX Live firamath, https://ctan.org/pkg/firamath) and Fira Sans 4.301 (TeX Live fira, https://ctan.org/pkg/fira)"
+licence = "(MIT OR Apache-2.0) AND OFL-1.1"
+licence_file = "crates/render/tests/data/math/oracle/faces/OFL-Fira.txt"
+kind = "document"
+usage = "Math-oracle face tests and report (crates/render/tests/it/math_faces.rs, crates/render/examples/math_oracle.rs --faces): equations in fonts the symbol table does not know, for scoring the reader's Unicode path"
+sha256 = "11c91f88396037891634b5bab64815c9b3b267f9f1eb18ab52df06a33a088e23"
+
+[[asset]]
+path = "crates/render/tests/data/math/oracle/faces/fira.tsv"
+title = "Math-oracle face `fira`: which equation of the list is on which page of fira.pdf, and those its fonts cannot set"
+author = "PdfCraft contributors"
+source = "Contributor-original: written by `cargo xtask math-oracle faces` from equations.toml; no third-party content"
+licence = "MIT OR Apache-2.0"
+licence_file = "LICENSE-MIT"
+kind = "data"
+usage = "Equation list of the math-oracle face fira (crates/render/tests/it/math_faces.rs)"
+sha256 = "c62511aa66e8917c148cbd18bc2a612511b0f082a33c38c4c08b9add2f41cef1"
+
+[[asset]]
+path = "crates/render/tests/data/math/oracle/faces/libertinus.pdf"
+title = "LaTeX math oracle face `libertinus`: 176 equations of the oracle's list, one per page, set in Libertinus Math and Libertinus Serif with unicode-math"
+author = "PdfCraft contributors (typeset from libertinus.tex with LuaLaTeX); embedded font subsets by The Libertinus Project Authors"
+source = "Contributor-original LaTeX source (crates/render/tests/data/math/oracle/faces/libertinus.tex, generated from crates/render/tests/data/math/oracle/equations.toml), compiled by `cargo xtask math-oracle faces` with TeX Live 2023 (LuaHBTeX 1.17.0); the embedded font subsets come from Libertinus 7.040 (TeX Live libertinus-fonts, https://ctan.org/pkg/libertinus-fonts)"
+licence = "(MIT OR Apache-2.0) AND OFL-1.1"
+licence_file = "crates/render/tests/data/math/oracle/faces/OFL-Libertinus.txt"
+kind = "document"
+usage = "Math-oracle face tests and report (crates/render/tests/it/math_faces.rs, crates/render/examples/math_oracle.rs --faces): equations in fonts the symbol table does not know, for scoring the reader's Unicode path"
+sha256 = "ad91d09f2405a576a5b9f6446d63b9ca3ea2c9cfb7678ac8d4c551aed1f68cc8"
+
+[[asset]]
+path = "crates/render/tests/data/math/oracle/faces/libertinus.tsv"
+title = "Math-oracle face `libertinus`: which equation of the list is on which page of libertinus.pdf, and those its fonts cannot set"
+author = "PdfCraft contributors"
+source = "Contributor-original: written by `cargo xtask math-oracle faces` from equations.toml; no third-party content"
+licence = "MIT OR Apache-2.0"
+licence_file = "LICENSE-MIT"
+kind = "data"
+usage = "Equation list of the math-oracle face libertinus (crates/render/tests/it/math_faces.rs)"
+sha256 = "a81c5777a5fc2565e0e2e8d27f11e8284b7d800aafc7080b9960fd972d0e85cd"
+
+[[asset]]
 path = "crates/render/src/text/math/symbols/commands.txt"
 title = "Math symbol list: the LaTeX commands the symbol table knows, with Unicode, class and kind"
 author = "PdfCraft contributors"

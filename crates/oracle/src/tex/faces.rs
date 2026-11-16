@@ -212,6 +212,13 @@ pub fn face_env(env: Env) -> Env {
 /// A document of the face with one page per `(env, body)`.
 pub fn face_source(face: &Face, entries: &[(Env, &str)]) -> String {
     let mut s = String::from("\\documentclass{article}\n");
+    // The trailer's /ID is made from the job's path, which differs on every run: a fixed one keeps the
+    // committed PDFs reproducible (`cargo xtask math-oracle faces --check`).
+    match face.engine {
+        Engine::LuaLatex => s.push_str("\\pdfvariable trailerid {[<00000000000000000000000000000000><00000000000000000000000000000000>]}\n"),
+        Engine::PdfLatex => s.push_str("\\pdftrailerid{}\n"),
+        Engine::XeLatex => {}
+    }
     s.push_str(face.setup);
     s.push_str(&format!("\\usepackage[{}]{{geometry}}\n", single_page_geometry()));
     // A glyph the fonts lack is logged ("Missing character"), so the generator leaves the equation out.

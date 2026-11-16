@@ -6,6 +6,10 @@
 //! --no-tex           skip the typeset check (edit distance only)
 //! --list             list the registered recoverers
 //! --failures        also list the development equations (alone) the typeset check rejects: truth and answer
+//! --faces            score the faces instead (the list typeset in other fonts, `cargo xtask math-oracle
+//!                    faces`): every face whose files are there
+//! --face ID          score one face (repeatable); with --failures, list its equations the reader
+//!                    answers wrongly, and those it answers with confidence wrongly first
 //! --explain ID       for a development equation: what the layout reader says (answer, confidence,
 //!                    diagnostics) next to the truth; refuses a held-out equation (`ho_…`)
 //!
@@ -20,8 +24,9 @@
 #[path = "../tests/it/math_oracle/harness.rs"]
 mod harness;
 
-use harness::{Broken, Identity, Nothing, Pages, answers, load, outcomes, region_of};
+use harness::{Broken, FaceIdentity, Identity, Nothing, Pages, answers, face_outcomes, load, load_face, outcomes, region_of};
 use pdfcraft_oracle::tex::Env;
+use pdfcraft_oracle::tex::faces::{FACES, FaceTex};
 use pdfcraft_oracle::tex::{EquationTruth, Mutation, Report, Tex};
 use pdfcraft_render::text::math::MathPage;
 use pdfcraft_render::text::math::recover::{Confidence, ConfidentRecoverer, LatexRecoverer, LayoutRecoverer, RecoverOptions, Style, recover_latex};
@@ -73,6 +78,8 @@ fn run() -> Result<(), String> {
     let mut list = false;
     let mut explain: Vec<String> = Vec::new();
     let mut failures = false;
+    let mut faces: Vec<String> = Vec::new();
+    let mut all_faces = false;
     let mut it = args.iter();
     while let Some(a) = it.next() {
         match a.as_str() {
@@ -80,9 +87,17 @@ fn run() -> Result<(), String> {
             "--no-tex" => use_tex = false,
             "--list" => list = true,
             "--failures" => failures = true,
+            "--faces" => all_faces = true,
+            "--face" => faces.push(it.next().ok_or("--face needs a face id")?.clone()),
             "--explain" => explain.push(it.next().ok_or("--explain needs an equation id")?.clone()),
             other => return Err(format!("unknown argument `{other}` (--recoverer NAME, --no-tex, --list, --explain ID)")),
         }
+    }
+    if all_faces || !faces.is_empty() {
+        if !explain.is_empty() {
+            return explain_in_faces(&faces, &explain);
+        }
+        return report_faces(&faces, &wanted, failures);
     }
     let truth = load("truth.tsv")?;
     if !explain.is_empty() {
@@ -156,17 +171,36 @@ fn run() -> Result<(), String> {
 /// Shows what the layout reader makes of development equations, for fixing it. Held-out equations are
 /// refused: a recoverer must not be fitted to them.
 fn explain_equations(truths: &[EquationTruth], ids: &[String]) -> Result<(), String> {
-    use pdfcraft_render::text::math::recover::{RecoverOptions, recover_latex};
+    explain_with(truths, ids, &mut Pages::default(), false)
+}
+
+/// `--explain` in development faces (`--face ID --explain ID`). The held-out equations of the main set
+/// have been read since and are development data there; in a face they are explained like the others.
+fn explain_in_faces(only: &[String], ids: &[String]) -> Result<(), String> {
     let mut pages = Pages::default();
+    for face in FACES.iter().filter(|f| only.iter().any(|o| o == f.id)) {
+        if !face.development {
+            return Err(format!("face `{}` is scored as a whole, not read equation by equation", face.id));
+        }
+        let truths = load_face(face, &mut pages)?.ok_or_else(|| format!("face `{}` is not generated here", face.id))?;
+        println!("face `{}`", face.id);
+        explain_with(&truths, ids, &mut pages, true)?;
+    }
+    Ok(())
+}
+
+fn explain_with(truths: &[EquationTruth], ids: &[String], pages: &mut Pages, allow_held_out: bool) -> Result<(), String> {
+    use pdfcraft_render::text::math::recover::{RecoverOptions, recover_latex};
     for id in ids {
-        if id.starts_with("ho_") || id.split('@').next().is_some_and(|b| b.starts_with("ho_")) {
+        if !allow_held_out && (id.starts_with("ho_") || id.split('@').next().is_some_and(|b| b.starts_with("ho_"))) {
             return Err(format!("`{id}` is a held-out equation: it is not to be read one by one"));
         }
         let t = truths.iter().find(|t| &t.id == id).ok_or_else(|| format!("no equation `{id}`"))?;
         let page = pages.get(&t.doc, t.page)?;
         println!("{id}  [{} tier {} {}]", t.category, t.tier, t.env.as_str());
         println!("  truth:  {}", t.source);
-        match recover_latex(page, region_of(t), &RecoverOptions::default()) {
+        let style = if allow_held_out { Some(if t.env == Env::Inline { Style::Text } else { Style::Display }) } else { None };
+        match recover_latex(page, region_of(t), &RecoverOptions { style }) {
             Ok(r) => {
                 println!("  answer: {}   ({:?})", r.latex, r.confidence);
                 for d in &r.diagnostics {
@@ -194,9 +228,87 @@ struct WithEnvironment<'a> {
 
 impl LatexRecoverer for WithEnvironment<'_> {
     fn recover(&self, page: &MathPage, region: [f32; 4]) -> Option<String> {
-        let env = self.truths.iter().find(|t| region_of(t) == region)?.env;
+        // In a face two pages can share a box; the one whose page draws what this one does is it.
+        let items = harness::page_items(page);
+        let at = |t: &&EquationTruth| region_of(t) == region;
+        let env = self.truths.iter().filter(at).find(|t| t.reference == items).or_else(|| self.truths.iter().find(at))?.env;
         let style = if env == Env::Inline { Style::Text } else { Style::Display };
         let got = recover_latex(page, region, &RecoverOptions { style: Some(style) }).ok()?;
         (!self.confident_only || got.confidence == Confidence::Confident).then_some(got.latex)
     }
+}
+
+/// Scores the faces: per face, the reader's answers typeset by the face's own engine and fonts.
+fn report_faces(only: &[String], wanted: &[String], failures: bool) -> Result<(), String> {
+    if let Some(bad) = only.iter().find(|id| !FACES.iter().any(|f| f.id == id.as_str())) {
+        return Err(format!("no face `{bad}`; the faces are {:?}", FACES.iter().map(|f| f.id).collect::<Vec<_>>()));
+    }
+    let mut pages = Pages::default();
+    let mut summary: Vec<String> = Vec::new();
+    for face in FACES.iter().filter(|f| only.is_empty() || only.iter().any(|o| o == f.id)) {
+        let Some(truths) = load_face(face, &mut pages)? else {
+            println!("face `{}`: not generated here (cargo xtask math-oracle faces --only {})", face.id, face.id);
+            continue;
+        };
+        let tex = match FaceTex::find(face) {
+            Ok(t) => Some(t),
+            Err(absent) if absent.required() => return Err(absent.to_string()),
+            Err(absent) => {
+                eprintln!("{absent}");
+                None
+            }
+        };
+        println!(
+            "\nface `{}`: {} ({} equations, {}; typeset check: {})",
+            face.id,
+            face.about,
+            truths.len(),
+            if face.development { "development" } else { "scored as a whole" },
+            tex.as_ref().map_or("not run", |t| t.version())
+        );
+        let recoverers: Vec<(&str, Box<dyn LatexRecoverer + '_>)> = vec![
+            ("identity", Box::new(FaceIdentity { truths: &truths })),
+            ("layout", Box::new(LayoutRecoverer::default())),
+            ("layout-confident", Box::new(ConfidentRecoverer::default())),
+            ("layout+env", Box::new(WithEnvironment { truths: &truths, confident_only: false })),
+            ("layout+env-confident", Box::new(WithEnvironment { truths: &truths, confident_only: true })),
+        ];
+        let mut row = format!("| {} | {} |", face.id, truths.len());
+        for (name, r) in &recoverers {
+            if !wanted.is_empty() && !wanted.iter().any(|w| w == name) {
+                continue;
+            }
+            let got = answers(r.as_ref(), &truths, &mut pages)?;
+            let scored = face_outcomes(&truths, got, tex.as_ref())?;
+            print!("{}", Report::new(&scored).render(name));
+            let answered = scored.iter().filter(|o| o.answer.is_some()).count();
+            let equal = scored.iter().filter(|o| o.verdict == Some(pdfcraft_oracle::tex::Verdict::Equal)).count();
+            let precision = if answered == 0 { "-".to_owned() } else { format!("{:.1}%", 100.0 * equal as f64 / answered as f64) };
+            row.push_str(&format!(" {equal}/{} ({precision}) |", truths.len()));
+            if failures && *name != "identity" && (face.development || !only.is_empty()) {
+                for o in
+                    scored.iter().filter(|o| o.answer.is_some() && o.verdict.as_ref().is_some_and(|v| *v != pdfcraft_oracle::tex::Verdict::Equal))
+                {
+                    println!(
+                        "  ✗ {:<22} {}\n      truth:  {}\n      answer: {}\n      why:    {}",
+                        o.truth.id,
+                        o.truth.category,
+                        o.truth.source,
+                        o.answer.as_deref().unwrap_or("(none)"),
+                        match &o.verdict {
+                            Some(pdfcraft_oracle::tex::Verdict::Different(w) | pdfcraft_oracle::tex::Verdict::Failed(w)) =>
+                                w.lines().next().unwrap_or(""),
+                            _ => "",
+                        }
+                    );
+                }
+            }
+        }
+        summary.push(row);
+    }
+    println!("\n| face | n | identity | layout | layout-confident | layout+env | layout+env-confident |\n|---|--:|---|---|---|---|---|");
+    for row in summary {
+        println!("{row}");
+    }
+    Ok(())
 }
