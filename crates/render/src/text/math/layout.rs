@@ -64,6 +64,17 @@ pub enum Severity {
     Unknown,
 }
 
+impl Severity {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Severity::Info => "info",
+            Severity::Ambiguous => "ambiguous",
+            Severity::Unsupported => "unsupported",
+            Severity::Unknown => "unknown",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Diagnostic {
     pub severity: Severity,
@@ -119,6 +130,29 @@ pub enum ErrorKind {
     Unsupported,
     /// Nesting deeper than [`MAX_DEPTH`], or more work than a region is allowed.
     TooComplex,
+}
+
+impl ErrorKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ErrorKind::BadRegion => "bad_region",
+            ErrorKind::NoGlyphs => "no_glyphs",
+            ErrorKind::TooLarge => "too_large",
+            ErrorKind::InvalidGlyph => "invalid_glyph",
+            ErrorKind::UnknownSymbol => "unknown_symbol",
+            ErrorKind::Unsupported => "unsupported",
+            ErrorKind::TooComplex => "too_complex",
+        }
+    }
+}
+
+impl Confidence {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Confidence::Confident => "confident",
+            Confidence::Tentative => "tentative",
+        }
+    }
 }
 
 impl std::fmt::Display for RecoverError {

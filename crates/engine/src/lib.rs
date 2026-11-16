@@ -38,6 +38,7 @@ pub mod js;
 mod layers;
 pub mod links;
 mod live_scripts;
+pub mod math_recover;
 pub mod model3d;
 mod object_clip;
 pub mod ocr;

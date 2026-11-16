@@ -45,6 +45,25 @@ DeviceCMYK `k`), so text added to a print file can be 100 K black. `content_list
 - With a root set, every read and write path must resolve inside it (symlinks and `..` included). Relative paths resolve inside the root, and `..` is resolved by name before the check. Every path outside the root gets the same refusal (`<path> is outside the allowed directory <root>`), whether or not it exists, so a confined agent can't probe the rest of the disk; on Windows another network share or device path (`\\host\share`, `\\?\UNC\…`, `\\.\…`) is refused without being contacted. "Not found" and other filesystem errors are reported only for paths inside the root. Tools that write several files into a folder name them after the document or input file, with separators, colons and control characters replaced by `_`, so a name can't lead them out of the folder. The root itself must be a folder.
 - `Automation::with_automation_roots` holds a read folder and a write folder (`pdfcraft-cli mcp --automation-read-root DIR --automation-write-root DIR`, see [docs/mcp.md](../../docs/mcp.md)). Reads must lie inside the read root and writes inside the write root, links followed. A root left out grants none of its access. Refusals read `automation path rejected: outside the read root <root>: <path>`. As with a root set, on Windows a path on another network share or device path is refused with that refusal without being contacted (#4003). It applies on top of `with_root`.
 
+## LaTeX from typeset mathematics
+
+`text_recover_latex {doc, page, rect, display?}` reads the formula in `rect` (`[x0, y0, x1, y1]` in
+points from the top-left of the displayed page; it must hold exactly the formula, finding it is not
+done) back as LaTeX: the body, without `$…$` or `\[…\]`. It returns `latex`, `confidence` and
+`diagnostics` (`severity` `info`, `ambiguous`, `unsupported` or `unknown`, and a `message`).
+`confidence` is `confident` when every glyph was read as a known symbol, every mark was explained and
+no choice was made that the glyphs cannot settle, `tentative` otherwise (an `ambiguous` diagnostic
+says what was chosen between). A numerator as large as the text is `\frac` in a display and
+`\dfrac` in text: pass `display: true` or `false` when the environment is known, or leave it out and
+the answer is tentative. A region the reader does not handle is a result, not an error: `latex` is
+`null`, `confidence` is `"none"`, `reason` is `unsupported`, `unknown_symbol`, `no_glyphs`,
+`invalid_glyph`, `too_large` or `too_complex`, and the diagnostics say what was met (a matrix, an
+alignment, a brace, stacked marks without a rule, a font or code the symbol table does not know).
+Nothing is guessed. A rectangle that is not a box, a page that is not there and a document that is not
+open are errors; copy permission is required. Read-only. Bounds: 4000 glyphs and 2000 rules per region,
+nesting 32 deep. The scores against the math oracle, and what is read and what is not, are in
+`crates/render/tests/data/math/oracle/README.md`; the reader is `pdfcraft_render::text::math::layout`.
+
 ## Text search and cache limits
 
 `text_word_count` counts the current snapshot without filling the text cache. It returns totals
