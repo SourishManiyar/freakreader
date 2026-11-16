@@ -881,6 +881,7 @@ fn copy_result(r: &pdfcraft_render::RenderedPage) -> pdfcraft_render::RenderedPa
         rgba: r.rgba.clone(),
         error: r.error.clone(),
         text: r.text.clone(),
+        glyphs: r.glyphs.clone(),
         warnings: r.warnings.clone(),
         millis: r.millis,
     }

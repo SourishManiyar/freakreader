@@ -587,7 +587,7 @@ pub fn named_destinations(bytes: Arc<Vec<u8>>, password: Option<&str>) -> Option
         }
         // Top to bottom: a larger user-space `top` is higher on the page; one with none first.
         let top = |d: &NamedDestination| match d.view {
-            DestView::Xyz { top, .. } | DestView::FitH { top } => top.filter(|t| t.is_finite()).map_or(f32::INFINITY, |t| t),
+            DestView::Xyz { top, .. } | DestView::FitH { top } => top.filter(|t| t.is_finite()).unwrap_or(f32::INFINITY),
             DestView::FitR { rect } => rect[1].max(rect[3]),
             DestView::Top | DestView::Fit | DestView::FitV { .. } => f32::INFINITY,
         };

@@ -403,6 +403,7 @@ impl RenderPool {
                 rgba: Pixels::default(),
                 error: Some("all render workers exceeded their time limits; close and reopen the document to try again".into()),
                 text: None,
+                glyphs: None,
                 warnings: Vec::new(),
                 millis: 0,
             })
@@ -448,7 +449,11 @@ impl RenderPool {
                     self.shared.queue.retry(req);
                 } else {
                     lock(&self.shared.stuck).insert(req.into());
-                    let what = if req.kind == RequestKind::Text { "text extraction for page" } else { "page" };
+                    let what = match req.kind {
+                        RequestKind::Text => "text extraction for page",
+                        RequestKind::Glyphs => "glyph extraction for page",
+                        RequestKind::Pixels => "page",
+                    };
                     let error = format!(
                         "{what} {} took longer than {:.0} s and was skipped; the page may be damaged or extremely complex",
                         req.page + 1,
@@ -461,6 +466,7 @@ impl RenderPool {
                         rgba: Pixels::default(),
                         error: Some(error),
                         text: None,
+                        glyphs: None,
                         warnings: Vec::new(),
                         millis: 0,
                     });
@@ -593,6 +599,7 @@ pub(super) fn worker(
                         rgba: Pixels::default(),
                         error: Some(error),
                         text: None,
+                        glyphs: None,
                         warnings: Vec::new(),
                         millis: 0,
                     };

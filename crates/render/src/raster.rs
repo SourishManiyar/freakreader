@@ -206,6 +206,11 @@ pub enum RequestKind {
     Pixels,
     /// The page's text layer (glyphs with Unicode and boxes); `scale` is ignored.
     Text,
+    /// The page's glyph-level data ([`crate::text::math::MathPage`], as
+    /// [`PageRenderer::glyph_details`] reads it): every glyph's ink box and baseline and every
+    /// rule, for laying out what a page shows (a reference preview's block); `scale` and `tile`
+    /// are ignored.
+    Glyphs,
 }
 
 /// A region of a scaled page, in device pixels (for tiled rendering of large pages).
@@ -272,6 +277,8 @@ pub struct RenderedPage {
     pub error: Option<String>,
     /// For `RequestKind::Text`.
     pub text: Option<Arc<crate::text::PageText>>,
+    /// For `RequestKind::Glyphs`.
+    pub glyphs: Option<Arc<crate::text::math::MathPage>>,
     /// Non-fatal conditions that made the result partial or otherwise noteworthy.
     pub warnings: Vec<RenderWarning>,
     pub millis: u32,
@@ -337,7 +344,7 @@ impl AtomicRenderStats {
                 self.page_interpretations.fetch_add(1, Ordering::Relaxed);
                 self.rasterizations.fetch_add(1, Ordering::Relaxed);
             }
-            RequestKind::Text => {
+            RequestKind::Text | RequestKind::Glyphs => {
                 self.text_interpretations.fetch_add(1, Ordering::Relaxed);
             }
         }
@@ -377,7 +384,7 @@ pub fn device_pixels(pt: f32, scale: f32) -> u32 {
 
 /// Render one page with a caller-owned parser and cache. Panics inside the renderer are caught
 /// and reported as `Err((message, panicked))`.
-type Output = (u32, u32, Pixels, Option<Arc<crate::text::PageText>>);
+type Output = (u32, u32, Pixels, Option<Arc<crate::text::PageText>>, Option<Arc<crate::text::math::MathPage>>);
 
 fn render_page<'a>(
     pdf: &'a Pdf,
@@ -412,9 +419,16 @@ fn render_page<'a>(
         (settings, cache)
     };
     let reading = request_reading(config, &req);
+    if req.kind == RequestKind::Glyphs {
+        return match catch_unwind(AssertUnwindSafe(|| crate::text::math::extract_math_page(pdf, req.page, settings))) {
+            Ok(Ok(m)) => Ok((0, 0, Pixels::default(), None, Some(Arc::new(m)))),
+            Ok(Err(e)) => Err((format!("the glyphs of page {} could not be read: {e}", req.page + 1), false)),
+            Err(panic) => Err((format!("glyph extraction crashed on page {}: {}", req.page + 1, panic_message(&panic)), true)),
+        };
+    }
     if req.kind == RequestKind::Text {
         return match catch_unwind(AssertUnwindSafe(|| crate::text::extract_page(pdf, req.page, settings))) {
-            Ok(Some(t)) => Ok((0, 0, Pixels::default(), Some(Arc::new(t)))),
+            Ok(Some(t)) => Ok((0, 0, Pixels::default(), Some(Arc::new(t)), None)),
             Ok(None) => Err((format!("page {} does not exist", req.page + 1), false)),
             Err(panic) => Err((format!("text extraction crashed on page {}: {}", req.page + 1, panic_message(&panic)), true)),
         };
@@ -485,7 +499,7 @@ fn render_page<'a>(
         // A print preview shows what prints, and printing is not the View event.
         preview_settings.view_auto_state &= req.tag & PRINT_TAG == 0;
         render_into(page, cache, &preview_settings, &rs, pixels.bytes_mut());
-        Ok((w.into(), h.into(), pixels, None))
+        Ok((w.into(), h.into(), pixels, None, None))
     }));
     match result {
         Ok(Ok(v)) => Ok(v),
@@ -497,8 +511,10 @@ fn render_page<'a>(
 fn finish(req: RenderRequest, start: Stopwatch, r: Result<Output, (String, bool)>, warnings: Vec<RenderWarning>) -> RenderedPage {
     let millis = start.millis();
     match r {
-        Ok((width, height, rgba, text)) => RenderedPage { request: req, width, height, rgba, error: None, text, warnings, millis },
-        Err((e, _)) => RenderedPage { request: req, width: 0, height: 0, rgba: Pixels::default(), error: Some(e), text: None, warnings, millis },
+        Ok((width, height, rgba, text, glyphs)) => RenderedPage { request: req, width, height, rgba, error: None, text, glyphs, warnings, millis },
+        Err((e, _)) => {
+            RenderedPage { request: req, width: 0, height: 0, rgba: Pixels::default(), error: Some(e), text: None, glyphs: None, warnings, millis }
+        }
     }
 }
 
@@ -585,7 +601,7 @@ impl PageRenderer {
                     self.stats.page_interpretations += 1;
                     self.stats.rasterizations += 1;
                 }
-                RequestKind::Text => self.stats.text_interpretations += 1,
+                RequestKind::Text | RequestKind::Glyphs => self.stats.text_interpretations += 1,
             }
         }
         let Some(pdf) = self.pdf.as_ref() else {

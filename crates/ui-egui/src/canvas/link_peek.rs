@@ -92,8 +92,8 @@ impl LinkPeek {
     }
 
     /// The part of the document shown.
-    pub fn preview(&self) -> LinkPreview {
-        self.preview
+    pub fn preview(&self) -> &LinkPreview {
+        &self.preview
     }
 
     /// Whether the picture has come back from the renderer.
@@ -293,7 +293,14 @@ mod tests {
         LinkPeek {
             source: (0, 0),
             link_rect: [0.0; 4],
-            preview: LinkPreview { page: 1, area },
+            preview: LinkPreview {
+                page: 1,
+                area,
+                view: DestView::Top,
+                name: None,
+                reference: pdfcraft_engine::link_preview::ref_name(""),
+                fitted: false,
+            },
             dest: DestView::Top,
             label: "2".into(),
             generation: 0,

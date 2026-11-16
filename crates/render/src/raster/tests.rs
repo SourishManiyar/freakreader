@@ -461,7 +461,7 @@ fn worker_reuses_parser_and_releases_source_after_rendering() {
     let source = Arc::downgrade(&bytes);
     let pool = RenderPool::new(bytes, 1, RenderConfig::default());
     assert!(!pool.is_inline(), "the lifecycle check needs a native worker");
-    for (tag, kind) in [RequestKind::Pixels, RequestKind::Text, RequestKind::Pixels].into_iter().enumerate() {
+    for (tag, kind) in [RequestKind::Pixels, RequestKind::Text, RequestKind::Glyphs, RequestKind::Pixels].into_iter().enumerate() {
         pool.set_queue(vec![RenderRequest { page: 0, kind, scale: 1.0, tag: tag as u64, ..Default::default() }]);
         let page = pool.results.recv_timeout(std::time::Duration::from_secs(8)).expect("worker result");
         assert!(page.error.is_none(), "{:?}", page.error);
@@ -469,12 +469,13 @@ fn worker_reuses_parser_and_releases_source_after_rendering() {
         match kind {
             RequestKind::Pixels => assert_eq!((page.width, page.height), (100, 50)),
             RequestKind::Text => assert!(page.text.is_some()),
+            RequestKind::Glyphs => assert!(page.glyphs.is_some() && page.text.is_none() && page.width == 0),
         }
         assert_eq!(pool.shared.parses.load(std::sync::atomic::Ordering::Relaxed), 1, "requests reuse one parser");
     }
     assert_eq!(
         pool.stats(),
-        RenderStats { parser_builds: 1, page_interpretations: 2, render_requests: 3, tile_requests: 0, text_interpretations: 1, rasterizations: 2 }
+        RenderStats { parser_builds: 1, page_interpretations: 2, render_requests: 4, tile_requests: 0, text_interpretations: 2, rasterizations: 2 }
     );
     drop(pool);
     let until = std::time::Instant::now() + std::time::Duration::from_secs(8);
