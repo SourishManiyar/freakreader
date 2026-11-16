@@ -11,6 +11,7 @@ mod knockout_backdrop;
 mod luminosity_group_space;
 mod math_glyphs;
 mod math_oracle;
+mod math_recover;
 mod math_symbols;
 mod named_form_properties;
 mod nonseparable_gray;
