@@ -101,6 +101,12 @@ impl LinkPeek {
         self.failed
     }
 
+    /// A watch on the preview's render thread, which tells when it has exited (it does once the
+    /// preview is dropped: closed, its document closed, or the app gone).
+    pub fn render_watch(&self) -> pdfcraft_render::PoolWatch {
+        self.pool.watch()
+    }
+
     /// The picture's size on screen, in points: at `zoom` (screen points per page point, the
     /// link's page's), so its text reads at the size of the page's, but no wider than `room`, no
     /// taller than `tallest`, and no narrower than [`MIN_WIDTH`] (or `room`, when less).

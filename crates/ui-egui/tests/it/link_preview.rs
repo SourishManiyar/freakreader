@@ -178,3 +178,46 @@ fn an_edit_closes_the_preview() {
     h.run_steps(4);
     assert!(h.state().views[0].link_peek.is_none(), "the pages it was drawn from changed");
 }
+
+/// Wait until the preview's render thread has exited.
+fn wait_stopped(watch: &pdfcraft_render::PoolWatch, what: &str) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    while !watch.stopped() {
+        assert!(std::time::Instant::now() < deadline, "{what}: the preview's render thread never exited");
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+}
+
+/// The preview's render thread starts with the preview, not with the document, and exits, letting
+/// go of the document, when the preview closes, when its document closes, and when the app goes.
+#[test]
+fn the_previews_render_thread_ends_with_the_preview_its_document_or_the_app() {
+    let mut h = harness();
+    assert!(h.state().views[0].link_peek.is_none(), "no preview, so no render thread of its own, on open");
+    let link = the_link(&h);
+    right_click(&mut h, link);
+    wait_drawn(&mut h);
+    let watch = h.state().views[0].link_peek.as_ref().unwrap().render_watch();
+    assert!(!watch.stopped());
+    h.key_press(egui::Key::Escape);
+    h.run_steps(2);
+    assert!(h.state().views[0].link_peek.is_none());
+    wait_stopped(&watch, "closing the preview");
+
+    right_click(&mut h, link);
+    wait_drawn(&mut h);
+    let watch = h.state().views[0].link_peek.as_ref().unwrap().render_watch();
+    h.state_mut().close_tab(0);
+    h.run_steps(2);
+    wait_stopped(&watch, "closing its document");
+
+    h.state_mut().open_bytes("refs.pdf", None, fixture()).unwrap();
+    h.state_mut().set_option("zoom", "100").unwrap();
+    h.run_steps(6);
+    let link = the_link(&h);
+    right_click(&mut h, link);
+    wait_drawn(&mut h);
+    let watch = h.state().views[0].link_peek.as_ref().unwrap().render_watch();
+    drop(h);
+    wait_stopped(&watch, "the app going");
+}

@@ -11943,3 +11943,53 @@ fn a_page_reported_without_kept_paints_has_an_empty_picture_pass() {
         assert_eq!(mask.iter().any(|b| *b != 0), kept, "{content} (comment: {annotation}): the pass draws exactly when reported");
     }
 }
+
+/// Wait until `watch` says its pool's threads have exited.
+#[cfg(not(target_arch = "wasm32"))]
+fn wait_stopped(watch: &super::PoolWatch) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    while !watch.stopped() {
+        assert!(std::time::Instant::now() < deadline, "the pool's threads never exited");
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+}
+
+/// A companion pool (the reference preview's) has a thread of its own, holding the document's
+/// bytes: once the companion is dropped, idle or in the middle of a render, its thread exits and
+/// lets go of them, while the pool it came from keeps its own.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_dropped_companion_stops_its_thread_and_lets_go_of_the_document() {
+    let bytes = Arc::new(ONE_PAGE_TWICE.to_vec());
+    let pool = RenderPool::new(bytes.clone(), 1, RenderConfig::default());
+    let base = Arc::strong_count(&bytes);
+    // Idle.
+    let companion = pool.companion();
+    assert_eq!(companion.threads(), 1);
+    assert!(Arc::strong_count(&bytes) > base, "the companion and its thread hold the bytes");
+    let watch = companion.watch();
+    assert!(!watch.stopped());
+    drop(companion);
+    wait_stopped(&watch);
+    assert_eq!(Arc::strong_count(&bytes), base, "the document's bytes are let go");
+    // In the middle of a render: held while it parses, dropped, then let go.
+    let companion = pool.companion();
+    let gate = parse_gate();
+    *lock(&companion.shared.parse_gate) = Some(gate.clone());
+    companion.set_queue(vec![RenderRequest { page: 0, scale: 1.0, tag: 1, ..Default::default() }]);
+    gate.entered.wait();
+    let watch = companion.watch();
+    drop(companion);
+    assert!(!watch.stopped(), "its thread is still parsing");
+    gate.release.wait();
+    wait_stopped(&watch);
+    assert_eq!(Arc::strong_count(&bytes), base);
+    // The pool it came from still renders.
+    pool.set_queue(vec![RenderRequest { page: 1, scale: 1.0, tag: 2, ..Default::default() }]);
+    let page = receive_before_deadline(&pool);
+    assert!(page.error.is_none(), "{:?}", page.error);
+    let watch = pool.watch();
+    drop(pool);
+    wait_stopped(&watch);
+    assert_eq!(Arc::strong_count(&bytes), 1);
+}

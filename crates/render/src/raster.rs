@@ -38,7 +38,7 @@ mod pool;
 use pool::lock;
 #[cfg(test)]
 use pool::{BusyPublishGate, ParseGate, ParserState, PoolParser, RenderGate, Shared, same_request, worker, worker_settings};
-pub use pool::{RenderPool, Retiring};
+pub use pool::{PoolWatch, RenderPool, Retiring};
 
 /// Monotonic-ish timer that is safe on wasm32 (where `std::time::Instant` panics).
 #[derive(Clone, Copy)]

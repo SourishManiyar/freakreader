@@ -329,6 +329,13 @@ impl RenderPool {
         Self::new(self.bytes.clone(), 1, self.config.clone()).without_replacements()
     }
 
+    /// A watch on this pool's threads that outlives the pool: [`PoolWatch::stopped`] once the
+    /// pool is dropped and every thread it started has exited, and so has let go of the
+    /// document's bytes, its parser and its caches.
+    pub fn watch(&self) -> PoolWatch {
+        PoolWatch(Arc::downgrade(&self.shared))
+    }
+
     /// `true` when rendering happens on the caller's thread (no worker threads available).
     pub fn is_inline(&self) -> bool {
         self.inline.is_some()
@@ -464,6 +471,18 @@ impl RenderPool {
                 }
             }
         }
+    }
+}
+
+/// See [`RenderPool::watch`]. Only the pool and its threads hold its shared state, so it is
+/// gone exactly when they all are.
+#[derive(Clone, Debug)]
+pub struct PoolWatch(std::sync::Weak<Shared>);
+
+impl PoolWatch {
+    /// Whether the pool is dropped and all its threads have exited.
+    pub fn stopped(&self) -> bool {
+        self.0.strong_count() == 0
     }
 }
 
