@@ -46,14 +46,10 @@ pub(crate) fn panel(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
     let editable = doc.allows_assembly();
     let n = info.pages.len();
     let mut act: Option<Act> = None;
-    let mut back = false;
     let mut close = false;
     let Some(view) = app.views.get_mut(index) else { return };
 
     ui.horizontal(|ui| {
-        if icons::button(ui, "chevron-left", 26.0, false, tl!("Back to all tools")).clicked() {
-            back = true;
-        }
         let title = tl!("Organize pages");
         let title_width = (ui.available_width() - 26.0 - ui.spacing().item_spacing.x).max(1.0);
         ui.add_sized([title_width, 26.0], egui::Label::new(egui::RichText::new(title).font(theme::semibold(15.5)).color(t.text)).truncate())
@@ -167,20 +163,12 @@ pub(crate) fn panel(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
     if close {
         view.organize = false;
         app.left = workspace_panel(app.mode);
-    } else if back {
-        view.organize = false;
-        app.left = LeftPanel::AllTools;
     }
     match act {
         Some(Act::Edit(edit)) => view.pending_edit = Some(*edit),
         Some(Act::View(action)) => view.pending_action = Some(action),
         Some(Act::Command(command)) => app.run_command(command),
         None => {}
-    }
-    // Leaving the workspace needs the whole app, so it waits until the view is done with: leaving
-    // Edit puts Edit text down and applies a paragraph still open on the page.
-    if back && !close {
-        app.enter_mode(crate::Mode::AllTools);
     }
 }
 

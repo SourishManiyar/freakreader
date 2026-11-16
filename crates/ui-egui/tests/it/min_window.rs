@@ -21,7 +21,8 @@ fn at_the_minimum_width_the_modes_fold_into_a_menu_and_search_stays() {
     let mut h = harness(egui::vec2(MIN_WINDOW_SIZE[0], MIN_WINDOW_SIZE[1]));
     assert!(h.query_by_role_and_label(Role::Button, "Convert").is_none(), "no room for the tabs");
     assert!(h.query_by_role_and_label(Role::Button, "Find tools and commands").is_some(), "command search is reachable");
-    h.get_by_role_and_label(Role::Button, "All tools").click();
+    // With no workspace chosen, the folded menu is named Tools.
+    h.get_by_role_and_label(Role::Button, "Tools").click();
     h.run_steps(4);
     h.get_by_role_and_label(Role::Button, "E-Sign").click();
     h.run_steps(4);
@@ -37,7 +38,7 @@ fn at_the_minimum_width_the_modes_fold_into_a_menu_and_search_stays() {
 #[test]
 fn a_wide_window_keeps_the_mode_tabs() {
     let h = harness(egui::vec2(1400.0, 900.0));
-    for mode in ["All tools", "Edit", "Convert", "E-Sign"] {
+    for mode in ["Edit", "Convert", "E-Sign"] {
         assert!(h.query_by_role_and_label(Role::Button, mode).is_some(), "{mode} tab");
     }
 }
@@ -94,6 +95,10 @@ fn the_stacked_notice_keeps_its_buttons_in_view() {
         app.open_bytes("locked.pdf", None, protected("", "owner", 0b0100)).unwrap();
         app
     });
+    h.run_steps(8);
+    // A tool's pane beside the pages leaves the notice a narrow document area.
+    h.state_mut().left = pdfcraft_ui_egui::LeftPanel::Tool("protect");
+    h.state_mut().left_open = true;
     h.run_steps(8);
     let window = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(MIN_WINDOW_SIZE[0], MIN_WINDOW_SIZE[1]));
     let msg = h.get_by_label_contains("This document is secured").rect();

@@ -769,7 +769,7 @@ fn card_documents_and_view(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens,
             t,
             &mut app.default_mode,
             &[
-                (crate::Mode::AllTools, tl!("All tools")),
+                (crate::Mode::AllTools, tl!("View")),
                 (crate::Mode::Read, tl!("Read")),
                 (crate::Mode::Edit, tl!("Edit")),
                 (crate::Mode::Convert, tl!("Convert")),

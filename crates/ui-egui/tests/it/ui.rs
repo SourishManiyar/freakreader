@@ -35,7 +35,9 @@ fn harness(setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> Harness<'static, P
 fn home_shows_welcome_and_tools() {
     let h = harness(|_| {});
     h.get_by_label_contains("Welcome to PdfCraft");
-    assert!(h.query_all_by_label("Organize pages").count() >= 2, "tool list + home card");
+    // The tools are Home's own cards: no Tools pane shows beside Home with no tool chosen.
+    h.get_by_label("Recommended tools");
+    assert_eq!(h.query_all_by_label("Organize pages").count(), 1, "the Home card, and no tool list beside it");
     h.get_by_label("Open file");
 }
 
@@ -113,180 +115,6 @@ fn home_removes_one_recent_file_or_clears_them_all() {
     assert!(h.state().recent.is_empty(), "Clear empties the list");
     h.get_by_label_contains("Files you open in PdfCraft appear here");
     assert!(h.query_by_label("Clear Recent Files").is_none(), "and goes away with nothing left to clear");
-}
-
-#[test]
-fn every_catalog_tool_is_listed_after_view_more() {
-    let mut h = harness(|_| {});
-    h.get_by_label("View more").click();
-    h.run_steps(3);
-    for g in pdfcraft_engine::catalog::TOOL_GROUPS {
-        assert!(h.query_all_by_label(g.label).count() >= 1, "tool {} missing from All tools", g.label);
-    }
-}
-
-#[test]
-fn expanded_all_tools_lists_every_tool_by_category_and_searches() {
-    let mut h = harness(|_| {});
-    h.get_by_label("Expand all tools").click();
-    h.run_steps(3);
-    assert!(h.state().all_tools_full);
-    for c in pdfcraft_engine::catalog::TOOL_CATEGORIES {
-        h.get_by_label(c.label);
-    }
-    for g in pdfcraft_engine::catalog::TOOL_GROUPS {
-        assert!(h.query_all_by_label(g.label).count() >= 1, "tool {} missing from the expanded view", g.label);
-    }
-    // An item name finds its tool; the other categories drop out.
-    h.state_mut().all_tools_query = "rotate".into();
-    h.run_steps(3);
-    assert_eq!(h.query_all_by_label("Organize pages").count(), 1, "only the expanded view's tile; the sidebar is gone");
-    assert!(h.query_by_label("Forms & Signatures").is_none());
-    h.state_mut().all_tools_query = "no such tool".into();
-    h.run_steps(3);
-    h.get_by_label("No tools match your search.");
-    // Choosing a tool goes back to the workspace with that tool's panel.
-    h.state_mut().all_tools_query = "organize".into();
-    h.run_steps(3);
-    h.get_by_label("Organize pages").click();
-    h.run_steps(3);
-    assert!(!h.state().all_tools_full);
-    assert_eq!(h.state().left, pdfcraft_ui_egui::LeftPanel::Tool("organize"));
-    h.get_by_label("Back to all tools");
-}
-
-#[test]
-fn collapse_and_escape_close_the_expanded_all_tools() {
-    let mut h = harness(|app| app.set_option("tools", "full").unwrap());
-    h.get_by_label("Collapse all tools").click();
-    h.run_steps(3);
-    assert!(!h.state().all_tools_full);
-    h.get_by_label("View more");
-    h.get_by_label("Expand all tools").click();
-    h.run_steps(3);
-    h.key_press(egui::Key::Escape);
-    h.run_steps(3);
-    assert!(!h.state().all_tools_full);
-}
-
-#[test]
-fn escape_in_a_dialog_over_the_expanded_all_tools_leaves_the_view_open() {
-    let mut h = harness(|app| app.set_option("tools", "full").unwrap());
-    h.state_mut().dialog = Some(pdfcraft_ui_egui::Dialog::About);
-    h.run_steps(3);
-    h.key_press(egui::Key::Escape);
-    h.run_steps(3);
-    assert!(h.state().all_tools_full, "Escape belonged to the dialog");
-}
-
-#[test]
-fn escape_in_the_command_palette_over_the_expanded_all_tools_leaves_the_view_open() {
-    let mut h = harness(|app| app.set_option("tools", "full").unwrap());
-    h.state_mut().palette_open = true;
-    h.run_steps(3);
-    h.key_press(egui::Key::Escape);
-    h.run_steps(3);
-    assert!(!h.state().palette_open, "Escape closed the palette");
-    assert!(h.state().all_tools_full, "and only the palette");
-}
-
-#[test]
-fn another_workspace_from_the_mode_option_puts_the_expanded_all_tools_away() {
-    let mut app = PdfCraftApp::new();
-    app.set_option("tools", "full").unwrap();
-    app.set_option("mode", "all").unwrap();
-    assert!(app.all_tools_full, "All tools itself keeps the view");
-    app.set_option("mode", "read").unwrap();
-    app.set_option("mode", "all").unwrap();
-    assert!(!app.all_tools_full, "coming back shows the sidebar, as the mode bar does");
-}
-
-#[test]
-fn opening_a_document_puts_the_expanded_all_tools_away() {
-    use pdfcraft_ui_egui::Mode;
-    // All tools as the default workspace: no workspace change, but the document must show.
-    let mut app = PdfCraftApp::new();
-    app.set_option("tools", "full").unwrap();
-    app.open_bytes("fixture.pdf", None, FIXTURE.to_vec()).expect("fixture opens");
-    assert!(!app.all_tools_full, "the document shows, not the catalogue over it");
-    // Read as the default workspace: coming back to All tools later shows the sidebar.
-    let mut app = PdfCraftApp::new();
-    app.set_option("default-mode", "read").unwrap();
-    app.set_option("tools", "full").unwrap();
-    app.open_bytes("fixture.pdf", None, FIXTURE.to_vec()).expect("fixture opens");
-    assert_eq!(app.mode, Mode::Read);
-    assert!(!app.all_tools_full);
-}
-
-#[test]
-fn choosing_a_tool_puts_the_expanded_all_tools_away() {
-    use pdfcraft_ui_egui::LeftPanel;
-    let mut h = harness(|app| app.set_option("tools", "full").unwrap());
-    h.state_mut().set_option("tool", "organize").unwrap();
-    h.run_steps(3);
-    assert!(!h.state().all_tools_full, "the tool's panel shows, not the catalogue");
-    assert_eq!(h.state().left, LeftPanel::Tool("organize"));
-}
-
-#[test]
-fn another_tab_coming_forward_puts_the_expanded_all_tools_away() {
-    // Home, through the control option.
-    let mut h = harness(|app| app.open_bytes("fixture.pdf", None, FIXTURE.to_vec()).expect("fixture opens"));
-    h.state_mut().set_option("tools", "full").unwrap();
-    h.run_steps(3);
-    assert!(h.state().all_tools_full, "the document's own tab keeps it");
-    h.state_mut().set_option("home", "").unwrap();
-    h.run_steps(3);
-    assert!(!h.state().all_tools_full);
-    h.get_by_label_contains("Welcome to PdfCraft");
-    // Another document's tab.
-    let mut h = harness(|app| {
-        app.open_bytes("one.pdf", None, FIXTURE.to_vec()).expect("fixture opens");
-        app.open_bytes("two.pdf", None, FIXTURE.to_vec()).expect("fixture opens");
-    });
-    h.state_mut().set_option("tools", "full").unwrap();
-    h.run_steps(3);
-    h.state_mut().active = Some(0);
-    h.run_steps(3);
-    assert!(!h.state().all_tools_full, "one.pdf shows, not the catalogue over it");
-}
-
-#[test]
-fn going_home_with_no_document_puts_the_expanded_all_tools_away() {
-    // Home is already the tab in front, so only the option itself can put the view away.
-    let mut h = harness(|app| app.set_option("tools", "full").unwrap());
-    h.state_mut().set_option("home", "").unwrap();
-    h.run_steps(3);
-    assert!(!h.state().all_tools_full);
-    h.get_by_label_contains("Welcome to PdfCraft");
-}
-
-#[test]
-fn expanding_all_tools_from_read_mode_restores_the_right_panel() {
-    use pdfcraft_ui_egui::{Mode, RightPanel};
-    let mut h = harness(|app| app.open_bytes("fixture.pdf", None, FIXTURE.to_vec()).expect("fixture opens"));
-    h.state_mut().right = Some(RightPanel::Bookmarks);
-    h.state_mut().execute("view.read_mode");
-    h.run_steps(3);
-    assert_eq!((h.state().mode, h.state().right), (Mode::Read, None), "Read mode hides the panel");
-    h.state_mut().set_option("tools", "full").unwrap();
-    h.run_steps(3);
-    assert!(h.state().all_tools_full);
-    assert_eq!((h.state().mode, h.state().right), (Mode::AllTools, Some(RightPanel::Bookmarks)));
-}
-
-#[test]
-fn expanding_all_tools_from_edit_puts_edit_text_down() {
-    use pdfcraft_ui_egui::{LeftPanel, Mode, QuickTool};
-    let mut h = harness(|app| app.open_bytes("fixture.pdf", None, FIXTURE.to_vec()).expect("fixture opens"));
-    support::outside_menus(&h, "Edit").click();
-    h.run_steps(3);
-    assert_eq!(h.state().quick_tool, QuickTool::EditText);
-    h.state_mut().set_option("tools", "full").unwrap();
-    h.run_steps(3);
-    assert!(h.state().all_tools_full);
-    assert_eq!((h.state().mode, h.state().quick_tool), (Mode::AllTools, QuickTool::Select));
-    assert_eq!(h.state().left, LeftPanel::AllTools, "collapsing goes back to the All tools list");
 }
 
 #[test]
@@ -402,16 +230,17 @@ fn read_mode_rail_buttons_open_their_panels() {
     h.get_by_label("Alpha section");
 }
 
-/// The mode bar matches Acrobat's: All tools, Edit, Convert and E-Sign, with no Read tab. Read
-/// mode is still a View command.
+/// The mode bar has Edit, Convert and E-Sign, with no All tools or Read tab: with no workspace
+/// chosen the viewer just shows the document. Read mode is still a View command.
 #[test]
 fn the_mode_bar_has_no_read_tab() {
     use pdfcraft_ui_egui::Mode;
     let mut h = harness(|app| app.open_bytes("fixture.pdf", None, FIXTURE.to_vec()).expect("fixture opens"));
-    for label in ["All tools", "Edit", "Convert", "E-Sign"] {
+    for label in ["Edit", "Convert", "E-Sign"] {
         assert!(h.query_all_by_label(label).next().is_some(), "the {label} tab is there");
     }
     assert!(h.query_all_by_label("Read").next().is_none(), "no Read tab");
+    assert!(h.query_all_by_label("All tools").next().is_none(), "no All tools tab");
     h.state_mut().run_command("view.read_mode");
     h.run_steps(2);
     assert_eq!(h.state().mode, Mode::Read);
@@ -466,7 +295,7 @@ fn read_mode_closes_the_panes_and_leaving_it_brings_them_back() {
     h.run_steps(2);
     h.get_by_label("Page thumbnails").click();
     h.run_steps(2);
-    h.get_by_label("All tools").click();
+    h.state_mut().run_command("view.read_mode");
     h.run_steps(3);
     assert_eq!(h.state().right, Some(RightPanel::Pages));
 }
@@ -489,17 +318,18 @@ fn read_mode_hides_the_quick_toolbar() {
     h.get_by_label("Select (V)");
 }
 
-/// All tools ▸ Edit a PDF turns on Edit text & images at once, as the Edit tab does, so the page
-/// is editable without clicking Edit again. Another tool from there puts editing down.
+/// The Edit a PDF tool (View ▸ Tools, the command search, Home) turns on Edit text & images at
+/// once, as the Edit tab does, so the page is editable without clicking Edit again. Another tool
+/// from there puts editing down.
 #[test]
-fn edit_a_pdf_from_all_tools_turns_on_editing() {
+fn edit_a_pdf_from_the_tools_turns_on_editing() {
     use pdfcraft_ui_egui::{Mode, QuickTool};
     let mut h = harness(|app| app.open_bytes("fixture.pdf", None, FIXTURE.to_vec()).expect("fixture opens"));
     assert_eq!(h.state().mode, Mode::AllTools);
     assert_eq!(h.state().quick_tool, QuickTool::Select);
-    h.get_by_label("Edit a PDF").click();
+    h.state_mut().set_option("tool", "edit").unwrap();
     h.run_steps(3);
-    assert_eq!(h.state().mode, Mode::AllTools, "the workspace stays All tools, with its way back");
+    assert_eq!(h.state().mode, Mode::AllTools, "no workspace is chosen by the tool");
     assert_eq!(h.state().quick_tool, QuickTool::EditText, "Edit text & images is on at once");
     h.state_mut().set_option("tool", "organize").unwrap();
     h.run_steps(3);
@@ -555,8 +385,8 @@ fn a_pane_closed_in_read_mode_stays_closed_when_leaving_it() {
     h.run_steps(3);
     assert_eq!(h.state().right, None);
     assert!(h.state().comments_panel_closed);
-    // Leave Read mode through the toolbar.
-    h.get_by_label("All tools").click();
+    // Leave Read mode.
+    h.state_mut().run_command("view.read_mode");
     h.run_steps(3);
     assert_eq!(h.state().mode, Mode::AllTools);
     assert_eq!(h.state().right, None, "the pane closed in Read mode stays closed");
@@ -1896,7 +1726,8 @@ fn the_edit_tab_turns_on_edit_text_and_images() {
     h.run_steps(3);
     assert_eq!(h.state().mode, Mode::Edit);
     assert_eq!(h.state().quick_tool, QuickTool::EditText);
-    h.get_by_label("All tools").click();
+    // A click on the chosen tab puts the workspace away.
+    support::outside_menus(&h, "Edit").click();
     h.run_steps(3);
     assert_eq!(h.state().mode, Mode::AllTools);
     assert_eq!(h.state().quick_tool, QuickTool::Select);

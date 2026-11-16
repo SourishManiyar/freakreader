@@ -604,9 +604,11 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 if hidden.toolbar {
                     return;
                 }
-                // Acrobat's mode bar has no Read tab: reading is what the viewer does with no tool
-                // in use. Read mode (the panes hidden) stays a View command and a default workspace.
-                let modes = [(Mode::AllTools, "All tools"), (Mode::Edit, "Edit"), (Mode::Convert, "Convert"), (Mode::Sign, "E-Sign")];
+                // The workspaces. With none chosen the viewer just shows the document (the tools are in
+                // View ▸ Tools, the command search and Home); a click on the chosen tab puts it away
+                // again. Read mode (the panes hidden) stays a View command and a default workspace.
+                let modes = [(Mode::Edit, "Edit"), (Mode::Convert, "Convert"), (Mode::Sign, "E-Sign")];
+                let choose = |app: &mut PdfCraftApp, mode: Mode| app.switch_mode(if app.mode == mode { Mode::AllTools } else { mode }, true);
                 // What the right side needs (three 32 px buttons, gaps) and the least search box worth showing.
                 let avail = ui.available_width();
                 let tabs_w: f32 = modes.iter().map(|(_, l)| widgets::mode_tab_width(ui, tl!(*l))).sum::<f32>() + 2.0 * (modes.len() as f32 - 1.0);
@@ -614,23 +616,22 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 if inline_tabs {
                     for (mode, label) in modes {
                         if widgets::mode_tab(ui, tl!(label), app.mode == mode).clicked() {
-                            app.switch_mode(mode, true);
+                            choose(app, mode);
                         }
                     }
                 } else {
-                    // Narrow window: the modes fold into one menu named after the current one.
-                    // Read is not one of the four choices but can be active (View command): name it too.
-                    let current = if app.mode == Mode::Read {
-                        tl!("Read")
-                    } else {
-                        tl!(modes.iter().find(|(m, _)| *m == app.mode).map_or("All tools", |(_, l)| *l))
+                    // Narrow window: the modes fold into one menu named after the current one (Read,
+                    // not one of the choices, can be active too: a View command).
+                    let current = match app.mode {
+                        Mode::Read => tl!("Read"),
+                        mode => tl!(modes.iter().find(|(m, _)| *m == mode).map_or("Tools", |(_, l)| *l)),
                     };
                     let resp = widgets::ghost_button(ui, "chevron-down", current);
                     egui::Popup::menu(&resp).show(|ui| {
                         ui.set_min_width(160.0);
                         for (mode, label) in modes {
                             if ui.add(egui::Button::selectable(app.mode == mode, tl!(label))).clicked() {
-                                app.switch_mode(mode, true);
+                                choose(app, mode);
                             }
                         }
                     });

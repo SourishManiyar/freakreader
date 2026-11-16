@@ -38,6 +38,8 @@ pub(crate) const NO_RECENT: &str = "file.no_recent";
 pub(crate) const DOCUMENT: &str = "window.document";
 /// A side panel, `{"panel": name}` ([`PANELS`]).
 pub(crate) const PANEL: &str = "view.panel";
+/// A tool's panel, `{"tool": id}` (a catalogue group: View ▸ Tools ▸ its first item).
+pub(crate) const TOOL: &str = "view.tool";
 const ACTUAL_SIZE: &str = "view.zoom.actual_size";
 const PAGE_LEVEL: &str = "view.zoom.page_level";
 const FIT_WIDTH: &str = "view.zoom.fit_width";
@@ -433,7 +435,9 @@ impl PdfCraftApp {
             .iter()
             .filter(|g| g.availability == Availability::Ready)
             .map(|group| {
-                let mut nodes = Vec::new();
+                // First the tool itself, which opens its panel, then its commands.
+                let open = Item::new(CommandRef::with_params(TOOL, serde_json::json!({ "tool": group.id })), tl!(group.label));
+                let mut nodes = vec![Node::from(open)];
                 let mut seen: Vec<&str> = Vec::new();
                 for section in group.sections {
                     nodes.push(Node::Separator);
@@ -503,6 +507,7 @@ impl PdfCraftApp {
                 SELECT_ALL | DELETE => has_doc,
                 ACTUAL_SIZE | PAGE_LEVEL | FIT_WIDTH | FIT_HEIGHT | ZOOM_IN | ZOOM_OUT | ROTATE_CW | ROTATE_CCW => has_doc,
                 PANEL => panel(command).is_some(),
+                TOOL => tool(command).is_some(),
                 id => enabled_id(id),
             };
         let checked = match command.id.as_str() {
@@ -560,6 +565,11 @@ impl PdfCraftApp {
             SELECT_ALL => self.menu_input.extend(key(egui::Key::A, egui::Modifiers::COMMAND)),
             DELETE => self.menu_input.extend(key(egui::Key::Delete, egui::Modifiers::NONE)),
             PANEL => self.choose_right_panel(panel(command)),
+            TOOL => {
+                if let Some(id) = tool(command) {
+                    self.select_tool(id);
+                }
+            }
             ACTUAL_SIZE | PAGE_LEVEL | FIT_WIDTH | FIT_HEIGHT | ZOOM_IN | ZOOM_OUT | ROTATE_CW | ROTATE_CCW => {
                 let Some(v) = self.active.and_then(|i| self.views.get_mut(i)) else { return };
                 match command.id.as_str() {
@@ -648,6 +658,12 @@ fn param_index(command: &CommandRef) -> Option<usize> {
     command.params.get("index").and_then(serde_json::Value::as_u64).and_then(|i| usize::try_from(i).ok())
 }
 
+/// The tool a [`TOOL`] command names: a catalogue group that works today.
+fn tool(command: &CommandRef) -> Option<&'static str> {
+    let id = command.params.get("tool").and_then(serde_json::Value::as_str)?;
+    TOOL_GROUPS.iter().find(|g| g.id == id && g.availability == Availability::Ready).map(|g| g.id)
+}
+
 /// The side panel a [`PANEL`] command names.
 fn panel(command: &CommandRef) -> Option<RightPanel> {
     let name = command.params.get("panel").and_then(serde_json::Value::as_str)?;
@@ -680,6 +696,26 @@ mod tests {
 
     fn item<'b>(bar: &'b MenuBar, command: &CommandRef) -> &'b Item {
         bar.find(command).unwrap_or_else(|| panic!("{} is in the menus", command.key()))
+    }
+
+    /// Every tool that works today is in View ▸ Tools, and its first item there opens its panel:
+    /// the way to a tool's panel from the menus, now that there is no All tools list.
+    #[test]
+    fn every_tool_opens_its_panel_from_view_tools() {
+        let (mut app, ctx) = app(&["a.pdf"]);
+        let bar = linux(&app, &ctx);
+        for g in TOOL_GROUPS.iter().filter(|g| g.availability == Availability::Ready) {
+            let open = CommandRef::with_params(TOOL, serde_json::json!({ "tool": g.id }));
+            assert_eq!(item(&bar, &open).label, g.label, "{}", g.id);
+            assert!(app.menu_state(&ctx, &open).enabled, "{}", g.id);
+            app.run_menu_command(&ctx, &open);
+            assert_eq!((app.left, app.left_open), (crate::LeftPanel::Tool(g.id), true), "{}", g.id);
+        }
+        // A tool that isn't ready, or no tool, opens nothing.
+        let planned = TOOL_GROUPS.iter().find(|g| g.availability != Availability::Ready);
+        for name in planned.map(|g| g.id).into_iter().chain(["no such tool"]) {
+            assert!(!app.menu_state(&ctx, &CommandRef::with_params(TOOL, serde_json::json!({ "tool": name }))).enabled, "{name}");
+        }
     }
 
     /// The bar's own overflow-menu sentinel is not rendered as typed: no font this app ships or
@@ -720,7 +756,7 @@ mod tests {
         for it in items {
             let id = it.command.id.as_str();
             assert!(
-                commands::command(id).is_some() || extra(id).is_some() || [PANEL, DOCUMENT].contains(&id) || Builtin::of(&it.command).is_some(),
+                commands::command(id).is_some() || extra(id).is_some() || [PANEL, TOOL, DOCUMENT].contains(&id) || Builtin::of(&it.command).is_some(),
                 "{id} runs something"
             );
         }
