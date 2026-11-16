@@ -876,7 +876,7 @@ impl Reader {
         };
         let node = Node::Fraction { numerator: Box::new(num), denominator: Box::new(den), style };
         pool.els.push(El {
-            what: What::Block(Box::new(node), Class::Inner),
+            what: What::Block(Box::new(node), Class::Ord),
             x0: r.x0() - NULL_DELIMITER,
             x1: r.x1() + NULL_DELIMITER,
             ink,

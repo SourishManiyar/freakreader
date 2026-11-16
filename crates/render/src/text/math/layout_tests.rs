@@ -323,3 +323,28 @@ fn the_confident_view_leaves_out_what_the_reader_is_not_sure_of() {
     let sure = ConfidentRecoverer { options: RecoverOptions { style: Some(Style::Display) } };
     assert_eq!(sure.recover(&p, REGION).as_deref(), Some("\\frac{a}{b}"));
 }
+
+/// A fraction is an ordinary atom to the glue: two side by side are `1.2 pt` of null delimiter space
+/// apart on each side and no more, and a thin space after one is an explicit `\,`.
+#[test]
+fn fractions_are_ordinary_atoms_to_the_glue() {
+    let build = |gap_after: f32, with_d: bool| {
+        let mut p = page();
+        for k in 0..2 {
+            let x0 = 8.0 + k as f32 * (12.0 + 2.0 * NULL_DELIMITER);
+            p.glyphs.push(glyph(0, A, 10.0, x0 + 3.5, 38.0, 5.0));
+            p.glyphs.push(glyph(0, B, 10.0, x0 + 3.5, 62.0, 5.0));
+            p.rules.push(rule(x0, x0 + 12.0, 47.5));
+            if with_d && k == 1 {
+                p.glyphs.push(glyph(0, 100, 10.0, x0 + 12.0 + NULL_DELIMITER + gap_after, 50.0, 5.0));
+            }
+        }
+        p
+    };
+    let display = RecoverOptions { style: Some(Style::Display) };
+    let r = recover_latex(&build(0.0, false), REGION, &display).unwrap();
+    assert_eq!((r.latex.as_str(), r.confidence), ("\\frac{a}{b}\\frac{a}{b}", Confidence::Confident), "{:?}", r.diagnostics);
+    // 1.66 pt (3 mu) after the second one, before a letter: \,
+    let r = recover_latex(&build(1.66, true), REGION, &display).unwrap();
+    assert_eq!(r.latex, "\\frac{a}{b}\\frac{a}{b}\\,d");
+}

@@ -217,7 +217,7 @@ fn tex_holds_the_reader_to_its_scores() {
     let dev: Vec<&EquationTruth> = truth.equations.iter().filter(|t| !is_held_out(t)).collect();
     let held: Vec<&EquationTruth> = truth.equations.iter().filter(|t| is_held_out(t)).collect();
     // Without the environment, then with it.
-    for (style, dev_floor, held_floor) in [(false, 0.70, 0.78), (true, 0.70, 0.78)] {
+    for (style, dev_floor, held_floor) in [(false, 0.70, 0.85), (true, 0.70, 0.85)] {
         let (all, confident) = score(&tex, &dev, style);
         let rate = all.total.equal_rate().unwrap();
         assert!(rate >= dev_floor, "development equations typeset-equal: {rate:.3} < {dev_floor} (style given: {style}); {NEEDS_TEX}");
@@ -246,6 +246,6 @@ fn tex_holds_the_reader_to_its_scores() {
         let rate = all.total.equal_rate().unwrap();
         assert!(rate >= held_floor, "held-out equations typeset-equal: {rate:.3} < {held_floor} (style given: {style})");
         let precision = confident.total.precision().unwrap();
-        assert!(precision >= 0.93, "held-out confident precision {precision:.3} (style given: {style})");
+        assert!(precision >= 0.98, "held-out confident precision {precision:.3} (style given: {style})");
     }
 }
