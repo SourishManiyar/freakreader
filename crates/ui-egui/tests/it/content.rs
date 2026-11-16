@@ -1714,9 +1714,12 @@ fn nav_bar_page_and_zoom_fields_fit_the_bar_and_the_bar_is_centred() {
         assert!(r.left() >= 0.0 && r.right() <= 1400.0, "{r:?} is off the window");
         assert!((r.center().y - (bar_top + bar_bottom) / 2.0).abs() < 1.0, "{r:?} is off the bar's middle");
     }
-    // Its first control (Previous view) and last (Page display) are as far from either edge.
+    // Its first control (Previous view) and last (the documents' dark mode, after Page display) are
+    // as far from either edge.
     let first = h.get_by_label_contains("Previous view").rect();
-    let last = h.get_by_label_contains("Page display:").rect();
+    let display = h.get_by_label_contains("Page display:").rect();
+    let last = h.get_by_label("Dark mode for documents").rect();
+    assert!(display.right() < last.left(), "{display:?} comes before {last:?}");
     assert!(first.left() < page.left() && zoom.right() < last.right(), "{first:?} .. {last:?} hold the fields");
     let middle = (first.left() + last.right()) / 2.0;
     assert!((middle - 700.0).abs() < 2.0, "the bar's controls {first:?}..{last:?} are centred at {middle}, not 700");
