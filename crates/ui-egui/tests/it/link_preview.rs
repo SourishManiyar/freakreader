@@ -422,3 +422,22 @@ fn closing_the_document_while_a_preview_reads_its_glyphs_leaves_nothing_behind()
     assert!(h.state().views.is_empty() || h.state().views[0].link_peek.is_none());
     wait_stopped(&watch, "closing its document");
 }
+
+#[test]
+fn a_pointer_preview_closes_as_soon_as_the_pages_scroll() {
+    let mut h = harness();
+    let link = the_link(&h);
+    rest_on(&mut h, link, HOVER_DELAY * 1.5);
+    wait_drawn(&mut h);
+    assert_eq!(peek_trigger(&h), Some(Trigger::Hover));
+    h.event(egui::Event::MouseWheel {
+        unit: egui::MouseWheelUnit::Point,
+        delta: egui::vec2(0.0, -40.0),
+        modifiers: Default::default(),
+        phase: egui::TouchPhase::Move,
+        source: egui::MouseWheelSource::Unknown,
+    });
+    h.run_steps(2);
+    // At once, not after the pointer's grace.
+    assert_eq!(peek_trigger(&h), None, "the pages scrolled");
+}

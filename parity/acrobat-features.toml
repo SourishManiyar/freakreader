@@ -1257,6 +1257,7 @@ evidence = [
     "crates/ui-egui/tests/it/link_preview.rs::a_right_click_keeps_a_pointer_preview_open",
     "crates/ui-egui/tests/it/link_preview.rs::no_pointer_preview_with_the_preference_off_a_web_link_scrolling_or_a_menu_open",
     "crates/ui-egui/tests/it/link_preview.rs::a_papers_references_preview_the_block_they_name",
+    "crates/ui-egui/tests/it/link_preview.rs::a_pointer_preview_closes_as_soon_as_the_pages_scroll",
     "crates/ui-egui/tests/it/link_preview.rs::closing_the_document_while_a_preview_reads_its_glyphs_leaves_nothing_behind",
     "crates/ui-egui/tests/it/preferences_layout.rs::text_size_preview_size_and_font_are_offered_saved_and_checked",
 ]
