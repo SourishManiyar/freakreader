@@ -41,7 +41,10 @@ impl PdfCraftApp {
             && view.link_peek.is_some()
             && keys.take(ctx, Key::Escape)
         {
-            view.link_peek = None;
+            // Closed, it stays closed while the pointer rests on its link.
+            if let Some(peek) = view.link_peek.take() {
+                view.link_hover.dismiss(peek.source());
+            }
             return;
         }
         // The in-window menu bar holds the keys while one of its menus is open or it has the

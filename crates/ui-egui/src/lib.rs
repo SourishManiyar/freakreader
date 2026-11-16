@@ -403,6 +403,9 @@ pub struct PdfCraftApp {
     /// Preferences ▸ Documents and view ▸ Reference preview size, in percent
     /// ([`canvas::link_peek::PREVIEW_SIZES`]).
     pub link_preview_size: u16,
+    /// Preferences ▸ Documents and view ▸ Show a reference preview when the pointer rests on a
+    /// link: on by default ([`canvas::link_peek::HOVER_DELAY`]).
+    pub link_preview_hover: bool,
     /// The desktop's text scaling (GNOME's text scaling factor), which the desktop app reads at
     /// launch. 1.0 elsewhere, so tests and screenshots don't depend on the machine.
     pub system_text_scale: f32,

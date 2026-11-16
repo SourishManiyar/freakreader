@@ -116,6 +116,7 @@ impl PdfCraftApp {
             text_size: 100,
             ui_font: theme::UiFont::Inter,
             link_preview_size: 100,
+            link_preview_hover: true,
             system_text_scale: 1.0,
             ui_scale_applied: None,
             flatten_fill_sign_on_save: false,

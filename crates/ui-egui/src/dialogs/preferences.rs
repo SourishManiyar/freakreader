@@ -867,6 +867,8 @@ fn card_documents_and_view(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens,
     });
     ctx.label_secondary(ui, tl!("How large the preview a right-click on a link shows is: 100% draws it at the page's zoom."), t);
     ui.add_space(6.0);
+    ctx.checkbox(ui, &mut app.link_preview_hover, tl!("Show a reference preview when the pointer rests on a link"), t);
+    ui.add_space(6.0);
     scrolling(ui, app, t, ctx);
 }
 

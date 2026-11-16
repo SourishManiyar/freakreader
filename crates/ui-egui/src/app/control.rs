@@ -231,6 +231,14 @@ impl PdfCraftApp {
                 self.view_defaults =
                     self.view_defaults.with_zoom(value).ok_or("default-zoom must be fit-width, fit-page or a percentage from 8 to 6400")?;
             }
+            // Documents and view ▸ Show reference previews when the pointer rests on a link.
+            ("link-preview-hover", _) => {
+                self.link_preview_hover = match value {
+                    "on" => true,
+                    "off" => false,
+                    _ => return Err("link-preview-hover must be on or off".into()),
+                };
+            }
             ("always-default-view", _) => {
                 self.always_default_view = match value {
                     "on" => true,

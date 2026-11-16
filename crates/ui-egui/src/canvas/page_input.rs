@@ -273,6 +273,17 @@ pub(super) fn page_tool_input(ui: &mut egui::Ui, view: &mut DocView, frame: &mut
     let on_comment = comments::page_input(ui, resp, &pcx, press, taken, view);
     let consumed = taken || on_comment;
     let hover = pointer.and_then(|p| claim_under(&hits, view, p, frame.env.unobstructed));
+    // With the Select tool and no button down, the link to a place in this document that a press
+    // here would take: the reference preview opens on it after a rest (`link_peek::hover`).
+    if tool == QuickTool::Select
+        && !ptr.any_down
+        && view.presentation.is_none()
+        && let Some(index) = link_of(hover.as_ref().map(|h| h.owner))
+        && let Some(link) = info.links.iter().find(|l| l.page == i && l.index == index)
+        && pdfcraft_engine::link_preview::link_preview(info, i, index).is_some()
+    {
+        frame.hover_link = Some(super::link_peek::Pointed { page: i, index, on_screen: xf.user_rect(info, i, link.rect) });
+    }
     PageInput {
         press,
         text_drag: !view.router.keeps_drag(),
