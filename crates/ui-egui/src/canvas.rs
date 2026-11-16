@@ -1328,6 +1328,8 @@ type PageRenders = (Vec<(usize, f32, u64, Option<Tile>)>, Vec<usize>);
 #[derive(Clone, Copy)]
 struct PageEnv<'a> {
     added: &'a Vec<pdfcraft_engine::Added>,
+    /// Preferences ▸ Reference preview size, in percent ([`link_peek::PREVIEW_SIZES`]).
+    link_preview_size: u16,
     allowed: bool,
     author: &'a String,
     auto_delta: Vec2,
@@ -2221,7 +2223,7 @@ fn draw_pages(
         };
         default_page_context_menu(ui, page, at, perms, &mut page_action);
     });
-    link_peek::show(ui, view, doc, info, modal);
+    link_peek::show(ui, view, doc, info, modal, env.link_preview_size);
     // Copy comments / Paste comments from the page's menu or a Comments panel card.
     let copy_comments = std::mem::take(&mut view.comments.copy_request);
     let paste_comments_at = view.comments.paste_request.take();
@@ -3388,6 +3390,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     let prepare_tab_order = (preparing && view.prepare.show_tab_numbers).then(|| crate::forms_ui::tab_order(&form, info));
     let env = PageEnv {
         added: &added,
+        link_preview_size: app.link_preview_size,
         allowed,
         animates,
         author: &author,
