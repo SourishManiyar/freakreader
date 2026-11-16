@@ -176,3 +176,27 @@ fn escape_finishes_copy_as_latex() {
         assert!(!h.state().latex_copy_running());
     }
 }
+
+/// A right-click on the document finishes the tool too, back to selecting, and opens no menu; with
+/// Select, the same right-click opens the page's menu as before.
+#[test]
+fn a_right_click_finishes_copy_as_latex() {
+    let mut h = harness(std::fs::read(oracle("equations.pdf")).unwrap());
+    let at = show(&mut h, 0)(200.0, 150.0);
+    let right_click = |h: &mut Harness<'static, PdfCraftApp>| {
+        h.hover_at(at);
+        h.run_steps(1);
+        h.event(egui::Event::PointerButton { pos: at, button: egui::PointerButton::Secondary, pressed: true, modifiers: Default::default() });
+        h.event(egui::Event::PointerButton { pos: at, button: egui::PointerButton::Secondary, pressed: false, modifiers: Default::default() });
+        h.run_steps(3);
+    };
+    assert!(h.state_mut().execute("edit.copy_as_latex"));
+    h.run_steps(2);
+    assert_eq!(h.state().quick_tool, pdfcraft_ui_egui::QuickTool::CopyAsLatex);
+    right_click(&mut h);
+    assert_eq!(h.state().quick_tool, pdfcraft_ui_egui::QuickTool::Select);
+    assert!(!h.state().latex_copy_running());
+    assert!(!egui::Popup::is_any_open(&h.ctx), "the right-click that leaves the tool opens no menu");
+    right_click(&mut h);
+    assert!(egui::Popup::is_any_open(&h.ctx), "with Select, a right-click opens the page's menu");
+}

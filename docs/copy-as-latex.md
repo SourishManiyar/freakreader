@@ -2,7 +2,9 @@
 
 Edit ▸ Copy as LaTeX (also in the command palette) turns the pointer into a crosshair. Drag a
 rectangle around a typeset formula: when you let go, PdfCraft reads the formula from the page's
-glyphs and rules and puts its LaTeX on the clipboard as plain text. It is not an Acrobat feature.
+glyphs and rules and puts its LaTeX on the clipboard as plain text. The tool stays on for the next
+formula; Escape or a right-click on the document leaves it (back to selecting, and a formula still
+being read is dropped). It is not an Acrobat feature.
 
 - **What is copied.** The body of the formula, such as `\frac{1}{2}x^{2}`, with nothing around it,
   so it can be pasted inside whatever you are writing. Preferences ▸ Documents and view ▸ "Copy as
