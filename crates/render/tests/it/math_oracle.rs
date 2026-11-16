@@ -6,7 +6,7 @@
 //! told apart by the typeset comparison. The `#[ignore]`d ones run TeX (`cargo xtask math-oracle
 //! test`): the CI runners require every oracle and install no TeX Live.
 
-mod harness;
+pub(crate) mod harness;
 
 use harness::{Broken, Identity, Pages, answers, glyphs_in, is_glyph, load, outcomes, region_of, rule_rect, same_glyphs};
 use pdfcraft_oracle::tex::{self, ALONE, EquationTruth, Mark, Mutation, Report, Tex, Verdict};

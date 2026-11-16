@@ -11,6 +11,7 @@ mod layers;
 mod license_check;
 mod macos_integration;
 mod math_oracle;
+mod math_symbols;
 mod netcheck;
 mod parity;
 mod screenshots;
@@ -58,6 +59,11 @@ const COMMANDS: &[(&str, &str, Command)] = &[
         "math-oracle",
         "Equation-level oracle for LaTeX recovery: `generate [--check]` (needs TeX Live), `report`, `test` (crates/render/tests/data/math/oracle)",
         math_oracle::run,
+    ),
+    (
+        "math-symbols",
+        "The math symbol table (crates/render/src/text/math/symbols): `generate [--check]` typesets the command list with TeX (needs TeX Live)",
+        math_symbols::run,
     ),
     ("screenshots", "Regenerate the README screenshots in docs/images/ and their ATTRIBUTION entries", screenshots::run),
     ("models", "Fetch the OCR models (ATTRIBUTION.toml kind = \"model\") into assets/models/, verified by SHA-256", assets::models),

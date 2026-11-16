@@ -539,6 +539,7 @@ pub(crate) fn extract_math_page_with(pdf: &Pdf, page: usize, settings: &Interpre
 }
 
 pub mod recover;
+pub mod symbols;
 
 #[cfg(test)]
 mod tests;

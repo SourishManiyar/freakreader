@@ -1,0 +1,550 @@
+# The symbols the table knows, written for this repository from the Unicode charts and from
+# what LaTeX documentation says each command is for: no table is copied from a package, a font
+# map or another product. `cargo xtask math-symbols generate` typesets each line alone with TeX,
+# reads the font and character code of the glyph(s) TeX sets from the DVI, and writes `table.tsv`
+# next to this file; nothing here says which code a symbol has.
+#
+# A line is   LATEX  ENV  UNICODE  CLASS  KIND  [FLAGS]
+#   LATEX    the command as written in a formula; `~` stands for a space in a template.
+#   ENV      i typeset inline (text style), d displayed.
+#   UNICODE  hex code points joined by `+`, or `-` for none.
+#   CLASS    ord op bin rel open close punct large inner: the TeX math class.
+#   KIND     sym latin greek digit: what the glyph is when it is a letter.
+#   FLAGS    `-` or comma-separated: `var=GROUP:RANK` a size variant of GROUP (RANK 0 is the smallest),
+#            `acc` a math accent, `fn` a function name.
+# A line that sets more than one glyph is a compound (`\ne` is a slash drawn over `=`).
+# `@delim`, `@radical`, `@wide`, `@brace`, `@accent` and `@alphabet` lines are read as the generator says.
+
+# ---- lower-case Greek -------------------------------------------------------------------------
+\alpha i 03B1 ord greek
+\beta i 03B2 ord greek
+\gamma i 03B3 ord greek
+\delta i 03B4 ord greek
+\epsilon i 03F5 ord greek
+\varepsilon i 03B5 ord greek
+\zeta i 03B6 ord greek
+\eta i 03B7 ord greek
+\theta i 03B8 ord greek
+\vartheta i 03D1 ord greek
+\iota i 03B9 ord greek
+\kappa i 03BA ord greek
+\lambda i 03BB ord greek
+\mu i 03BC ord greek
+\nu i 03BD ord greek
+\xi i 03BE ord greek
+\pi i 03C0 ord greek
+\varpi i 03D6 ord greek
+\rho i 03C1 ord greek
+\varrho i 03F1 ord greek
+\sigma i 03C3 ord greek
+\varsigma i 03C2 ord greek
+\tau i 03C4 ord greek
+\upsilon i 03C5 ord greek
+\phi i 03D5 ord greek
+\varphi i 03C6 ord greek
+\chi i 03C7 ord greek
+\psi i 03C8 ord greek
+\omega i 03C9 ord greek
+\varkappa i 03F0 ord greek
+\digamma i 03DD ord greek
+# ---- upper-case Greek -------------------------------------------------------------------------
+\Gamma i 0393 ord greek
+\Delta i 0394 ord greek
+\Theta i 0398 ord greek
+\Lambda i 039B ord greek
+\Xi i 039E ord greek
+\Pi i 03A0 ord greek
+\Sigma i 03A3 ord greek
+\Upsilon i 03A5 ord greek
+\Phi i 03A6 ord greek
+\Psi i 03A8 ord greek
+\Omega i 03A9 ord greek
+\varGamma i 0393 ord greek
+\varDelta i 0394 ord greek
+\varTheta i 0398 ord greek
+\varLambda i 039B ord greek
+\varXi i 039E ord greek
+\varPi i 03A0 ord greek
+\varSigma i 03A3 ord greek
+\varUpsilon i 03A5 ord greek
+\varPhi i 03A6 ord greek
+\varPsi i 03A8 ord greek
+\varOmega i 03A9 ord greek
+
+# ---- punctuation and plain signs --------------------------------------------------------------
++ i 002B bin sym
+- i 2212 bin sym
+= i 003D rel sym
+< i 003C rel sym
+> i 003E rel sym
+/ i 002F ord sym
+! i 0021 close sym
+? i 003F close sym
+. i 002E ord sym
+, i 002C punct sym
+; i 003B punct sym
+: i 003A rel sym
+\colon i 003A punct sym
+\ldotp i 002E punct sym
+\cdotp i 22C5 punct sym
+\prime i 2032 ord sym
+\backprime i 2035 ord sym
+\# i 0023 ord sym
+\$ i 0024 ord sym
+\% i 0025 ord sym
+\& i 0026 ord sym
+\S i 00A7 ord sym
+\P i 00B6 ord sym
+\dagger i 2020 bin sym
+\ddagger i 2021 bin sym
+
+# ---- binary operators -------------------------------------------------------------------------
+\pm i 00B1 bin sym
+\mp i 2213 bin sym
+\times i 00D7 bin sym
+\div i 00F7 bin sym
+\ast i 2217 bin sym
+\star i 22C6 bin sym
+\circ i 2218 bin sym
+\bullet i 2219 bin sym
+\cdot i 22C5 bin sym
+\cap i 2229 bin sym
+\cup i 222A bin sym
+\uplus i 228E bin sym
+\sqcap i 2293 bin sym
+\sqcup i 2294 bin sym
+\vee i 2228 bin sym
+\wedge i 2227 bin sym
+\setminus i 2216 bin sym
+\wr i 2240 bin sym
+\diamond i 22C4 bin sym
+\bigtriangledown i 25BD bin sym
+\triangleleft i 25C1 bin sym
+\triangleright i 25B7 bin sym
+\oplus i 2295 bin sym
+\ominus i 2296 bin sym
+\otimes i 2297 bin sym
+\oslash i 2298 bin sym
+\odot i 2299 bin sym
+\bigcirc i 25EF bin sym
+\amalg i 2A3F bin sym
+\dotplus i 2214 bin sym
+\Cap i 22D2 bin sym
+\Cup i 22D3 bin sym
+\barwedge i 22BC bin sym
+\veebar i 22BB bin sym
+\doublebarwedge i 2A5E bin sym
+\boxminus i 229F bin sym
+\boxtimes i 22A0 bin sym
+\boxdot i 22A1 bin sym
+\boxplus i 229E bin sym
+\divideontimes i 22C7 bin sym
+\ltimes i 22C9 bin sym
+\rtimes i 22CA bin sym
+\leftthreetimes i 22CB bin sym
+\rightthreetimes i 22CC bin sym
+\curlywedge i 22CF bin sym
+\curlyvee i 22CE bin sym
+\circleddash i 229D bin sym
+\circledast i 229B bin sym
+\circledcirc i 229A bin sym
+\intercal i 22BA bin sym
+
+# ---- relations --------------------------------------------------------------------------------
+\leq i 2264 rel sym
+\geq i 2265 rel sym
+\ll i 226A rel sym
+\gg i 226B rel sym
+\prec i 227A rel sym
+\succ i 227B rel sym
+\preceq i 2AAF rel sym
+\succeq i 2AB0 rel sym
+\sim i 223C rel sym
+\simeq i 2243 rel sym
+\approx i 2248 rel sym
+\asymp i 224D rel sym
+\equiv i 2261 rel sym
+\cong i 2245 rel sym
+\doteq i 2250 rel sym
+\propto i 221D rel sym
+\models i 22A7 rel sym
+\perp i 22A5 rel sym
+\mid i 2223 rel sym
+\parallel i 2225 rel sym
+\vdash i 22A2 rel sym
+\dashv i 22A3 rel sym
+\subset i 2282 rel sym
+\supset i 2283 rel sym
+\subseteq i 2286 rel sym
+\supseteq i 2287 rel sym
+\sqsubset i 228F rel sym
+\sqsupset i 2290 rel sym
+\sqsubseteq i 2291 rel sym
+\sqsupseteq i 2292 rel sym
+\in i 2208 rel sym
+\ni i 220B rel sym
+\bowtie i 22C8 rel sym
+\smile i 2323 rel sym
+\frown i 2322 rel sym
+\ne i 2260 rel sym
+\notin i 2209 rel sym
+\leqslant i 2A7D rel sym
+\geqslant i 2A7E rel sym
+\lesssim i 2272 rel sym
+\gtrsim i 2273 rel sym
+\lessapprox i 2A85 rel sym
+\gtrapprox i 2A86 rel sym
+\eqslantless i 2A95 rel sym
+\eqslantgtr i 2A96 rel sym
+\lessgtr i 2276 rel sym
+\gtrless i 2277 rel sym
+\lesseqgtr i 22DA rel sym
+\gtreqless i 22DB rel sym
+\leqq i 2266 rel sym
+\geqq i 2267 rel sym
+\lll i 22D8 rel sym
+\ggg i 22D9 rel sym
+\lneq i 2A87 rel sym
+\gneq i 2A88 rel sym
+\lneqq i 2268 rel sym
+\gneqq i 2269 rel sym
+\lnsim i 22E6 rel sym
+\gnsim i 22E7 rel sym
+\precsim i 227E rel sym
+\succsim i 227F rel sym
+\precapprox i 2AB7 rel sym
+\succapprox i 2AB8 rel sym
+\preccurlyeq i 227C rel sym
+\succcurlyeq i 227D rel sym
+\curlyeqprec i 22DE rel sym
+\curlyeqsucc i 22DF rel sym
+\risingdotseq i 2253 rel sym
+\fallingdotseq i 2252 rel sym
+\doteqdot i 2251 rel sym
+\eqcirc i 2256 rel sym
+\circeq i 2257 rel sym
+\triangleq i 225C rel sym
+\bumpeq i 224F rel sym
+\Bumpeq i 224E rel sym
+\backsim i 223D rel sym
+\backsimeq i 22CD rel sym
+\thicksim i 223C rel sym
+\thickapprox i 2248 rel sym
+\approxeq i 224A rel sym
+\subseteqq i 2AC5 rel sym
+\supseteqq i 2AC6 rel sym
+\Subset i 22D0 rel sym
+\Supset i 22D1 rel sym
+\vartriangleleft i 22B2 rel sym
+\vartriangleright i 22B3 rel sym
+\trianglelefteq i 22B4 rel sym
+\trianglerighteq i 22B5 rel sym
+\shortmid i 2223 rel sym
+\shortparallel i 2225 rel sym
+\between i 226C rel sym
+\pitchfork i 22D4 rel sym
+\varpropto i 221D rel sym
+\therefore i 2234 rel sym
+\because i 2235 rel sym
+\vDash i 22A8 rel sym
+\Vdash i 22A9 rel sym
+\Vvdash i 22AA rel sym
+\backepsilon i 03F6 rel sym
+\blacktriangleleft i 25C0 rel sym
+\blacktriangleright i 25B6 rel sym
+\smallsmile i 2323 rel sym
+\smallfrown i 2322 rel sym
+\nmid i 2224 rel sym
+\nparallel i 2226 rel sym
+\nless i 226E rel sym
+\ngtr i 226F rel sym
+\nleq i 2270 rel sym
+\ngeq i 2271 rel sym
+\nsim i 2241 rel sym
+\ncong i 2247 rel sym
+\nsubseteq i 2288 rel sym
+\nsupseteq i 2289 rel sym
+\nvdash i 22AC rel sym
+\nvDash i 22AD rel sym
+\nVdash i 22AE rel sym
+\subsetneq i 228A rel sym
+\supsetneq i 228B rel sym
+\subsetneqq i 2ACB rel sym
+\supsetneqq i 2ACC rel sym
+\nprec i 2280 rel sym
+\nsucc i 2281 rel sym
+\ntriangleleft i 22EA rel sym
+\ntriangleright i 22EB rel sym
+
+# ---- arrows -----------------------------------------------------------------------------------
+\leftarrow i 2190 rel sym
+\rightarrow i 2192 rel sym
+\uparrow i 2191 rel sym
+\downarrow i 2193 rel sym
+\leftrightarrow i 2194 rel sym
+\updownarrow i 2195 rel sym
+\nearrow i 2197 rel sym
+\searrow i 2198 rel sym
+\swarrow i 2199 rel sym
+\nwarrow i 2196 rel sym
+\Leftarrow i 21D0 rel sym
+\Rightarrow i 21D2 rel sym
+\Uparrow i 21D1 rel sym
+\Downarrow i 21D3 rel sym
+\Leftrightarrow i 21D4 rel sym
+\Updownarrow i 21D5 rel sym
+\mapsto i 21A6 rel sym
+\leftharpoonup i 21BC rel sym
+\leftharpoondown i 21BD rel sym
+\rightharpoonup i 21C0 rel sym
+\rightharpoondown i 21C1 rel sym
+\rightleftharpoons i 21CC rel sym
+\longrightarrow i 27F6 rel sym
+\longleftarrow i 27F5 rel sym
+\longleftrightarrow i 27F7 rel sym
+\Longrightarrow i 27F9 rel sym
+\Longleftarrow i 27F8 rel sym
+\Longleftrightarrow i 27FA rel sym
+\longmapsto i 27FC rel sym
+\hookrightarrow i 21AA rel sym
+\hookleftarrow i 21A9 rel sym
+\twoheadrightarrow i 21A0 rel sym
+\twoheadleftarrow i 219E rel sym
+\rightsquigarrow i 21DD rel sym
+\leftrightsquigarrow i 21AD rel sym
+\rightleftarrows i 21C4 rel sym
+\leftrightarrows i 21C6 rel sym
+\rightrightarrows i 21C9 rel sym
+\leftleftarrows i 21C7 rel sym
+\circlearrowleft i 21BA rel sym
+\circlearrowright i 21BB rel sym
+\curvearrowright i 21B7 rel sym
+\curvearrowleft i 21B6 rel sym
+\Rrightarrow i 21DB rel sym
+\Lleftarrow i 21DA rel sym
+\nrightarrow i 219B rel sym
+\nleftarrow i 219A rel sym
+\nRightarrow i 21CF rel sym
+\nLeftarrow i 21CD rel sym
+\nleftrightarrow i 21AE rel sym
+\nLeftrightarrow i 21CE rel sym
+\dashrightarrow i 21E2 rel sym
+\dashleftarrow i 21E0 rel sym
+\looparrowright i 21AC rel sym
+\looparrowleft i 21AB rel sym
+\leftarrowtail i 21A2 rel sym
+\rightarrowtail i 21A3 rel sym
+\upuparrows i 21C8 rel sym
+\downdownarrows i 21CA rel sym
+\upharpoonleft i 21BF rel sym
+\upharpoonright i 21BE rel sym
+\downharpoonleft i 21C3 rel sym
+\downharpoonright i 21C2 rel sym
+\Lsh i 21B0 rel sym
+\Rsh i 21B1 rel sym
+\multimap i 22B8 rel sym
+\leftrightharpoons i 21CB rel sym
+
+# ---- ordinary symbols -------------------------------------------------------------------------
+\aleph i 2135 ord sym
+\hbar i 210F ord sym
+\hslash i 210F ord sym
+\imath i 0131 ord sym
+\jmath i 0237 ord sym
+\ell i 2113 ord sym
+\wp i 2118 ord sym
+\Re i 211C ord sym
+\Im i 2111 ord sym
+\mho i 2127 ord sym
+\emptyset i 2205 ord sym
+\varnothing i 2205 ord sym
+\nabla i 2207 ord sym
+\surd i 221A ord sym
+\top i 22A4 ord sym
+\bot i 22A5 ord sym
+\angle i 2220 ord sym
+\forall i 2200 ord sym
+\exists i 2203 ord sym
+\nexists i 2204 ord sym
+\neg i 00AC ord sym
+\flat i 266D ord sym
+\natural i 266E ord sym
+\sharp i 266F ord sym
+\clubsuit i 2663 ord sym
+\diamondsuit i 2662 ord sym
+\heartsuit i 2661 ord sym
+\spadesuit i 2660 ord sym
+\partial i 2202 ord sym
+\infty i 221E ord sym
+\triangle i 25B3 ord sym
+\Box i 25A1 ord sym
+\Diamond i 25C7 ord sym
+\complement i 2201 ord sym
+\Finv i 2132 ord sym
+\Game i 2141 ord sym
+\eth i 00F0 ord sym
+\beth i 2136 ord sym
+\gimel i 2137 ord sym
+\daleth i 2138 ord sym
+\diagup i 2571 ord sym
+\diagdown i 2572 ord sym
+\blacksquare i 25A0 ord sym
+\lozenge i 25CA ord sym
+\blacklozenge i 29EB ord sym
+\bigstar i 2605 ord sym
+\measuredangle i 2221 ord sym
+\sphericalangle i 2222 ord sym
+\checkmark i 2713 ord sym
+\circledS i 24C8 ord sym
+\maltese i 2720 ord sym
+\blacktriangle i 25B2 ord sym
+\blacktriangledown i 25BC ord sym
+\vartriangle i 25B3 ord sym
+\triangledown i 25BD ord sym
+\Bbbk i 1D55C ord sym
+\ldots i 2026 inner sym
+\cdots i 22EF inner sym
+\vdots i 22EE ord sym
+\ddots i 22F1 inner sym
+
+# ---- digits -----------------------------------------------------------------------------------
+0 i 0030 ord digit
+1 i 0031 ord digit
+2 i 0032 ord digit
+3 i 0033 ord digit
+4 i 0034 ord digit
+5 i 0035 ord digit
+6 i 0036 ord digit
+7 i 0037 ord digit
+8 i 0038 ord digit
+9 i 0039 ord digit
+
+# ---- large operators (the text-style glyph, then the display-style one) ------------------------
+\sum i 2211 large sym var=\sum:0
+\sum d 2211 large sym var=\sum:1
+\prod i 220F large sym var=\prod:0
+\prod d 220F large sym var=\prod:1
+\coprod i 2210 large sym var=\coprod:0
+\coprod d 2210 large sym var=\coprod:1
+\int i 222B large sym var=\int:0
+\int d 222B large sym var=\int:1
+\oint i 222E large sym var=\oint:0
+\oint d 222E large sym var=\oint:1
+\bigcup i 22C3 large sym var=\bigcup:0
+\bigcup d 22C3 large sym var=\bigcup:1
+\bigcap i 22C2 large sym var=\bigcap:0
+\bigcap d 22C2 large sym var=\bigcap:1
+\bigsqcup i 2A06 large sym var=\bigsqcup:0
+\bigsqcup d 2A06 large sym var=\bigsqcup:1
+\bigvee i 22C1 large sym var=\bigvee:0
+\bigvee d 22C1 large sym var=\bigvee:1
+\bigwedge i 22C0 large sym var=\bigwedge:0
+\bigwedge d 22C0 large sym var=\bigwedge:1
+\bigodot i 2A00 large sym var=\bigodot:0
+\bigodot d 2A00 large sym var=\bigodot:1
+\bigotimes i 2A02 large sym var=\bigotimes:0
+\bigotimes d 2A02 large sym var=\bigotimes:1
+\bigoplus i 2A01 large sym var=\bigoplus:0
+\bigoplus d 2A01 large sym var=\bigoplus:1
+\biguplus i 2A04 large sym var=\biguplus:0
+\biguplus d 2A04 large sym var=\biguplus:1
+\iint i 222C large sym
+\iint d 222C large sym
+\iiint i 222D large sym
+\iiint d 222D large sym
+
+# ---- function names (compounds of roman letters) ----------------------------------------------
+\arccos i - op sym fn
+\arcsin i - op sym fn
+\arctan i - op sym fn
+\arg i - op sym fn
+\cos i - op sym fn
+\cosh i - op sym fn
+\cot i - op sym fn
+\coth i - op sym fn
+\csc i - op sym fn
+\deg i - op sym fn
+\det i - op sym fn
+\dim i - op sym fn
+\exp i - op sym fn
+\gcd i - op sym fn
+\hom i - op sym fn
+\inf i - op sym fn
+\ker i - op sym fn
+\lg i - op sym fn
+\lim i - op sym fn
+\liminf i - op sym fn
+\limsup i - op sym fn
+\ln i - op sym fn
+\log i - op sym fn
+\max i - op sym fn
+\min i - op sym fn
+\Pr i - op sym fn
+\sec i - op sym fn
+\sin i - op sym fn
+\sinh i - op sym fn
+\sup i - op sym fn
+\tan i - op sym fn
+\tanh i - op sym fn
+\injlim i - op sym fn
+\projlim i - op sym fn
+
+# ---- delimiters: every size TeX has for them ------------------------------------------------
+# @delim LATEX SIDE UNICODE CLASS: the generator sets \left LATEX around rules of growing height
+# (SIDE `l`: \left LATEX ... \right., SIDE `r`: \left. ... \right LATEX) and records each glyph,
+# the size ladder from the smallest up, and the pieces an extensible one is built from.
+@delim ( l 0028 open
+@delim ) r 0029 close
+@delim [ l 005B open
+@delim ] r 005D close
+@delim \{ l 007B open
+@delim \} r 007D close
+@delim \lfloor l 230A open
+@delim \rfloor r 230B close
+@delim \lceil l 2308 open
+@delim \rceil r 2309 close
+@delim \langle l 27E8 open
+@delim \rangle r 27E9 close
+@delim / l 002F ord
+@delim \backslash l 005C ord
+@delim | l 007C ord
+@delim \| l 2016 ord
+@delim \uparrow l 2191 ord
+@delim \downarrow l 2193 ord
+@delim \updownarrow l 2195 ord
+@delim \Uparrow l 21D1 ord
+@delim \Downarrow l 21D3 ord
+@delim \Updownarrow l 21D5 ord
+
+# ---- radical signs: every size, and the pieces of a tall one -------------------------------------
+@radical \sqrt 221A
+
+# ---- wide accents: every width ----------------------------------------------------------------
+@wide \widehat 0302
+@wide \widetilde 0303
+
+# ---- braces over and under: the pieces they are built from -----------------------------------
+@brace \overbrace 23DE
+@brace \underbrace 23DF
+
+# ---- math accents (one glyph over a base) -----------------------------------------------------
+@accent \hat 0302
+@accent \check 030C
+@accent \tilde 0303
+@accent \acute 0301
+@accent \grave 0300
+@accent \dot 0307
+@accent \ddot 0308
+@accent \breve 0306
+@accent \bar 0304
+@accent \vec 20D7
+@accent \mathring 030A
+
+# ---- alphabets: `@alphabet COMMAND SET` (`-` for the plain letters, in math italic) ---------------
+@alphabet - latin
+@alphabet \mathrm letters+digits
+@alphabet \mathit letters
+@alphabet \mathbf letters+digits
+@alphabet \mathbb capitals
+@alphabet \mathfrak letters
+@alphabet \mathcal capitals

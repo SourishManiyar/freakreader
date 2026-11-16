@@ -18,7 +18,7 @@
 //! else; that an equation in running text typesets as it does alone; and that every deliberate
 //! breakage changes the typeset.
 
-mod tfm;
+pub(crate) mod tfm;
 
 use crate::gates::root;
 use anyhow::{Context, bail};
@@ -100,7 +100,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         Some("report") => cargo(&["run", "-q", "-p", "pdfcraft-render", "--example", "math_oracle", "--"], rest),
         Some("test") => {
             let extra: Vec<String> = std::iter::once("--include-ignored".to_owned()).chain(rest.iter().cloned()).collect();
-            cargo(&["test", "-p", "pdfcraft-render", "--test", "it", "math_oracle", "--"], &extra)
+            cargo(&["test", "-p", "pdfcraft-render", "--test", "it", "math_", "--"], &extra)
         }
         _ => bail!("usage: cargo xtask math-oracle generate [--out DIR] [--check] | report [ARGS] | test"),
     }
