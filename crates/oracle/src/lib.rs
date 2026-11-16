@@ -92,6 +92,8 @@ impl Absent {
             "pdftoppm" | "pdftotext" => "apt install poppler-utils / brew install poppler",
             // amsmath, amssymb, geometry and the AMS Type 1 fonts come with these TeX Live sets.
             "pdflatex" | "dvitype" => "apt install texlive-latex-base / brew install --cask mactex-no-gui",
+            // fontspec, unicode-math and the OpenType math fonts of the math oracle's faces.
+            "lualatex" | "xelatex" => "apt install texlive-luatex texlive-xetex texlive-fonts-extra / brew install --cask mactex-no-gui",
             _ => "install it and put it on PATH",
         }
     }
@@ -160,6 +162,16 @@ pub fn pdftotext() -> Result<Oracle, Absent> {
 /// (`tex`).
 pub fn pdflatex() -> Result<Oracle, Absent> {
     find("pdflatex", "--version")
+}
+
+/// LuaTeX's `lualatex`: typesets the math oracle's faces in OpenType math fonts (`unicode-math`).
+pub fn lualatex() -> Result<Oracle, Absent> {
+    find("lualatex", "--version")
+}
+
+/// XeTeX's `xelatex`: typesets the math oracle's faces that check XeTeX's PDFs.
+pub fn xelatex() -> Result<Oracle, Absent> {
+    find("xelatex", "--version")
 }
 
 /// TeX's `dvitype`: lists every glyph, rule and `\special` of a DVI file with its exact position.
@@ -244,7 +256,7 @@ mod tests {
     /// The install hint is specific per tool, so a skip notice is actionable.
     #[test]
     fn every_known_oracle_has_an_install_hint() {
-        for p in ["qpdf", "pdftoppm", "pdftotext", "pdflatex", "dvitype"] {
+        for p in ["qpdf", "pdftoppm", "pdftotext", "pdflatex", "dvitype", "lualatex", "xelatex"] {
             let hint = Absent::install_hint(p);
             assert!(hint.contains("install"), "{p}: {hint}");
             assert_ne!(hint, Absent::install_hint("something-else"), "{p} needs its own hint");

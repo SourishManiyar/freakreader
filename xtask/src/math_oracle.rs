@@ -7,6 +7,9 @@
 //!   `kpsewhich`); nothing else does.
 //! - `report [ARGS]` scores recoverers per category, tier and context
 //!   (`crates/render/examples/math_oracle.rs`; `--help` there lists the arguments).
+//! - `faces [--only ID] [--check]` typesets the list in other fonts (`math_oracle/faces.rs`): OpenType
+//!   math fonts with LuaLaTeX and XeLaTeX, Times with pdfLaTeX. Only faces whose fonts are all
+//!   OFL-1.1 are committed; the others go to the git-ignored `target/math-oracle-faces/`.
 //! - `test` runs the oracle tests that need TeX (`#[ignore]`d in the plain test run, because the CI
 //!   runners require every oracle and do not install TeX Live).
 //!
@@ -18,6 +21,7 @@
 //! else; that an equation in running text typesets as it does alone; and that every deliberate
 //! breakage changes the typeset.
 
+pub(crate) mod faces;
 pub(crate) mod tfm;
 
 use crate::gates::root;
@@ -99,12 +103,13 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     let rest = args.get(1..).unwrap_or_default();
     match args.first().map(String::as_str) {
         Some("generate") => generate(rest),
+        Some("faces") => faces::run(rest),
         Some("report") => cargo(&["run", "-q", "-p", "pdfcraft-render", "--example", "math_oracle", "--"], rest),
         Some("test") => {
             let extra: Vec<String> = std::iter::once("--include-ignored".to_owned()).chain(rest.iter().cloned()).collect();
             cargo(&["test", "-p", "pdfcraft-render", "--test", "it", "math_", "--"], &extra)
         }
-        _ => bail!("usage: cargo xtask math-oracle generate [--out DIR] [--check] | report [ARGS] | test"),
+        _ => bail!("usage: cargo xtask math-oracle generate [--out DIR] [--check] | faces [--only ID] [--check] | report [ARGS] | test"),
     }
 }
 
