@@ -36,6 +36,7 @@ pub mod find_replace;
 mod history;
 pub mod js;
 mod layers;
+pub mod link_preview;
 pub mod links;
 mod live_scripts;
 pub mod math_recover;
@@ -67,6 +68,7 @@ pub mod text_links;
 mod text_preview;
 pub mod text_script;
 pub mod text_style_bookmarks;
+pub mod toc;
 pub mod word_count;
 pub mod xfa;
 mod xfa_form;
@@ -85,8 +87,9 @@ pub use stamp_preview::{CommentLayer, StampPreview};
 pub use text_preview::{TextEditPreview, UnmarkedPages};
 
 pub use pdfcraft_organize::{
-    BoxSpec, FieldConflicts, MAX_IMPORT_BOOKMARKS, OutlineNode, OutlineTree, PageBox, SplitBy, Transition, TransitionSpec, mime_for_name,
-    split_ranges, unmapped as outline_unmapped, view_arity as outline_view_arity,
+    Bookmark as OutlineBookmark, BoxSpec, FieldConflicts, MAX_IMPORT_BOOKMARKS, MAX_ROWS as MAX_OUTLINE_ROWS, OutlineNode, OutlineRow, OutlineTree,
+    PageBox, RowTarget, SplitBy, Transition, TransitionSpec, mime_for_name, split_ranges, unmapped as outline_unmapped,
+    view_arity as outline_view_arity,
 };
 
 pub use pdfcraft_organize::LabelStyle;

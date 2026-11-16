@@ -69,6 +69,7 @@ impl Automation {
                 self.apply(&a, edit)?
             }
             "page_render" => return self.page_render(&a),
+            "link_preview" => return self.link_preview(&a),
             "model_render" => return self.model_render(&a),
             "comment_image_preview" => return self.comment_image_preview(&a),
             "text_extract" => self.text_extract(&a)?,
@@ -264,13 +265,9 @@ impl Automation {
                     _ => self.apply(&a, Edit::Batch { label: "Style".into(), edits })?,
                 }
             }
-            "bookmark_from_structure" => {
-                let mut out = self.apply(&a, Edit::BookmarksFromStructure)?;
-                let listing = self.bookmark_listing(&a)?;
-                out["bookmarks"] = listing["bookmarks"].clone();
-                out["next"] = listing["next"].clone();
-                out
-            }
+            "bookmark_rows" => self.bookmark_rows(&a)?,
+            "bookmark_edit_rows" => self.bookmark_edit_rows(&a)?,
+            "bookmark_create_toc" => self.bookmark_create_toc(&a)?,
             "text_styles" => {
                 // The samples are the document's text, as text_lines is.
                 let doc = self.doc_to_copy(&a)?;

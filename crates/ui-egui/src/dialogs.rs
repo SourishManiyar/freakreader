@@ -543,6 +543,8 @@ fn dialog_properties(ui: &mut egui::Ui, app: &mut PdfCraftApp, req: &mut Pending
     ui.label(egui::RichText::new(tl!("Document Properties")).font(theme::semibold(18.0)));
     ui.add_space(8.0);
     ui.horizontal_wrapped(|ui| {
+        // Tabs carry their own padding, as in the mode bar.
+        ui.spacing_mut().item_spacing.x = 2.0;
         for (tb, label) in [
             (PropsTab::Description, tl!("Description")),
             (PropsTab::InitialView, tl!("Initial View")),

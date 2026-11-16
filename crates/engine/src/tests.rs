@@ -2313,21 +2313,196 @@ fn tagged_headings_fixture() -> Vec<u8> {
     out
 }
 
+/// A small book for Create Table of Contents: a title page, a contents page (a dot leader on the
+/// preface, the others set far right; chapter 2's title wraps onto a second row), the preface
+/// (printed iii), chapters printed 1–4 with page numbers in their footers, an unnumbered plate,
+/// then printed 5 and 6. Printed 5 is one page later than the offset of the others says.
+pub(crate) fn toc_book_fixture() -> Vec<u8> {
+    let text = |font: &str, size: u32, x: u32, y: u32, s: &str| format!("BT /{font} {size} Tf {x} {y} Td ({s}) Tj ET ");
+    let entry = |y: u32, title: &str, page: &str, x: u32| format!("{}{}", text("F1", 11, x, y, title), text("F1", 11, 520, y, page));
+    let mut contents = text("F2", 18, 72, 720, "Contents");
+    contents += &text("F1", 11, 72, 680, "Preface . . . . . . . . . . . . . . . . . . . . . . . . iii");
+    contents += &entry(664, "1 Introduction", "1", 72);
+    contents += &entry(648, "1.1 Background", "2", 90);
+    contents += &text("F1", 11, 72, 632, "2 A chapter with a title long enough to wrap onto");
+    contents += &entry(618, "the next row", "4", 90);
+    contents += &entry(602, "2.1 Methods", "5", 90);
+    contents += &entry(586, "References", "6", 72);
+    let chapter = |heading: &str, folio: &str| {
+        let mut c = text("F2", 16, 72, 700, heading);
+        c += &text("F1", 10, 72, 670, "Body text of the chapter, set in the body face.");
+        if !folio.is_empty() {
+            c += &text("F1", 9, 300, 40, folio);
+        }
+        c
+    };
+    let pages = [
+        text("F2", 24, 72, 600, "A Book"),
+        contents,
+        chapter("Preface", "iii"),
+        chapter("1 Introduction", "1"),
+        chapter("1.1 Background", "2"),
+        chapter("Notes on the background", "3"),
+        chapter("2 A chapter with a title long enough to wrap onto the next row", "4"),
+        text("F1", 10, 72, 400, "Plate"),
+        chapter("2.1 Methods", "5"),
+        chapter("References", "6"),
+    ];
+    let n = pages.len();
+    let kids: Vec<String> = (0..n).map(|i| format!("{} 0 R", 5 + 2 * i)).collect();
+    let mut pdf = pdfcraft_testkit::Pdf::new()
+        .obj("<< /Type /Catalog /Pages 2 0 R >>")
+        .obj(format!(
+            "<< /Type /Pages /Kids [{}] /Count {n} /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>",
+            kids.join(" ")
+        ))
+        .obj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>")
+        .obj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+    for (i, content) in pages.iter().enumerate() {
+        pdf = pdf.obj(format!("<< /Type /Page /Parent 2 0 R /Contents {} 0 R >>", 6 + 2 * i)).stream("", content);
+    }
+    pdf.build()
+}
+
+/// Create Table of Contents reads the contents page: nesting from numbering and indent, the
+/// wrapped title joined, printed numbers mapped to pages by finding the headings (the roman
+/// preface, the offset after the front matter, the plate that shifts chapter 2.1), each going to
+/// its heading. Applied, it is one undo step named for it, and the old outline is replaced.
 #[test]
-fn bookmarks_from_structure_nest_the_headings_and_undo() {
+fn create_toc_reads_the_contents_page_and_maps_printed_pages() {
+    let mut s = Session::new();
+    let id = s.open("book.pdf", None, Arc::new(toc_book_fixture()), None).unwrap();
+    let p = s.get(id).unwrap().create_toc().unwrap();
+    assert_eq!(p.source, toc::TocSource::Contents { pages: vec![1] });
+    type Got<'a> = (usize, &'a str, Option<usize>, Option<&'a str>, bool);
+    let got: Vec<Got<'_>> = p.entries.iter().map(|e| (e.level, e.title.as_str(), e.page, e.printed.as_deref(), e.verified)).collect();
+    assert_eq!(
+        got,
+        [
+            (0, "Preface", Some(2), Some("iii"), true),
+            (0, "1 Introduction", Some(3), Some("1"), true),
+            (1, "1.1 Background", Some(4), Some("2"), true),
+            (0, "2 A chapter with a title long enough to wrap onto the next row", Some(6), Some("4"), true),
+            (1, "2.1 Methods", Some(8), Some("5"), true),
+            (0, "References", Some(9), Some("6"), true),
+        ]
+    );
+    let top = p.entries[1].top.unwrap();
+    assert!((700.0..720.0).contains(&top), "goes to the heading: {top}");
+    assert_eq!((p.unverified(), p.unplaced()), (0, 0));
+    s.apply(id, Edit::AddBookmark { parent: vec![], index: 0, title: "Old".into(), page: 0, left: None, top: None }).unwrap();
+    s.apply(id, Edit::EditBookmarks { rows: p.rows(), toc: true }).unwrap();
+    assert_eq!(
+        outline_titles(&s.get(id).unwrap().info.outline),
+        [
+            "Preface→3",
+            "1 Introduction→4[1.1 Background→5]",
+            "2 A chapter with a title long enough to wrap onto the next row→7[2.1 Methods→9]",
+            "References→10"
+        ]
+    );
+    assert_eq!(s.get(id).unwrap().can_undo(), Some("Create table of contents"));
+    s.undo(id).unwrap();
+    assert_eq!(outline_titles(&s.get(id).unwrap().info.outline), ["Old→1"]);
+}
+
+/// Without a contents page, tagged headings are used, linked to their elements; without tags,
+/// headings by how they look. A document with neither says so.
+#[test]
+fn create_toc_falls_back_to_tags_then_to_headings() {
     let mut s = Session::new();
     let id = s.open("tagged.pdf", None, Arc::new(tagged_headings_fixture()), None).unwrap();
-    s.apply(id, Edit::BookmarksFromStructure).unwrap();
-    assert_eq!(outline_titles(&s.get(id).unwrap().info.outline), ["Untitled→0[Intro→1[Details→2]]"]);
-    assert_eq!(s.get(id).unwrap().can_undo(), Some("New bookmarks from structure"));
-    s.undo(id).unwrap();
-    assert!(s.get(id).unwrap().info.outline.is_empty());
+    let p = s.get(id).unwrap().create_toc().unwrap();
+    assert_eq!(p.source, toc::TocSource::Structure);
+    assert_eq!(p.entries.iter().map(|e| (e.level, e.title.as_str(), e.page)).collect::<Vec<_>>(), [(0, "Intro", Some(0)), (1, "Details", Some(1))]);
+    assert!(p.entries.iter().all(|e| e.element.is_some()));
+    s.apply(id, Edit::EditBookmarks { rows: p.rows(), toc: true }).unwrap();
+    assert_eq!(outline_titles(&s.get(id).unwrap().info.outline), ["Intro→1[Details→2]"]);
 
-    // Untagged: a clear error and nothing changes.
-    let (mut s, id) = session_with(2);
-    let err = s.apply(id, Edit::BookmarksFromStructure).unwrap_err();
-    assert_eq!(err.to_string(), "this document has no tagged headings to make bookmarks from");
-    assert!(s.get(id).unwrap().info.outline.is_empty());
+    let id = s.open("styled.pdf", None, Arc::new(styled_headings_fixture()), None).unwrap();
+    let p = s.get(id).unwrap().create_toc().unwrap();
+    assert_eq!(p.source, toc::TocSource::Headings);
+    let titles: Vec<(usize, &str)> = p.entries.iter().map(|e| (e.level, e.title.as_str())).collect();
+    assert_eq!(titles.first(), Some(&(0, "Chapter One")));
+    assert!(titles.contains(&(1, "Section A")), "{titles:?}");
+
+    let (s, plain) = session_with(2);
+    let err = s.get(plain).unwrap().create_toc().unwrap_err();
+    assert!(err.to_string().contains("no table of contents, tagged headings or headings were found"), "{err}");
+}
+
+/// Create Table of Contents as a job for another thread finds what the synchronous call finds,
+/// and once told to stop it reads no further page and proposes nothing.
+#[test]
+fn create_toc_job_matches_the_call_and_stops_when_told() {
+    fn send_static<T: Send + 'static>(_: &T) {}
+    let mut s = Session::new();
+    for (name, bytes) in [("tagged.pdf", tagged_headings_fixture()), ("styled.pdf", styled_headings_fixture())] {
+        let id = s.open(name, None, Arc::new(bytes), None).unwrap();
+        let doc = s.get(id).unwrap();
+        let job = doc.toc_job().unwrap();
+        send_static(&job);
+        let read = std::sync::atomic::AtomicUsize::new(0);
+        assert_eq!(job.run(&|| true, &read), Some(doc.create_toc().map_err(|_| toc::TocError::NothingFound)));
+        let stopped = std::sync::atomic::AtomicUsize::new(0);
+        assert_eq!(job.run(&|| false, &stopped), None);
+        assert_eq!(stopped.load(std::sync::atomic::Ordering::Relaxed), 0, "no page is read after stop");
+    }
+    let (s, plain) = session_with(2);
+    let read = std::sync::atomic::AtomicUsize::new(0);
+    assert_eq!(s.get(plain).unwrap().toc_job().unwrap().run(&|| true, &read), Some(Err(toc::TocError::NothingFound)));
+    assert!(read.load(std::sync::atomic::Ordering::Relaxed) >= 2, "every page read counts as progress");
+}
+
+/// A list edit is one undo step that keeps what it doesn't change, and a document that forbids
+/// copying text refuses Create Table of Contents (its titles are the document's text).
+#[test]
+fn bookmark_list_edits_undo_as_one_step_and_toc_needs_copying() {
+    let (mut s, id) = session_with(3);
+    s.apply(id, Edit::AddBookmark { parent: vec![], index: 0, title: "One".into(), page: 0, left: None, top: None }).unwrap();
+    s.apply(id, Edit::SetBookmarkColor { path: vec![0], color: Some([0.0, 0.0, 1.0]) }).unwrap();
+    let rows: Vec<OutlineRow> = s
+        .get(id)
+        .unwrap()
+        .outline_rows()
+        .unwrap()
+        .into_iter()
+        .map(|b| OutlineRow { level: 0, title: "Uno".into(), target: RowTarget::Keep, origin: Some(b.obj), open: None, element: None })
+        .chain([OutlineRow::new(1, "Child", Some(2), None)])
+        .collect();
+    s.apply(id, Edit::EditBookmarks { rows, toc: false }).unwrap();
+    let outline = s.get(id).unwrap().info.outline.clone();
+    assert_eq!(outline_titles(&outline), ["Uno→1[Child→3]"]);
+    assert_eq!(outline[0].color, Some([0.0, 0.0, 1.0]), "the colour is kept");
+    assert_eq!(s.get(id).unwrap().can_undo(), Some("Edit bookmarks"));
+    s.undo(id).unwrap();
+    assert_eq!(outline_titles(&s.get(id).unwrap().info.outline), ["One→1"]);
+    // A bad row: an error naming it, and nothing changes.
+    let err = s.apply(id, Edit::EditBookmarks { rows: vec![OutlineRow::new(1, "Orphan", None, None)], toc: false }).unwrap_err();
+    assert!(err.to_string().contains("row 1: the first bookmark must be at the top level"), "{err}");
+
+    let mut doc = pdfcraft_cos::Document::open(Arc::new(toc_book_fixture())).unwrap();
+    doc.set_encryption(&pdfcraft_cos::NewEncryption {
+        algorithm: pdfcraft_cos::Algorithm::Aes256,
+        user_password: "",
+        owner_password: "owner",
+        permissions: -1 ^ 0b1_0000,
+        encrypt_metadata: true,
+        seed: [7; 32],
+    })
+    .unwrap();
+    let bytes = Arc::new(pdfcraft_cos::write_full(&doc, &Default::default()).unwrap());
+    let mut s = Session::new();
+    let id = s.open("r.pdf", None, bytes.clone(), None).unwrap();
+    assert_eq!(s.get(id).unwrap().create_toc().unwrap_err(), EditError::NotPermitted("copying text and images"));
+    let err = s.apply(id, Edit::EditBookmarks { rows: vec![OutlineRow::new(0, "x", Some(0), None)], toc: true }).unwrap_err();
+    assert_eq!(err, EditError::NotPermitted("copying text and images"));
+    assert!(
+        s.apply(id, Edit::EditBookmarks { rows: vec![OutlineRow::new(0, "x", Some(0), None)], toc: false }).is_ok(),
+        "typing titles is not copying"
+    );
+    let owner = s.open("r.pdf", None, bytes, Some("owner")).unwrap();
+    assert!(s.get(owner).unwrap().create_toc().is_ok(), "the owner may");
 }
 
 /// Three pages whose headings are set apart only by how they look (#1693): chapters in

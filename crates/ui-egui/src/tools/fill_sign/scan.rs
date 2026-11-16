@@ -235,7 +235,7 @@ pub(super) fn scan_tab(
         scan.poll(&mut d.image, Some(ui.ctx()));
     }
     let Some(scan) = d.scan.as_mut() else {
-        painter.text(area.center(), egui::Align2::CENTER_CENTER, tl!("No photo chosen"), egui::FontId::proportional(13.0), t.text_muted);
+        painter.text(area.center(), egui::Align2::CENTER_CENTER, tl!("No photo chosen"), crate::theme::regular(13.0), t.text_muted);
         resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Image, true, tl!("Photo")));
         return browse;
     };

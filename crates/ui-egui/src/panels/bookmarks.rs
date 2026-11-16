@@ -28,8 +28,11 @@ pub enum BmAction {
         parent: Vec<usize>,
         index: usize,
     },
-    /// Bookmarks from the tagged headings, under a new first "Untitled" bookmark.
-    FromStructure,
+    /// Create table of contents: bookmarks from the document's own table of contents (else its
+    /// tags, else its headings by how they look), opened in the list editor for review.
+    CreateToc,
+    /// Edit the whole outline as a list (titles, nesting, pages), applied as one step.
+    EditList,
     /// Open New bookmarks from text styles, to choose a style per bookmark level (#1693).
     FromTextStyles,
 }

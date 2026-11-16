@@ -491,11 +491,59 @@ pub fn tools() -> Vec<ToolDef> {
             &["doc", "path"],
         )),
         t(
-            "bookmark_from_structure",
-            "New bookmarks from structure",
-            "Make bookmarks from the document's tagged headings (H, H1-H6), nested by level under a new first bookmark titled \"Untitled\". Fails if the document has no tagged headings. Returns the first page of the bookmark tree (see bookmark_list). Undoable.",
+            "bookmark_rows",
+            "List bookmarks as rows",
+            "The whole outline as a flat list in outline order, for bookmark_edit_rows: each row's level (1 = top level), path (1-based, what bookmark_edit_rows takes as from), title, page (1-based, null when it goes nowhere in this document), destination ({fit, left, top, zoom} in points from the top-left of the displayed page, as bookmark_list gives it) and its colour and bold or italic style when set. Fails when bookmarks nest deeper than 33 levels (they can't be edited as a list).",
         )
+        .ro()
         .with(schema(json!({ "doc": doc() }), &["doc"])),
+        t(
+            "bookmark_edit_rows",
+            "Edit bookmarks as a list",
+            "Write the whole outline from a list, as one undo step (\"Edit bookmarks\"). Give rows or text. rows: the new outline in order, each {level, title, page?, top?, left?, from?}: level 1 is the top level and a row is at most one level deeper than the row before; page is 1-based (null for nowhere); top and left are points from the top-left of the displayed page (left out keeps the reader's position that way); from is the 1-based path of the existing bookmark the row stands for (from bookmark_rows), which keeps its colour, style, action and other data, and a page left out then keeps its destination. Bookmarks no row names are removed. text: a plain-text outline, one bookmark per line, nested by indentation (a tab is four spaces), Markdown # marks or, without indentation, numbering such as 1.2; bullets are dropped and a number at the end of a line (after a space, tab or dot leader) is its page; roman numerals and labels name pages by their page labels. With text, keep puts the new bookmarks after the existing ones instead of replacing them, and printed maps the numbers as printed page numbers the way bookmark_create_toc does (lines whose page can't be found go nowhere and are listed in unplaced, 1-based). Every row is checked before anything is written; an error names the row (1-based) and what is wrong.",
+        )
+        .cmd("bookmark.edit_list")
+        .destructive()
+        .with(schema(
+            json!({
+                "doc": doc(),
+                "rows": {
+                    "type": "array",
+                    "maxItems": 100000,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "level": { "type": "integer", "minimum": 1 },
+                            "title": { "type": "string" },
+                            "page": { "type": ["integer", "null"], "minimum": 1 },
+                            "top": { "type": ["number", "null"] },
+                            "left": { "type": ["number", "null"] },
+                            "from": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1 }
+                        },
+                        "required": ["level", "title"]
+                    }
+                },
+                "text": { "type": "string", "description": "A plain-text outline (at most 4 MB)." },
+                "keep": { "type": "boolean", "description": "With text: add after the existing bookmarks (default false: replace them)." },
+                "printed": { "type": "boolean", "description": "With text: the page numbers are printed page numbers (default false: 1-based page numbers)." }
+            }),
+            &["doc"],
+        )),
+        t(
+            "bookmark_create_toc",
+            "Create table of contents",
+            "Find bookmarks in the document's own structure, for review: its table of contents (contents pages near the front or back found from the text layer: a Contents heading, or rows ending in page numbers after dot leaders; two-column and multi-page tables, wrapped titles, nesting by numbering such as 1.2.3 or by indent), else its tagged headings, else headings found by how they look (larger or bold rows, nested by numbering or style). Printed page numbers are mapped to pages by finding each title as a heading, by page labels, and by the offset the evidence agrees on (front matter, unnumbered pages). Returns source (contents, structure or headings), toc_pages (1-based), entries ({level, title, page, top, printed, verified}: page 1-based or null when it couldn't be placed, top in points from the top of the displayed page when the heading was found, printed as the table gives it, verified when the title was found on that page), unverified and unplaced counts. Nothing changes unless apply is true: then the entries replace the outline (or with keep come after the existing bookmarks) as one undo step (\"Create table of contents\"); to edit them first, pass them to bookmark_edit_rows instead. Needs the permissions to change pages and to copy text (titles are the document's text). Reads at most 80 pages looking for the table, 1500 checking pages and 1500 for headings.",
+        )
+        .cmd("bookmark.create_toc")
+        .destructive()
+        .with(schema(
+            json!({
+                "doc": doc(),
+                "apply": { "type": "boolean", "description": "Write the entries as the outline (default false: only report them)." },
+                "keep": { "type": "boolean", "description": "With apply: keep the existing bookmarks before the new ones (default false: replace them)." }
+            }),
+            &["doc"],
+        )),
         t(
             "text_styles",
             "List text styles",
@@ -890,6 +938,9 @@ pub fn tools() -> Vec<ToolDef> {
         t("link_list", "List links", "Every link: page, 1-based index (for link_edit/link_delete), rect (points from the top-left of the page), and where it goes (url, or to_page with its zoom). A relative url also has resolved_url, the address resolved against the document's base URI (catalog /URI /Base); a link active only in its /QuadPoints has active_areas, one rect per quadrilateral. With text_links: true, also the web and email addresses written as plain page text with no link over them, which the viewer opens on a click: page, rects (one per line), url, and blocked (why it won't open) when the link check refuses it. Only http, https and mailto addresses are found. At most 100 pages are read per call, from text_links_from (default 1); text_links_next_page then gives the page to continue from.")
             .ro()
             .with(schema(json!({ "doc": doc(), "text_links": { "type": "boolean" }, "text_links_from": { "type": "integer", "minimum": 1 } }), &["doc"])),
+        t("link_preview", "Preview a link's destination", "Render the place an in-document link goes to, as the viewer's reference preview shows it on a right-click with the Select tool: a band the width of the target page starting just above the destination's position (the destination's own rectangle for a FitR destination, the top of the page when it gives no position), as a PNG (default 96 dpi, at most 600), followed by { page, label, area } with the target page (1-based), its label and the area in points from its top-left, plus warnings when the picture is incomplete or approximate. page and index use link_list numbering; a link to a web address, another file or a layer change has no preview. Does not modify the document.")
+            .ro()
+            .with(schema(json!({ "doc": doc(), "page": { "type": "integer", "minimum": 1 }, "index": { "type": "integer", "minimum": 1 }, "dpi": { "type": "number", "minimum": 1, "maximum": 600 } }), &["doc", "page", "index"])),
         t("link_open", "Open a linked PDF", "Follow a local GoToR link in PdfCraft: open the referenced PDF as a new document, respecting --root. page and index use link_list numbering. A named destination is looked up in the target, as the app does; one the target doesn't define is reported with a warning. Absolute file specifications require allow_absolute: true after reviewing the target; relative links need no opt-in.")
             .with(schema(
                 json!({ "doc": doc(), "page": { "type": "integer", "minimum": 1 }, "index": { "type": "integer", "minimum": 1 }, "password": { "type": "string", "description": "Optional password for the linked PDF." }, "allow_absolute": { "type": "boolean", "description": "Explicitly allow an absolute local GoToR target (default false). Existing validation and --root confinement still apply." } }),

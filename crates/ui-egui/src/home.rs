@@ -10,6 +10,10 @@ use crate::{PdfCraftApp, icons, panels::human_size, widgets};
 pub mod folders_ui;
 
 const RECOMMENDED: [&str; 5] = ["organize", "comment", "form", "edit", "protect"];
+/// Height of the tool and Open file cards on Home.
+const CARD_HEIGHT: f32 = 120.0;
+/// Inset of a tool card's icon, description and action.
+const CARD_PAD: f32 = 16.0;
 
 /// A soft shadow that rises on hover and settles when the card is pressed.
 pub(crate) fn card_lift(ui: &egui::Ui, t: &Tokens, rect: Rect, press: theme::Press) {
@@ -23,7 +27,7 @@ pub(crate) fn card_lift(ui: &egui::Ui, t: &Tokens, rect: Rect, press: theme::Pre
 /// Render a single tool card with the standard lift, styling, icon, title, description, and action.
 /// If `allow_unpin` is true, an unpin button is always accessible in the top right corner.
 fn tool_card(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, g: &'static catalog::ToolGroup, allow_unpin: bool) -> Option<&'static str> {
-    let (rect, resp) = ui.allocate_exact_size(vec2(190.0, 104.0), Sense::click());
+    let (rect, resp) = ui.allocate_exact_size(vec2(196.0, CARD_HEIGHT), Sense::click());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tl!(g.label)));
     let press = theme::Press::track(ui, &resp);
     card_lift(ui, t, rect, press);
@@ -31,7 +35,7 @@ fn tool_card(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, g: &'static c
     ui.painter().rect(rect, CornerRadius::same(10), fill, Stroke::new(1.0, t.divider), egui::StrokeKind::Inside);
     let body = rect.translate(press.offset());
     let color = egui::Color32::from_rgb(g.hue[0], g.hue[1], g.hue[2]);
-    icons::paint(ui, Rect::from_min_size(body.min + vec2(14.0, 14.0), vec2(22.0, 22.0)), g.icon, 21.0, color);
+    icons::paint(ui, Rect::from_min_size(body.min + vec2(CARD_PAD, CARD_PAD), vec2(22.0, 22.0)), g.icon, 21.0, color);
 
     let mut unpin_clicked = false;
     if allow_unpin {
@@ -48,18 +52,18 @@ fn tool_card(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, g: &'static c
     }
 
     let mut title_job = egui::text::LayoutJob::simple_singleline(tl!(g.label).to_owned(), theme::semibold(13.5), t.text);
-    title_job.wrap = egui::text::TextWrapping { max_width: body.width() - 58.0, max_rows: 1, break_anywhere: true, ..Default::default() };
+    title_job.wrap = egui::text::TextWrapping { max_width: body.width() - 62.0, max_rows: 1, break_anywhere: true, ..Default::default() };
     let title = ui.fonts_mut(|f| f.layout_job(title_job));
     let title_elided = title.elided;
-    ui.painter().galley(body.min + vec2(44.0, 25.0 - title.size().y * 0.5), title, t.text);
+    ui.painter().galley(body.min + vec2(CARD_PAD + 32.0, CARD_PAD + 11.0 - title.size().y * 0.5), title, t.text);
     let blurb = g.sections.first().map(|s| s.items.iter().take(3).map(|i| tl!(i.label)).collect::<Vec<_>>().join(" · ")).unwrap_or_default();
     // Fixed-height cards must leave room for their action in every language.
-    let mut job = egui::text::LayoutJob::simple(blurb.clone(), theme::regular(11.5), t.text_muted, body.width() - 28.0);
+    let mut job = egui::text::LayoutJob::simple(blurb.clone(), theme::regular(11.5), t.text_muted, body.width() - 2.0 * CARD_PAD);
     job.wrap.max_rows = 2;
     let galley = ui.fonts_mut(|f| f.layout_job(job));
     let blurb_elided = galley.elided;
-    ui.painter().galley(body.min + vec2(14.0, 46.0), galley, t.text_muted);
-    ui.painter().text(body.left_bottom() + vec2(14.0, -14.0), Align2::LEFT_CENTER, tl!("Use now"), theme::medium(12.0), t.accent_text);
+    ui.painter().galley(body.min + vec2(CARD_PAD, CARD_PAD + 36.0), galley, t.text_muted);
+    ui.painter().text(body.left_bottom() + vec2(CARD_PAD, -CARD_PAD - 2.0), Align2::LEFT_CENTER, tl!("Use now"), theme::medium(12.0), t.accent_text);
     let resp = if title_elided || blurb_elided { resp.on_hover_text(format!("{}\n{blurb}", tl!(g.label))) } else { resp };
     if unpin_clicked {
         Some(g.id)
@@ -130,7 +134,7 @@ pub fn show(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                             let Some(g) = catalog::group(id) else { continue };
                             tool_card(app, ui, &t, g, false);
                         }
-                        let (rect, resp) = ui.allocate_exact_size(vec2(170.0, 104.0), Sense::click());
+                        let (rect, resp) = ui.allocate_exact_size(vec2(180.0, CARD_HEIGHT), Sense::click());
                         resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tl!("Open file")));
                         let press = theme::Press::track(ui, &resp);
                         card_lift(ui, &t, rect, press);

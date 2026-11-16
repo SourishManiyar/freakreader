@@ -12,6 +12,13 @@ use crate::page_cursor::Layer;
 use crate::theme::Tokens;
 use crate::{PdfCraftApp, widgets};
 
+/// Width of each redaction code check box in the Redaction Tool Properties grid.
+const CODE_WIDTH: f32 = 80.0;
+/// Redaction Tool Properties' columns. The left holds a row of four codes beside the grid's labels
+/// at the interface's body size, so the dialog keeps the width it opens at.
+const PROPS_LEFT: f32 = 540.0;
+const PROPS_GAP: f32 = 60.0;
+const PROPS_RIGHT: f32 = 340.0;
 const MARK_RED: Color32 = Color32::from_rgb(0xE3, 0x22, 0x22);
 
 /// Redaction Tool Properties: what new marks look like once applied.
@@ -437,7 +444,7 @@ pub(crate) fn search_body(ui: &mut egui::Ui, d: &mut SearchDraft, t: &Tokens) ->
 
 /// Redaction Tool Properties. Returns (apply, cancel).
 pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) -> (bool, bool) {
-    ui.set_width(780.0);
+    ui.set_width(PROPS_LEFT + PROPS_GAP + PROPS_RIGHT);
     ui.label(egui::RichText::new(tl!("Redaction Tool Properties")).font(crate::theme::semibold(18.0)));
     ui.add_space(8.0);
     // Two columns, so three colour grids fit a short window: the redacted result and its
@@ -445,7 +452,7 @@ pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) ->
     // the right.
     ui.horizontal_top(|ui| {
         ui.vertical(|ui| {
-            ui.set_width(380.0);
+            ui.set_width(PROPS_LEFT);
             egui::Grid::new("redact-props").num_columns(2).spacing([12.0, 10.0]).show(ui, |ui| {
                 ui.label(tl!("Redacted area fill colour:"));
                 ui.horizontal(|ui| {
@@ -491,7 +498,8 @@ pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) ->
                         ui.horizontal(|ui| {
                             for &code in row {
                                 let mut picked = d.codes.contains(&code);
-                                if ui.add_sized([62.0, 18.0], widgets::checkbox(&mut picked, code)).changed() {
+                                // One width for every code, so the columns line up; wide enough for "(b)(7)(C)".
+                                if ui.add_sized([CODE_WIDTH, 18.0], widgets::checkbox(&mut picked, code)).changed() {
                                     d.codes.retain(|c| *c != code);
                                     if picked {
                                         d.codes.push(code);
@@ -549,7 +557,7 @@ pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) ->
         // No separator here: in a horizontal layout it would stretch to the window's bottom.
         ui.add_space(28.0);
         ui.vertical(|ui| {
-            ui.set_width(340.0);
+            ui.set_width(PROPS_RIGHT);
             ui.label(egui::RichText::new(tl!("Redaction mark appearance")).strong());
             ui.add_space(6.0);
             egui::Grid::new("redact-mark").num_columns(2).spacing([12.0, 10.0]).show(ui, |ui| {

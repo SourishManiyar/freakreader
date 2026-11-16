@@ -52,6 +52,7 @@ mod forms;
 mod identity;
 mod javascript;
 mod layer_actions;
+mod link_preview;
 mod links;
 mod marks;
 mod min_window;

@@ -301,3 +301,21 @@ fn text_is_readable_on_every_surface() {
         }
     }
 }
+
+/// Every interface size lands on one of the ramp's few steps, in the order it was asked for, so a
+/// label asked for at 12.5 is never drawn larger than one asked for at 13.
+#[test]
+fn interface_sizes_sit_on_the_type_ramp_in_order() {
+    let asked = [11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 15.5, 16.0, 17.0, 18.0, 20.0, 22.0];
+    let steps = [12.0, 13.0, 14.0, 16.0, 18.0, 20.0, 24.0];
+    for size in asked {
+        assert!(steps.contains(&ui_size(size)), "{size} → {} is off the ramp", ui_size(size));
+        assert!(ui_size(size) >= size, "{size} shrank to {}", ui_size(size));
+    }
+    assert!(asked.windows(2).all(|w| ui_size(w[0]) <= ui_size(w[1])));
+    // Chip badges keep nearly their size; nonsense falls back to body text.
+    assert_eq!(ui_size(9.5), 10.0);
+    assert_eq!(ui_size(f32::NAN), 14.0);
+    assert_eq!(regular(13.0).size, 14.0);
+    assert_eq!(semibold(17.0).size, 18.0);
+}

@@ -412,14 +412,35 @@ fn font_definitions_for_platform(prefer_hans: bool, platform: FontPolicyPlatform
     fonts
 }
 
+/// The interface type ramp: the size a widget asks for, moved onto one of a few steps.
+///
+/// Widgets name the size they were first drawn at (11, 11.5, 12.5, 13.5…). Read side by side,
+/// a dozen sizes a half point apart look like mistakes rather than hierarchy, and 13 px Inter is
+/// small at 100 % scaling. Every request goes through here so the whole interface sits on
+/// caption 12, secondary 13, body 14, subtitle 16, title 18 and heading 20, with badges below
+/// 10 points kept nearly as they are, since they fill fixed chips.
+pub fn ui_size(size: f32) -> f32 {
+    match size {
+        s if !s.is_finite() || s <= 0.0 => 14.0,
+        s if s < 10.0 => s + 0.5,
+        s if s < 12.0 => 12.0,
+        s if s < 13.0 => 13.0,
+        s if s < 14.0 => 14.0,
+        s if s < 16.0 => 16.0,
+        s if s < 18.0 => 18.0,
+        s if s <= 20.0 => 20.0,
+        s => s + 2.0,
+    }
+}
+
 pub fn regular(size: f32) -> FontId {
-    FontId::proportional(size)
+    FontId::proportional(ui_size(size))
 }
 pub fn medium(size: f32) -> FontId {
-    FontId::new(size, FontFamily::Name("medium".into()))
+    FontId::new(ui_size(size), FontFamily::Name("medium".into()))
 }
 pub fn semibold(size: f32) -> FontId {
-    FontId::new(size, FontFamily::Name("semibold".into()))
+    FontId::new(ui_size(size), FontFamily::Name("semibold".into()))
 }
 
 /// Install the palette, widget styling, text sizes and right-to-left flag for the chosen theme.
@@ -475,9 +496,11 @@ pub fn apply(ctx: &egui::Context, kind: ThemeKind) {
         // RTL languages mirror stock chrome (menus, combo boxes, scroll bars, headers).
         // Labels still get their paragraph direction explicitly from `bidi::ui_direction`.
         s.right_to_left = rtl;
-        s.spacing.item_spacing = egui::vec2(8.0, 6.0);
-        s.spacing.button_padding = egui::vec2(10.0, 5.0);
-        s.spacing.menu_margin = egui::Margin::same(6);
+        // Room to breathe across a row: wider gaps and button sides than egui's compact defaults.
+        // Rows keep their height, so dense dialogs (Print, Preferences) still fit a small window.
+        s.spacing.item_spacing = egui::vec2(10.0, 6.0);
+        s.spacing.button_padding = egui::vec2(12.0, 5.0);
+        s.spacing.menu_margin = egui::Margin::same(8);
         s.spacing.scroll.bar_width = 8.0;
         s.spacing.scroll.floating = true;
         s.spacing.scroll.floating_width = 3.0;

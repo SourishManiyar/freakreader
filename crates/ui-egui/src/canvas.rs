@@ -26,6 +26,7 @@ pub(super) mod crop;
 mod find;
 pub(super) mod fling;
 pub(super) mod image_pick;
+pub mod link_peek;
 mod navigation;
 mod organize;
 pub(super) mod page_cursor;
@@ -703,6 +704,8 @@ pub struct DocView {
     pub content: crate::content_ui::ContentView,
     /// Edit a PDF ▸ Link tool state.
     pub links: crate::link_ui::LinkView,
+    /// The reference preview open by a link: where it goes, shown by the link ([`link_peek`]).
+    pub link_peek: Option<link_peek::LinkPeek>,
     /// Redact tool: the box being drawn, and a mark to add (page, quads) for the app to style.
     pub redact_drag: crate::redact_ui::AreaDrag,
     pub pending_redaction: Option<(usize, Vec<[f64; 8]>)>,
@@ -1154,6 +1157,7 @@ impl DocView {
             calc_order: Default::default(),
             content: Default::default(),
             links: Default::default(),
+            link_peek: None,
             redact_drag: None,
             pending_redaction: None,
             redactions_applied: 0,
@@ -1452,6 +1456,9 @@ struct PageFrame<'a> {
     field_hover: Option<crate::forms_ui::WidgetRef>,
     /// A page took this frame's right-click.
     right_clicked: bool,
+    /// The link to a place in this document under this frame's right-click, with the Select tool:
+    /// (page, `/Annots` index), for its preview ([`link_peek`]).
+    peek_link: Option<(usize, usize)>,
 }
 
 impl PageFrame<'_> {
@@ -1934,6 +1941,7 @@ fn draw_pages(
         calc_hover: None,
         field_hover: None,
         right_clicked: false,
+        peek_link: None,
     };
     for &i in visible_pages {
         draw_page(ui, view, &mut frame, i);
@@ -1950,6 +1958,7 @@ fn draw_pages(
         field_hover,
         out: page_out,
         right_clicked,
+        peek_link,
         ..
     } = frame;
     crate::forms_ui::hover_moved(view, field_hover);
@@ -2002,7 +2011,9 @@ fn draw_pages(
         view.cursor.claim(Layer::Drag, egui::CursorIcon::None);
     }
     // The pages' one cursor, from the claim on the highest layer the tool reaches, and the tip.
-    let hover_text = pointer.filter(|_| unobstructed && !hide_pointer).zip(view.cursor.resolve(ui.ctx(), tool));
+    // A link's preview, open by the link, says where it goes: no tip over it.
+    let tip = view.cursor.resolve(ui.ctx(), tool).filter(|_| view.link_peek.is_none());
+    let hover_text = pointer.filter(|_| unobstructed && !hide_pointer).zip(tip);
     // ScrollArea ignores the wheel while any widget is dragged, so a text-selection drag
     // scrolls the page itself (#721). After the page loop, so it keeps scrolling once the
     // pointer leaves the selection's page for the gap or the next page; over the whole
@@ -2060,7 +2071,10 @@ fn draw_pages(
     let row_on_screen =
         shown_row(view, env.rects).iter().filter_map(|&i| env.rects.get(i)).map(|r| r.translate(origin.to_vec2())).reduce(Rect::union);
     let presenting = view.presentation.is_some();
-    page_context_menu(&resp, presenting, |ui| {
+    // A right-click opens a link's preview or closes the one open, and then the page's menu stays
+    // shut (full screen keeps its right-click for turning back a page).
+    let peeked = !presenting && resp.secondary_clicked() && link_peek::right_click(view, doc, peek_link);
+    page_context_menu(&resp, presenting || peeked, |ui| {
         // Crop mode has no menu: a right-click on the picture being cropped, its box or its grips is
         // the crop's (#5835).
         if matches!(menu_for, Some(Owner::Picture { part: PicturePart::Crop(_), .. })) {
@@ -2207,6 +2221,7 @@ fn draw_pages(
         };
         default_page_context_menu(ui, page, at, perms, &mut page_action);
     });
+    link_peek::show(ui, view, doc, info, modal);
     // Copy comments / Paste comments from the page's menu or a Comments panel card.
     let copy_comments = std::mem::take(&mut view.comments.copy_request);
     let paste_comments_at = view.comments.paste_request.take();
@@ -2976,9 +2991,9 @@ fn shown_row(view: &DocView, rects: &[Rect]) -> Vec<usize> {
 }
 
 /// The pages' context menu, except in full screen, where a right-click turns back a page instead
-/// ([`presentation_click_state`]).
-fn page_context_menu(resp: &egui::Response, presenting: bool, add: impl FnOnce(&mut egui::Ui)) {
-    if !presenting {
+/// ([`presentation_click_state`]), or when the right-click was a link preview's (`shut`).
+fn page_context_menu(resp: &egui::Response, shut: bool, add: impl FnOnce(&mut egui::Ui)) {
+    if !shut {
         resp.context_menu(add);
     }
 }

@@ -254,11 +254,17 @@ pub(super) fn page_tool_input(ui: &mut egui::Ui, view: &mut DocView, frame: &mut
     }
     let (link_owner, link_context) = (link_of(press.owner()), link_of(context));
     let on_link = tool == QuickTool::Link && can_modify && crate::link_ui::page_input(cx, press == PagePress::Free, link_owner, link_context, view);
+    // With the Select tool, a right-click on a link to a place in this document is its preview's
+    // (`link_peek`); on any other link it opens the link's menu, when the document may be changed.
+    // The Link tool keeps the menu for every link.
     if tool == QuickTool::Select
-        && can_modify
         && let Some(index) = link_context
     {
-        view.links.context = Some((i, index));
+        if view.presentation.is_none() && pdfcraft_engine::link_preview::link_preview(info, i, index).is_some() {
+            frame.peek_link = Some((i, index));
+        } else if can_modify {
+            view.links.context = Some((i, index));
+        }
     }
     // Comments, every frame: their own presses, a commenting tool's, and a click elsewhere that
     // leaves them unselected. A press nobody holds that another tool took this frame (Prepare's

@@ -318,6 +318,17 @@ impl RenderPool {
         Self::with_mode(bytes, 0, config, true)
     }
 
+    /// A pool of one thread, without replacements, that renders the same document with the same
+    /// configuration (reading colours, password, installed-font fallback): for a side render, such
+    /// as a link's preview, that must look like the page and must not join this pool's queue,
+    /// which its owner replaces whole. Inline when this pool is.
+    pub fn companion(&self) -> RenderPool {
+        if self.is_inline() {
+            return Self::new_inline(self.bytes.clone(), self.config.clone());
+        }
+        Self::new(self.bytes.clone(), 1, self.config.clone()).without_replacements()
+    }
+
     /// `true` when rendering happens on the caller's thread (no worker threads available).
     pub fn is_inline(&self) -> bool {
         self.inline.is_some()

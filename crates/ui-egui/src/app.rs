@@ -322,6 +322,9 @@ impl PdfCraftApp {
             control: None,
             bookmark_rename: None,
             bookmark_clipboard: None,
+            bookmark_lists: std::collections::HashMap::new(),
+            toc_runs: std::collections::HashMap::new(),
+            toc_hold: None,
             last_opened_url: None,
             community_card_closed: false,
             pending_link: None,
@@ -614,6 +617,7 @@ impl PdfCraftApp {
             self.poll_pending_destinations();
         }
         self.check_restored_recent();
+        self.poll_toc_runs();
         // Chinese wants its own faces before the Japanese ones (one baseline per line).
         let cjk = theme::CjkPreference::for_language(lang.code());
         if !self.styled {

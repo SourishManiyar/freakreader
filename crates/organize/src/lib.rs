@@ -21,6 +21,7 @@ mod import;
 mod labels;
 mod outline;
 mod outline_io;
+mod outline_rows;
 mod pdfx;
 mod prune;
 mod transition;
@@ -42,6 +43,7 @@ pub use outline::{
     move_bookmark, rename_bookmark, set_bookmark_color, set_bookmark_open, set_bookmark_page, set_bookmark_style, top_level_bookmarks,
 };
 pub use outline_io::{MAX_IMPORT_BOOKMARKS, OutlineNode, OutlineTree, import_outline, outline_tree, unmapped, view_arity};
+pub use outline_rows::{MAX_ROW_TITLE_CHARS, MAX_ROWS, OutlineRow, RowTarget, outline_rows, rewrite_outline};
 pub use transition::{TRANSITION_DIRECTIONS, TRANSITION_STYLES, Transition, TransitionSpec, set_transition};
 pub use view::{InitialView, displays_doc_title, initial_view, set_initial_view};
 

@@ -114,6 +114,9 @@ const NUMBER_MIN: f32 = 52.0;
 /// shortcut: a longer translation of "Mixed" scrolls in the field. Upgrade by having the panel
 /// report its measured row width to the pane, if that reads badly.
 const SIZE_FIELD: f32 = 62.0;
+/// The size field's own inset, tighter than a button's so "Mixed" fits [`SIZE_FIELD`] and the
+/// field stays within its 26 pt box at the interface's body size.
+const SIZE_FIELD_MARGIN: egui::Margin = egui::Margin::symmetric(8, 4);
 /// The least width the panel's widest rows need, which sets how narrow the Tools pane may be
 /// dragged. Size and alignment: the size field and its arrow (in their box), the swatch, the
 /// divider, three 30 pt buttons, and the gaps between those six. The spacing rows: two icons and
@@ -486,9 +489,15 @@ fn centred<'a>(ui: &egui::Ui, text: &str) -> egui::Atoms<'a> {
     egui::Atoms::new((pad, text))
 }
 
-/// The arrow that lists a field's common values, centred on the 26-point field beside it.
+/// Height of a boxed field: the row's control height (`row`), at least 26 points, on whole
+/// points so the value, its arrow and the font list beside them share one middle.
+fn field_height(ui: &egui::Ui) -> f32 {
+    ui.spacing().interact_size.y.max(26.0).ceil()
+}
+
+/// The arrow that lists a field's common values, centred on the field beside it.
 fn preset_arrow(ui: &mut egui::Ui, label: &str) -> egui::Response {
-    let (slot, _) = ui.allocate_exact_size(vec2(PRESET_LIST, 26.0), Sense::hover());
+    let (slot, _) = ui.allocate_exact_size(vec2(PRESET_LIST, field_height(ui)), Sense::hover());
     let at = Rect::from_center_size(slot.center(), vec2(PRESET_LIST, PRESET_LIST));
     ui.scope_builder(egui::UiBuilder::new().max_rect(at), |ui| icons::button(ui, "chevron-down", PRESET_LIST, false, label)).inner
 }
@@ -514,7 +523,7 @@ fn boxed(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui)) {
 fn number_with_presets(ui: &mut egui::Ui, n: Number<'_>, presets: &[f64], width: f32, label: (egui::Id, &str)) {
     boxed(ui, |ui| {
         let field = egui::DragValue::new(&mut *n.value).range(n.range).speed(n.speed).max_decimals(2).suffix(n.suffix);
-        let drag_resp = ui.add_sized([(width - PRESET_LIST - 2.0).max(30.0), 26.0], field).labelled_by(label.0);
+        let drag_resp = ui.add_sized([(width - PRESET_LIST - 2.0).max(30.0), field_height(ui)], field).labelled_by(label.0);
         drag_resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::SpinButton, ui.is_enabled(), label.1));
         let list = preset_arrow(ui, label.1);
         egui::Popup::menu(&list).show(|ui| {
@@ -544,8 +553,8 @@ fn colour_button(ui: &mut egui::Ui, t: &Tokens, color: [f64; 3]) -> egui::Respon
 /// The bounds match AddedText validation, so the panel also accepts coloured text below 8 pt.
 fn font_size_input(ui: &mut egui::Ui, size: &mut f64, mixed: bool) -> bool {
     let mut committed = false;
-    // The panel's own padding, read before the box tightens it, so "Mixed" keeps its margins.
-    let margin = egui::Margin::from(ui.spacing().button_padding);
+    // Its own inset rather than the panel's button padding, so "Mixed" keeps its margins.
+    let margin = SIZE_FIELD_MARGIN;
     boxed(ui, |ui| {
         let id = ui.make_persistent_id("font-size-input");
         let initial_text = || {
@@ -570,7 +579,7 @@ fn font_size_input(ui: &mut egui::Ui, size: &mut f64, mixed: bool) -> bool {
             .desired_width(width)
             .frame(egui::Frame::NONE)
             .align(egui::Align2::CENTER_CENTER);
-        let mut response = ui.add_sized([width, 26.0], field).accessible_name(tl!("Font size:"));
+        let mut response = ui.add_sized([width, field_height(ui)], field).accessible_name(tl!("Font size:"));
         // A long translation of "Mixed" scrolls in the field: the tooltip has it whole.
         if mixed {
             response = response.on_hover_text(tl!("Mixed"));
@@ -666,7 +675,7 @@ mod typed_size_tests {
         let style = h.ctx.global_style();
         let font = egui::TextStyle::Body.resolve(&style);
         let width = h.ctx.fonts_mut(|fonts| fonts.layout_no_wrap(tl!("Mixed").into(), font, Color32::BLACK).size().x);
-        let padding = 2.0 * style.spacing.button_padding.x;
+        let padding = SIZE_FIELD_MARGIN.sum().x;
         assert!(field.rect().width() - padding >= width, "Mixed must fit inside the input margins");
         assert!(h.get_by_label("Alignment").rect().right() <= 272.0, "the wider size field must leave room for the rest of the format row");
         if let Ok(path) = std::env::var("PDFCRAFT_MIXED_PANEL_SHOT") {

@@ -253,8 +253,10 @@ fn bookmark_search_is_per_document() {
     h.get_by_label("First document");
 }
 
+/// Create table of contents with no contents page falls back to the tagged headings, opens them
+/// in the list editor for review (nothing changes yet), and Apply writes them as one step.
 #[test]
-fn new_bookmarks_from_structure_nest_the_tagged_headings() {
+fn create_toc_opens_what_it_found_for_review_and_applies_it() {
     const TAGGED: &[u8] = b"%PDF-1.7
 1 0 obj << /Type /Catalog /Pages 2 0 R /StructTreeRoot 5 0 R >> endobj
 2 0 obj << /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 /MediaBox [0 0 300 400] >> endobj
@@ -270,18 +272,208 @@ trailer << /Root 1 0 R >>
     h.run_steps(3);
     h.get_by_label("Bookmark options").click();
     h.run_steps(2);
-    h.get_by_label("New bookmarks from structure").click();
-    h.run_steps(3);
+    h.get_by_label("Create table of contents…").click();
+    h.run_steps(1);
+    wait_for_toc(&mut h);
     let id = h.state().active.and_then(|i| h.state().views.get(i)).unwrap().id;
-    let titles: Vec<String> = h.state().session.get(id).unwrap().info.outline.iter().map(|o| o.title.clone()).collect();
-    assert_eq!(titles, ["Untitled"]);
-    h.get_by_label("Overview");
-    h.get_by_label("Method");
-    assert_eq!(h.state().session.get(id).unwrap().can_undo(), Some("New bookmarks from structure"));
+    h.get_by_label("No table of contents: found 2 tagged headings.");
+    field(&h, "Overview");
+    field(&h, "Method");
+    assert!(h.state().session.get(id).unwrap().info.outline.is_empty(), "nothing changes before Apply");
     if let Ok(dir) = std::env::var("PDFCRAFT_BOOKMARK_SHOTS") {
         let _gpu = crate::gpu();
-        h.render().unwrap().save(std::path::Path::new(&dir).join("bookmarks-from-structure.png")).unwrap();
+        h.render().unwrap().save(std::path::Path::new(&dir).join("create-toc-review.png")).unwrap();
     }
+    h.get_by_label("Apply").click();
+    h.run_steps(3);
+    assert_eq!(active_outline(&h), [("Overview".into(), Some(0), 0), ("Method".into(), Some(1), 1)]);
+    assert_eq!(h.state().session.get(id).unwrap().can_undo(), Some("Create table of contents"));
+    assert!(h.state().bookmark_lists.is_empty(), "the editor closed");
+    // The command does the same; on a document with nothing to find it says why.
+    h.state_mut().open_bytes("plain.pdf", None, PAGES.to_vec()).unwrap();
+    h.run_steps(3);
+    assert!(h.state_mut().execute("bookmark.create_toc"));
+    h.run_steps(1);
+    wait_for_toc(&mut h);
+    assert!(h.state().bookmark_lists.is_empty());
+}
+
+const TAGGED_TWO: &[u8] = b"%PDF-1.7
+1 0 obj << /Type /Catalog /Pages 2 0 R /StructTreeRoot 5 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 /MediaBox [0 0 300 400] >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R >> endobj
+4 0 obj << /Type /Page /Parent 2 0 R >> endobj
+5 0 obj << /Type /StructTreeRoot /K [6 0 R 7 0 R] >> endobj
+6 0 obj << /S /H1 /Pg 3 0 R /ActualText (Overview) >> endobj
+7 0 obj << /S /H2 /Pg 4 0 R /ActualText (Method) >> endobj
+trailer << /Root 1 0 R >>
+%%EOF";
+
+/// Run frames until every Create table of contents has finished and been shown or dropped.
+fn wait_for_toc(h: &mut Harness<'static, PdfCraftApp>) {
+    let start = std::time::Instant::now();
+    while !h.state().toc_runs.is_empty() {
+        assert!(start.elapsed() < std::time::Duration::from_secs(20), "Create table of contents never finished");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        h.run_steps(1);
+    }
+    h.run_steps(3);
+}
+
+/// Open the tagged document and start Create table of contents on it, held before it reads
+/// anything until the returned sender sends or is dropped.
+fn start_held_toc(h: &mut Harness<'static, PdfCraftApp>) -> (pdfcraft_engine::DocId, std::sync::mpsc::Sender<()>) {
+    h.state_mut().open_bytes("tagged.pdf", None, TAGGED_TWO.to_vec()).unwrap();
+    h.run_steps(3);
+    let (release, hold) = std::sync::mpsc::channel();
+    h.state_mut().toc_hold = Some(hold);
+    assert!(h.state_mut().execute("bookmark.create_toc"));
+    h.run_steps(3);
+    let id = h.state().active.and_then(|i| h.state().views.get(i)).unwrap().id;
+    assert!(h.state().toc_runs.contains_key(&id), "it runs off the UI thread");
+    (id, release)
+}
+
+/// While it runs, the window keeps drawing and the Bookmarks panel shows its progress; Stop
+/// ends it and what it would have found never appears.
+#[test]
+fn create_toc_shows_progress_and_stop_drops_what_it_found() {
+    let mut h = harness();
+    let (id, release) = start_held_toc(&mut h);
+    h.get_by_label_contains("Creating table of contents…");
+    h.get_by_label("Stop").click();
+    h.run_steps(3);
+    assert!(h.state().toc_runs.is_empty(), "stopped");
+    assert!(h.query_by_label_contains("Creating table of contents…").is_none());
+    release.send(()).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    h.run_steps(5);
+    assert!(h.state().bookmark_lists.is_empty(), "nothing found is shown after Stop");
+    assert!(h.state().session.get(id).unwrap().info.outline.is_empty());
+    // It can be asked again, and then shows what it found.
+    assert!(h.state_mut().execute("bookmark.create_toc"));
+    h.run_steps(1);
+    wait_for_toc(&mut h);
+    field(&h, "Overview");
+}
+
+/// Closing the document while it runs stops it, and its result is dropped; so is the result for
+/// a document closed some other way.
+#[test]
+fn create_toc_result_is_dropped_when_its_document_closes() {
+    let mut h = harness();
+    let (id, release) = start_held_toc(&mut h);
+    let index = h.state().views.iter().position(|v| v.id == id).unwrap();
+    h.state_mut().close_tab(index);
+    h.run_steps(2);
+    assert!(h.state().toc_runs.is_empty(), "closing the tab stops it");
+    drop(release);
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    h.run_steps(5);
+    assert!(h.state().bookmark_lists.is_empty());
+
+    let (id, release) = start_held_toc(&mut h);
+    h.state_mut().session.close(id);
+    drop(release);
+    wait_for_toc(&mut h);
+    assert!(h.state().bookmark_lists.is_empty(), "a closed document's result is never shown");
+}
+
+/// An edit made while it runs makes its result stale: it is dropped and the user is told.
+#[test]
+fn create_toc_result_is_dropped_when_its_document_changes() {
+    use pdfcraft_engine::Edit;
+    let mut h = harness();
+    let (id, release) = start_held_toc(&mut h);
+    h.state_mut().apply_edit(Edit::AddBookmark { parent: vec![], index: 0, title: "Mine".into(), page: 0, left: None, top: None });
+    drop(release);
+    wait_for_toc(&mut h);
+    assert!(h.state().bookmark_lists.is_empty(), "a stale result is not shown");
+    h.get_by_label_contains("The document changed while its table of contents was being made");
+    assert_eq!(active_outline(&h), [("Mine".into(), Some(0), 0)]);
+    assert!(h.state().session.get(id).is_some());
+}
+
+/// The list editor: Tab nests a row, typing renames, Enter adds a row whose page is typed, and
+/// Apply writes it all as one undo step that keeps what the rows don't show (the colour).
+#[test]
+fn the_list_editor_nests_renames_adds_and_applies_as_one_step() {
+    use pdfcraft_engine::Edit;
+    let mut h = harness();
+    add(&mut h, "Intro");
+    add(&mut h, "Results");
+    h.state_mut().apply_edit(Edit::SetBookmarkColor { path: vec![1], color: Some([1.0, 0.0, 0.0]) });
+    h.run_steps(2);
+    h.get_by_label("Edit bookmarks as a list").click();
+    h.run_steps(3);
+    field(&h, "Results").click();
+    h.run_steps(2);
+    h.key_press(Key::Tab);
+    h.run_steps(3);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    field(&h, "Results").type_text("Findings");
+    h.run_steps(2);
+    h.key_press(Key::Enter);
+    h.run_steps(3);
+    // The new row has the focus, at the level of the row above, going to its page.
+    h.get_all_by_label("Bookmark title").last().unwrap().type_text("Appendix");
+    h.run_steps(2);
+    let pages: Vec<_> = h.get_all_by_label("Bookmark page").collect();
+    assert_eq!(pages.len(), 3);
+    pages[2].click();
+    h.run_steps(1);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    h.get_all_by_label("Bookmark page").nth(2).unwrap().type_text("3");
+    h.run_steps(2);
+    h.key_press_modifiers(Modifiers::SHIFT, Key::Tab);
+    h.run_steps(3);
+    assert_eq!(outline(&h), [("Intro".into(), Some(0), 0), ("Results".into(), Some(0), 0)], "nothing changes before Apply");
+    h.get_by_label("Apply").click();
+    h.run_steps(3);
+    assert_eq!(outline(&h), [("Intro".into(), Some(0), 0), ("Findings".into(), Some(0), 1), ("Appendix".into(), Some(2), 0)]);
+    let id = h.state().views[0].id;
+    let doc = h.state().session.get(id).unwrap();
+    assert_eq!(doc.info.outline[0].children[0].color, Some([1.0, 0.0, 0.0]), "the colour is kept");
+    assert_eq!(doc.can_undo(), Some("Edit bookmarks"));
+    h.state_mut().undo();
+    h.run_steps(3);
+    assert_eq!(outline(&h), [("Intro".into(), Some(0), 0), ("Results".into(), Some(0), 0)]);
+}
+
+/// A bad page holds Apply back with the row marked; Cancel drops the list and changes nothing.
+/// A pasted outline becomes rows.
+#[test]
+fn the_list_editor_checks_pages_pastes_outlines_and_cancels() {
+    let mut h = harness();
+    add(&mut h, "Intro");
+    assert!(h.state_mut().execute("bookmark.edit_list"));
+    h.run_steps(3);
+    let page = h.get_by_label("Bookmark page");
+    page.click();
+    h.run_steps(1);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    h.get_by_label("Bookmark page").type_text("9");
+    h.run_steps(3);
+    h.get_by_label("Row 1: There is no page 9: this document has 3 pages.");
+    h.get_by_label("1 row needs fixing before Apply.");
+    h.get_by_label("Paste outline…").click();
+    h.run_steps(2);
+    let text = "Part one 1\n  Chapter 2\nPart two ..... 3";
+    h.get_by_label("Paste outline…"); // still there to close it again
+    let editor = h.get_all_by_role(egui::accesskit::Role::MultilineTextInput).next().expect("the outline field");
+    editor.click();
+    h.run_steps(1);
+    h.get_all_by_role(egui::accesskit::Role::MultilineTextInput).next().unwrap().type_text(text);
+    h.run_steps(2);
+    h.get_by_label("Insert").click();
+    h.run_steps(3);
+    field(&h, "Part one");
+    field(&h, "Chapter 2"); // "Chapter 2" is a title: its number names the chapter
+    field(&h, "Part two");
+    h.get_by_label("Cancel").click();
+    h.run_steps(3);
+    assert!(h.state().bookmark_lists.is_empty());
+    assert_eq!(outline(&h), [("Intro".into(), Some(0), 0)], "Cancel changes nothing");
 }
 
 /// Two pages whose chapter and section headings are set apart only by style (#1693).

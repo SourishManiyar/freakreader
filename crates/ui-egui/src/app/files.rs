@@ -1080,6 +1080,8 @@ impl PdfCraftApp {
             }
             self.placed_signatures.remove(&id);
             self.forget_recovery(id);
+            // Dropping the run stops it at its next page; its result is never shown.
+            self.toc_runs.remove(&id);
             self.session.close(id);
         }
         self.active = match self.active {

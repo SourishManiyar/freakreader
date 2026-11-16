@@ -8,6 +8,11 @@ use super::{
 /// font. Given less room than this, [`egui::Sides::truncate`] cannot cut any further and the label
 /// is painted back over the buttons, which is the defect of #5545; the title is left out instead.
 const TITLE_MIN_WIDTH: f32 = 16.0;
+/// Width of the settings column: its widest row (Size's three choices) fits at the interface's
+/// body size, so the column, and with it the dialog, keeps one width whichever choice is made.
+const SETTINGS_WIDTH: f32 = 530.0;
+/// The whole dialog: the settings, the preview and the gap between them.
+const PRINT_WIDTH: f32 = SETTINGS_WIDTH + 10.0 + PREVIEW_W + 20.0;
 
 /// The panel's own header: "Printer properties" on the left, Done and Reset on the right.
 ///
@@ -113,7 +118,7 @@ pub(crate) fn body(
     labels: &[String],
     thumb: &mut dyn FnMut(usize) -> Option<egui::TextureId>,
 ) -> (bool, bool) {
-    ui.set_width(820.0);
+    ui.set_width(PRINT_WIDTH);
     ui.label(egui::RichText::new(tl!("Print")).font(theme::semibold(18.0)));
     ui.add_space(8.0);
     let settings = d.settings(sizes.len(), labels);
@@ -139,7 +144,7 @@ pub(crate) fn body(
     ui.horizontal_top(|ui| {
         // Settings.
         ui.vertical(|ui| {
-            ui.set_width(470.0);
+            ui.set_width(SETTINGS_WIDTH);
             egui::Grid::new("print-top").num_columns(2).spacing([10.0, 8.0]).show(ui, |ui| {
                 let printer_caption = ui.label(tl!("Printer:"));
                 let before = d.printer.clone();
