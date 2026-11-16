@@ -133,6 +133,8 @@ pub struct Compound {
     pub class: Class,
     /// A function name (`\sin`).
     pub function: bool,
+    /// Where the row's baseline lies below the first part's origin, in ems of the first part's size.
+    pub base: f32,
     pub parts: Vec<Part>,
 }
 
@@ -310,7 +312,7 @@ impl SymbolTable {
                 self.singles.insert((id, code.parse().ok()?), symbol);
             }
             "C" => {
-                let [_, latex, unicode, class, _kind, flags, _env, _tex, parts] = f[..] else { return None };
+                let [_, latex, unicode, class, _kind, flags, _env, _tex, base, parts] = f[..] else { return None };
                 let flags = flags_of(flags)?;
                 let mut out = Vec::new();
                 for p in parts.split(';') {
@@ -332,6 +334,7 @@ impl SymbolTable {
                     unicode: unicode_of(unicode)?,
                     class: class_of(class)?,
                     function: flags.function,
+                    base: base.parse::<f32>().ok()? / 1000.0,
                     parts: out,
                 };
                 self.compounds.entry(key).or_default().push(compound);
@@ -376,6 +379,19 @@ impl SymbolTable {
     /// Every compound.
     pub fn all_compounds(&self) -> impl Iterator<Item = &Compound> {
         self.compounds.values().flatten()
+    }
+
+    /// The sizes of a delimiter family, smallest first: rank, and height plus depth in thousandths
+    /// of an em.
+    pub fn ladder(&self, group: &str) -> Vec<(u8, i16)> {
+        let mut v: Vec<(u8, i16)> = self
+            .singles
+            .values()
+            .flat_map(|s| s.variants.iter().filter(|(g, _)| g == group).map(move |(_, r)| (*r, s.height.saturating_add(s.depth))))
+            .collect();
+        v.sort_unstable();
+        v.dedup_by_key(|x| x.0);
+        v
     }
 
     /// The name of a family id.
@@ -468,7 +484,7 @@ mod tests {
     #[test]
     fn a_damaged_table_loses_lines_not_the_program() {
         let t = SymbolTable::parse(
-            "S\tcmmi\t11\t\\alpha\t03B1\tord\tgreek\t-\t1\t2\t3\t4\ti\t\\alpha\nS\tbroken\nX\tunknown\nC\t\\a\t41\tord\tsym\t-\ti\t\\a\tcmr:1:x\n",
+            "S\tcmmi\t11\t\\alpha\t03B1\tord\tgreek\t-\t1\t2\t3\t4\ti\t\\alpha\nS\tbroken\nX\tunknown\nC\t\\a\t41\tord\tsym\t-\ti\t\\a\t0\tcmr:1:x\n",
         );
         assert_eq!(t.malformed, 3);
         assert!(matches!(t.lookup("cmmi10", 11), Lookup::Known(_)));

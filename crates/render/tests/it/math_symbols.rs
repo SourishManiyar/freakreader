@@ -126,7 +126,7 @@ fn tex_sets_every_table_entry_as_the_table_says() {
                 exact: !f[13].contains("\\vrule"),
             }),
             "C" => {
-                let expect = f[8]
+                let expect = f[9]
                     .split(';')
                     .map(|p| {
                         let a: Vec<&str> = p.split(':').collect();

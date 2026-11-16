@@ -86,7 +86,6 @@
 : i 003A rel sym
 \colon i 003A punct sym
 \ldotp i 002E punct sym
-\cdotp i 22C5 punct sym
 \prime i 2032 ord sym
 \backprime i 2035 ord sym
 \# i 0023 ord sym
@@ -187,6 +186,7 @@
 \smile i 2323 rel sym
 \frown i 2322 rel sym
 \ne i 2260 rel sym
+\not i 0338 rel sym
 \notin i 2209 rel sym
 \leqslant i 2A7D rel sym
 \geqslant i 2A7E rel sym
