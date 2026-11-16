@@ -24,6 +24,7 @@
 use super::MathPage;
 use super::ast::{FractionStyle, Limits, Node, Sizing, Space, Sym};
 use super::symbols::{self, Alphabet, Class, Compound, Kind, Lookup, Role, Symbol, SymbolTable};
+use super::unicode::{self, FontRole, PageKind, Reading};
 use std::collections::HashMap;
 
 /// Most glyphs read from one region.
@@ -269,6 +270,10 @@ impl RuleEl {
 struct Pool {
     els: Vec<El>,
     rules: Vec<RuleEl>,
+    /// What reading the glyphs left in doubt (the Unicode path's choices).
+    notes: Vec<Diagnostic>,
+    /// Some glyph was read from its Unicode text: no metrics, so gaps are measured more loosely.
+    unicode: bool,
 }
 
 fn union(a: [f32; 4], b: [f32; 4]) -> [f32; 4] {
@@ -307,16 +312,22 @@ struct Reader {
     style: Option<Style>,
     /// How many fractions the part being read is inside.
     frac_depth: usize,
+    /// How far a gap may be from TeX's glue and still be it ([`TOL`], [`TOL_UNICODE`]).
+    tol: f32,
+    /// Some glyph was read by its Unicode text: no metrics, and text fonts whose word space is not known.
+    unicode: bool,
 }
 
 /// Recovers the formula drawn in `region` of `page`.
 pub fn recover_latex(page: &MathPage, region: [f32; 4], opts: &RecoverOptions) -> Result<Recovered, RecoverError> {
     let table = symbols::table();
-    let pool = collect(page, region, table)?;
+    let mut pool = collect(page, region, table)?;
     let glyphs = pool.els.len();
     let top = pool.els.iter().filter(|e| !matches!(e.what, What::Block(..))).map(|e| e.size).fold(0.0, f32::max);
     let style = opts.style.or_else(|| style_evidence(&pool.els));
-    let mut reader = Reader { table, diags: Vec::new(), steps: 0, top, style, frac_depth: 0 };
+    let tol = if pool.unicode { TOL_UNICODE } else { TOL };
+    let unicode = pool.unicode;
+    let mut reader = Reader { table, diags: std::mem::take(&mut pool.notes), steps: 0, top, style, frac_depth: 0, tol, unicode };
     let (node, _) = reader.parse_pool(pool, 0)?;
     if node.is_empty() {
         return Err(fail(ErrorKind::NoGlyphs, "nothing was read from the region"));
@@ -364,6 +375,16 @@ fn collect(page: &MathPage, region: [f32; 4], table: &'static SymbolTable) -> R<
         return Err(fail(ErrorKind::NoGlyphs, "no glyph in the region"));
     }
     let mut singles: Vec<(El, u16, u32)> = Vec::with_capacity(inside.len());
+    let page_kind = page_kind_of(page);
+    let delims = page_delims(page);
+    // Letters of a text italic font read as math italic (Times packages): origin, end, baseline, size.
+    let mut text_italic: Vec<(f32, f32, f32, f32)> = Vec::new();
+    // The formula's text size: a large operator of a Unicode font can come from a font scaled up
+    // (mathptmx sets a display `\sum` from the Symbol font at 1.44 times the text size).
+    let text_size =
+        inside.iter().filter(|g| !g.text.as_deref().is_some_and(unicode::is_large)).map(|g| g.size).filter(|s| s.is_finite()).fold(0.0f32, f32::max);
+    let mut notes: Vec<Diagnostic> = Vec::new();
+    let mut unicode_used = false;
     for g in &inside {
         let ink = g.ink.unwrap_or(g.rect);
         let [ex, ey] = g.baseline[1];
@@ -377,13 +398,43 @@ fn collect(page: &MathPage, region: [f32; 4], table: &'static SymbolTable) -> R<
         let font = page.fonts.get(g.font as usize);
         let name = font.and_then(|f| f.name.as_deref().or(f.base_font.as_deref())).unwrap_or("");
         let Some(family) = symbols::family_of(name).and_then(|f| table.family(&f)) else {
-            return Err(RecoverError {
-                kind: ErrorKind::UnknownSymbol,
-                diagnostics: vec![Diagnostic::new(
-                    Severity::Unknown,
-                    format!("font `{name}` is not a math font the symbol table knows (code {})", g.code),
-                )],
-            });
+            // A font the table does not know: read the glyph by its Unicode text.
+            unicode_used = true;
+            let what = match g.text.as_deref().filter(|_| !g.unmapped) {
+                None => What::Unknown(format!("`{name}` code {}: a glyph with no Unicode text", g.code)),
+                Some(text) => match unicode::read(text, unicode::font_role(name), page_kind) {
+                    Reading::Known { symbol, doubt }
+                        if !page_kind.math_italic_text
+                            && unicode::font_role(name) == FontRole::TextItalic
+                            && symbol.symbol.alphabet == Some(Alphabet::Math) =>
+                    {
+                        if let Some(d) = doubt {
+                            notes.push(Diagnostic::new(Severity::Ambiguous, d));
+                        }
+                        text_italic.push((g.baseline[0][0], ex, oy, g.size));
+                        What::Sym(&symbol.symbol)
+                    }
+                    Reading::Unknown(m) => What::Unknown(format!("`{name}`: {m}")),
+                    Reading::Known { symbol, doubt } => {
+                        if let Some(d) = doubt {
+                            notes.push(Diagnostic::new(Severity::Ambiguous, d));
+                        }
+                        let em = if symbol.symbol.class == Class::Large && text_size > 0.0 { g.size.min(text_size) } else { g.size };
+                        let (sym, doubt) = sized(symbol, g, ink, em, &delims);
+                        if let Some(d) = doubt {
+                            notes.push(Diagnostic::new(Severity::Ambiguous, d));
+                        }
+                        What::Sym(sym)
+                    }
+                },
+            };
+            // A large operator measures in the formula's text size, whatever its font was scaled to.
+            let size = match &what {
+                What::Sym(s) if s.class == Class::Large && text_size > 0.0 => g.size.min(text_size),
+                _ => g.size,
+            };
+            singles.push((El { what, x0: g.baseline[0][0], x1: ex, ink, base: oy, size, ic: 0.0 }, UNICODE_FAMILY, g.code));
+            continue;
         };
         let what = match table.lookup_id(family, g.code) {
             Lookup::Known(sym) => What::Sym(sym),
@@ -416,6 +467,9 @@ fn collect(page: &MathPage, region: [f32; 4], table: &'static SymbolTable) -> R<
     }
     let mut els = join_compounds(singles, table);
     join_function_runs(&mut els);
+    if unicode_used {
+        join_dot_runs(&mut els);
+    }
     let unknown: Vec<Diagnostic> =
         els.iter().filter_map(|e| if let What::Unknown(m) = &e.what { Some(Diagnostic::new(Severity::Unknown, m.clone())) } else { None }).collect();
     if !unknown.is_empty() {
@@ -424,6 +478,10 @@ fn collect(page: &MathPage, region: [f32; 4], table: &'static SymbolTable) -> R<
         return Err(RecoverError { kind: ErrorKind::UnknownSymbol, diagnostics: unknown });
     }
     assemble_stacks(&mut els);
+    if let Some(d) = italic_word_doubt(&mut text_italic) {
+        notes.push(d);
+    }
+    notes.dedup();
     let mut rules = Vec::new();
     let tol = 0.5;
     for r in &page.rules {
@@ -442,7 +500,185 @@ fn collect(page: &MathPage, region: [f32; 4], table: &'static SymbolTable) -> R<
         }
         rules.push(RuleEl { rect: r.rect });
     }
-    Ok(Pool { els, rules })
+    Ok(Pool { els, rules, notes, unicode: unicode_used })
+}
+
+/// The family id glyphs read by their Unicode text join compounds under: none (a Unicode font draws
+/// `≠` as one glyph).
+const UNICODE_FAMILY: u16 = u16::MAX;
+
+/// What the whole page says about how its formulas are set ([`PageKind`]).
+fn page_kind_of(page: &MathPage) -> PageKind {
+    let table = symbols::table();
+    let math_font = page.fonts.iter().any(|f| {
+        let name = f.name.as_deref().or(f.base_font.as_deref()).unwrap_or("");
+        symbols::family_of(name).and_then(|n| table.family(&n)).is_none() && unicode::font_role(name) == FontRole::Math
+    });
+    let math_italic_text =
+        page.glyphs.iter().any(|g| !g.unmapped && g.text.as_deref().and_then(|t| t.chars().next()).is_some_and(unicode::is_math_italic));
+    PageKind { math_font, math_italic_text }
+}
+
+/// Ink height in ems below which a delimiter of a Unicode font is its plain size, and from which it
+/// is surely grown; between, the font decides (Fira Math's plain parenthesis is 0.99 em, TeX Gyre
+/// Termes' first larger one 0.98 em).
+const DELIM_PLAIN: f32 = 0.95;
+const DELIM_GROWN: f32 = 1.10;
+/// Ink height in ems below which a large operator of a Unicode font is its text size, and from which
+/// it is its display size (text sizes measured up to 1.14 em, display sizes from 1.33 em).
+const LARGE_TEXT: f32 = 1.15;
+const LARGE_DISPLAY: f32 = 1.25;
+
+/// Ink height of a glyph in ems of its size.
+fn ink_ems(ink: [f32; 4], size: f32) -> f32 {
+    (ink[3] - ink[1]) / size
+}
+
+/// The size of a symbol read by its Unicode text, from its ink: a large operator's text or display
+/// size, a delimiter's plain or grown size. Other glyphs of the same font and text on the page settle
+/// what the ink alone leaves open (a plain parenthesis beside it is shorter). The second value is the
+/// doubt, when one remains.
+fn sized(
+    symbol: &'static unicode::UnicodeSymbol,
+    g: &super::GlyphDetail,
+    ink: [f32; 4],
+    em: f32,
+    others: &PageDelims,
+) -> (&'static Symbol, Option<String>) {
+    let h = ink_ems(ink, em);
+    let latex = &symbol.symbol.latex;
+    if let Some(display) = &symbol.display {
+        return if h >= LARGE_DISPLAY {
+            (display, None)
+        } else if h < LARGE_TEXT {
+            (&symbol.symbol, None)
+        } else {
+            (display, Some(format!("a {latex} {h:.2} em tall: text or display size")))
+        };
+    }
+    let Some(grown) = &symbol.grown else { return (&symbol.symbol, None) };
+    if h >= DELIM_GROWN {
+        return (grown, None);
+    }
+    if h < DELIM_PLAIN {
+        return (&symbol.symbol, None);
+    }
+    // The same character of the same font elsewhere, another glyph: one clearly shorter means this one
+    // has grown, one clearly taller that this one is the plain size.
+    let same: Vec<f32> = g
+        .text
+        .as_ref()
+        .and_then(|t| others.get(&(g.font, t.clone())))
+        .map(|v| v.iter().filter(|(code, size, _)| *code != g.code && (size - g.size).abs() < 0.05 * g.size).map(|(_, _, h)| *h).collect())
+        .unwrap_or_default();
+    if same.iter().any(|o| *o < 0.92 * h) {
+        (grown, None)
+    } else if same.iter().any(|o| *o > 1.08 * h) {
+        (&symbol.symbol, None)
+    } else {
+        (&symbol.symbol, Some(format!("a {latex} {h:.2} em tall: its plain size or a larger one (the font's sizes are not known)")))
+    }
+}
+
+/// The page's glyphs that may be delimiters, by font and text: code, size and ink height in ems. One
+/// pass over the page, at most [`DELIMS_PER_KEY`] kept for each.
+type PageDelims = HashMap<(u32, String), Vec<(u32, f32, f32)>>;
+const DELIMS_PER_KEY: usize = 64;
+
+fn page_delims(page: &MathPage) -> PageDelims {
+    let mut out = PageDelims::new();
+    for g in page.glyphs.iter().filter(|g| !g.unmapped && !g.invisible && g.size > 0.0 && g.size.is_finite()) {
+        let Some(t) = g.text.as_deref() else { continue };
+        let mut chars = t.chars();
+        let (Some(c), None) = (chars.next(), chars.next()) else { continue };
+        if !"()[]{}|/\\\u{2016}\u{2223}\u{2225}\u{27E8}\u{27E9}\u{2308}\u{2309}\u{230A}\u{230B}".contains(c) {
+            continue;
+        }
+        let list = out.entry((g.font, t.to_owned())).or_default();
+        if list.len() < DELIMS_PER_KEY {
+            list.push((g.code, g.size, ink_ems(g.ink.unwrap_or(g.rect), g.size)));
+        }
+    }
+    out
+}
+
+/// Where math italic is the text italic font (mathptmx, txfonts), `\mathit{rank}` and `rank` draw the
+/// same glyphs and differ only by kerns the reader does not know: a run of three or more such letters
+/// set close is a doubt.
+fn italic_word_doubt(letters: &mut [(f32, f32, f32, f32)]) -> Option<Diagnostic> {
+    letters.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let mut run = 1usize;
+    for w in letters.windows(2) {
+        let [(_, end, base, size), (start, _, base2, _)] = w else { continue };
+        if (start - end).abs() < UNICODE_NONE_EM * size && (base - base2).abs() < 0.05 * size {
+            run += 1;
+            if run >= 3 {
+                return Some(Diagnostic::new(
+                    Severity::Ambiguous,
+                    "italic letters of a text font set close together: math italic or \\mathit (they draw the same glyphs)",
+                ));
+            }
+        } else {
+            run = 1;
+        }
+    }
+    None
+}
+
+/// The baseline of the marks under an accent (the first one's).
+fn accent_base(els: &[El]) -> f32 {
+    els.first().map_or(0.0, |e| e.base)
+}
+
+/// Three dots of a Unicode font set one after another, evenly: what `\cdots` and `\ldots` are where a
+/// font has no glyph of its own for them (newtx).
+fn join_dot_runs(els: &mut Vec<El>) {
+    let dot = |e: &El| match &e.what {
+        What::Sym(s) if s.from_unicode && (s.latex == "\\cdot" || s.unicode == ".") => Some(s.unicode.clone()),
+        _ => None,
+    };
+    let mut idx: Vec<usize> = (0..els.len()).filter(|&k| els.get(k).and_then(dot).is_some()).collect();
+    idx.sort_by(|&a, &b| els.get(a).map_or(0.0, |e| e.x0).total_cmp(&els.get(b).map_or(0.0, |e| e.x0)));
+    let mut remove: Vec<usize> = Vec::new();
+    let mut made: Vec<El> = Vec::new();
+    let mut k = 0;
+    while k + 2 < idx.len() {
+        let run: Vec<&El> = idx.iter().skip(k).take(3).filter_map(|&i| els.get(i)).collect();
+        let [a, b, c] = run[..] else { break };
+        let same = dot(a) == dot(b)
+            && dot(b) == dot(c)
+            && [b, c].iter().all(|e| (e.size - a.size).abs() < 0.01 * a.size && (e.base - a.base).abs() < 0.02 * a.size);
+        let (g1, g2) = (b.x0 - a.x0, c.x0 - b.x0);
+        let even = (g1 - g2).abs() < 0.05 && g1 > 0.0 && g1 < 0.6 * a.size;
+        let name = if dot(a).as_deref() == Some(".") { "\\ldots" } else { "\\cdots" };
+        let compound = symbols::table().all_compounds().find(|c| c.latex == name);
+        if let (true, true, Some(compound)) = (same, even, compound) {
+            made.push(El {
+                what: What::Comp(compound),
+                x0: a.x0,
+                x1: c.x1,
+                ink: union(union(a.ink, b.ink), c.ink),
+                base: a.base,
+                size: a.size,
+                ic: 0.0,
+            });
+            remove.extend(idx.iter().skip(k).take(3));
+            k += 3;
+        } else {
+            k += 1;
+        }
+    }
+    if made.is_empty() {
+        return;
+    }
+    remove.sort_unstable();
+    let mut n = 0usize;
+    els.retain(|_| {
+        let keep = remove.binary_search(&n).is_err();
+        n += 1;
+        keep
+    });
+    els.extend(made);
 }
 
 /// Names of functions that are written as upright letters.
@@ -1039,8 +1275,33 @@ impl Reader {
                 x0 = x0.min(e.x0);
                 x1 = x1.max(e.x1 + e.ic);
             }
+            let marks = base.els.len();
+            let base_ink = union_all(&base.els);
+            if sym.from_unicode && marks == 1 {
+                // A font whose wide accent is no wider than a letter (Fira Math) draws `\widehat{xyz}` as
+                // a hat over `y`: letters pressed against the one under the accent leave that open.
+                let tight = |e: &El| {
+                    (e.base - accent_base(&base.els)).abs() < 0.05 * e.size
+                        && (e.x1 - x0).abs().min((e.x0 - x1).abs()) < UNICODE_NONE_EM * e.size
+                        && matches!(&e.what, What::Sym(s) if matches!(s.kind, Kind::Latin | Kind::Greek))
+                };
+                if rest.iter().any(tight) {
+                    self.note(Severity::Ambiguous, format!("an accent {} over one letter of a word: over that letter, or over the word", sym.latex));
+                }
+            }
             let (node, info) = self.parse_pool(base, depth + 1)?;
-            let latex = sym.latex.clone();
+            let mut latex = sym.latex.clone();
+            // A Unicode font draws `\hat` and `\widehat` with one character; over several marks the wide
+            // one spans most of them, the plain one keeps its own small width.
+            if sym.from_unicode && marks > 1 && matches!(latex.as_str(), "\\hat" | "\\tilde") {
+                let width = |i: [f32; 4]| i[2] - i[0];
+                let ratio = base_ink.map_or(0.0, |b| width(accent.ink) / width(b).max(f32::EPSILON));
+                if ratio >= 0.6 {
+                    latex = if latex == "\\hat" { "\\widehat".to_owned() } else { "\\widetilde".to_owned() };
+                } else if ratio > 0.4 {
+                    self.note(Severity::Ambiguous, format!("an accent {:.0}% as wide as what is under it: {latex} or its wide form", ratio * 100.0));
+                }
+            }
             rest.push(El {
                 what: What::Block(Box::new(Node::Accent { accent: latex, base: Box::new(node) }), Class::Ord),
                 x0,
@@ -1262,7 +1523,7 @@ impl Reader {
                 if group.is_empty() {
                     return Ok(None);
                 }
-                let (node, g) = this.parse_pool(Pool { els: group, rules: Vec::new() }, depth + 1)?;
+                let (node, g) = this.parse_pool(Pool { els: group, ..Pool::default() }, depth + 1)?;
                 group_right = group_right.max(g.right);
                 Ok(Some(Box::new(node)))
             };
@@ -1283,6 +1544,13 @@ impl Reader {
                 let display_default = DEFAULT_LIMITS.contains(&s.latex.as_str()) && rank == Some(1);
                 Node::BigOp { op: sym_of(s), sub, sup, limits: Limits::Side, forced: display_default }
             } else {
+                // Scripts beside an operator that already has limits on that side would be written twice
+                // (`\int\limits_{a}_{b}`), which TeX refuses: the reading is wrong, not merely unsure.
+                if let Node::BigOp { sub: op_sub, sup: op_sup, .. } = &nucleus_node
+                    && ((sub.is_some() && op_sub.is_some()) || (sup.is_some() && op_sup.is_some()))
+                {
+                    return Err(fail(ErrorKind::Unsupported, "marks beside and under (or over) a large operator on the same side"));
+                }
                 Node::Scripts { base: Box::new(nucleus_node), sub, sup }
             };
             let alts = match (&node, &nucleus.what) {
@@ -1307,10 +1575,23 @@ impl Reader {
                 alts,
                 pre: pre_glue,
                 post: post_glue,
+                italic: !has_scripts && matches!(&nucleus.what, What::Sym(s) if s.from_unicode && matches!(s.kind, Kind::Latin | Kind::Greek)),
+                overhang: [nucleus.x0 - nucleus.ink[0], if has_scripts { 0.0 } else { nucleus.ink[2] - nucleus.x1 }],
             });
             i += 1;
         }
-        let atoms = merge_runs(atoms);
+        let atoms = merge_runs(atoms, self.unicode);
+        if self.unicode {
+            for a in &atoms {
+                if let Node::Styled { alphabet: Alphabet::Roman, text } = &a.node
+                    && text.chars().count() > 1
+                {
+                    // In a font without metrics the kerns that would tell them apart are not known.
+                    let doubt = format!("upright letters `{text}`: \\mathrm{{{text}}} or \\text{{{text}}}");
+                    self.note(Severity::Ambiguous, doubt);
+                }
+            }
+        }
         let right = atoms.last().map_or(0.0, |a| a.right);
         Ok((self.space(atoms, info), right))
     }
@@ -1403,7 +1684,7 @@ impl Reader {
             return Ok(None);
         }
         let body_ink = union_all(&body_els).unwrap_or(el.ink);
-        let (body, body_info) = self.parse_pool(Pool { els: body_els, rules: Vec::new() }, depth + 1)?;
+        let (body, body_info) = self.parse_pool(Pool { els: body_els, ..Pool::default() }, depth + 1)?;
         let What::Delim(rd) = &right.what else { return Ok(None) };
         let (sizing, either) = self.sizing(d, rd, body_ink, body_info);
         let node = Node::Delimited { left: Some(sym_of_delim(d)), body: Box::new(body), right: Some(sym_of_delim(rd)), sizing };
@@ -1417,6 +1698,15 @@ impl Reader {
     /// sized by hand. Where both fit, the glyphs are the same and only the glue around the pair differs:
     /// the second value is the by-hand size, for the spacing to decide.
     fn sizing(&mut self, left: &Delim, right: &Delim, body_ink: [f32; 4], body: RowInfo) -> (Sizing, Option<u8>) {
+        if left.sym.from_unicode || right.sym.from_unicode {
+            // The size ladder of a Unicode font is not known: \left…\right and \big… are told apart only
+            // by what the glyphs show, which they do not here.
+            self.note(
+                Severity::Ambiguous,
+                "delimiters of a Unicode font grown past their plain size: \\left…\\right or \\big… (the font's sizes are not known)",
+            );
+            return (Sizing::Auto, None);
+        }
         let axis = AXIS * body.size;
         let (h, dp) = (body.base - body_ink[1], body_ink[3] - body.base);
         let delta = (h - axis).max(dp + axis).max(0.0);
@@ -1537,6 +1827,12 @@ struct Atom {
     /// Glue in math units that the reading adds on each side of the atom (what `\colon` adds).
     pre: f32,
     post: f32,
+    /// A letter read by its Unicode text, with no scripts: TeX puts its italic correction after it, which
+    /// the reader does not know.
+    italic: bool,
+    /// How far the nucleus's ink reaches past the left edge of its box and past its right edge, in
+    /// points (a virtual font can draw a glyph away from where TeX's box for it is).
+    overhang: [f32; 2],
 }
 
 /// One reading of a glyph that is more than one command.
@@ -1569,13 +1865,30 @@ fn alternatives(latex: &str) -> &'static [Alt] {
 
 /// Joins neighbouring upright letters that stand close together (`\mathrm{t}\mathrm{r}`); letters a
 /// word space apart make a `\text`.
-fn merge_runs(atoms: Vec<Atom>) -> Vec<Atom> {
+fn merge_runs(atoms: Vec<Atom>, unicode: bool) -> Vec<Atom> {
     let mut out: Vec<Atom> = Vec::with_capacity(atoms.len());
     for atom in atoms {
         if let Some(prev) = out.last_mut() {
             let gap = atom.x0 - prev.plain;
             let tight = gap <= 0.15 * atom.size;
-            let word = (gap - WORD_SPACE * atom.size).abs() <= 0.08 * atom.size;
+            // A kern between two letters of one alphabet: TeX kerns only within one group, so they were
+            // one (`\mathfrak{sl}_2`, not `\mathfrak{s}\mathfrak{l}_2`).
+            if unicode
+                && tight
+                && gap.abs() > KERN_EVIDENCE
+                && let Node::Styled { alphabet, text } = &prev.node
+                && let Node::Scripts { base, sub, sup } = &atom.node
+                && let Node::Styled { alphabet: a2, text: t2 } = base.as_ref()
+                && alphabet == a2
+            {
+                let base = Box::new(Node::Styled { alphabet: *alphabet, text: format!("{text}{t2}") });
+                prev.node = Node::Scripts { base, sub: sub.clone(), sup: sup.clone() };
+                prev.right = atom.right;
+                prev.plain = atom.plain;
+                continue;
+            }
+            // Between two upright words a gap of a word space is one, whatever the text font's own.
+            let word = if unicode { is_unicode_word_space(gap, atom.size) } else { (gap - WORD_SPACE * atom.size).abs() <= 0.08 * atom.size };
             let joined = match (&mut prev.node, &atom.node) {
                 (Node::Styled { alphabet, text }, Node::Styled { alphabet: a2, text: t2 }) if alphabet == a2 && tight => {
                     text.push_str(t2);
@@ -1610,8 +1923,18 @@ fn merge_runs(atoms: Vec<Atom>) -> Vec<Atom> {
     out
 }
 
+/// A gap between two letters larger than this, in big points, is a kern of the font (positions are
+/// written to a thousandth).
+const KERN_EVIDENCE: f32 = 0.05;
+
 /// The word space of a text font, in ems (cmr10's is 1/3).
 const WORD_SPACE: f32 = 1.0 / 3.0;
+
+/// Whether `gap` is a word space of a text font the reader has no metrics for: text fonts' word spaces
+/// lie between a fifth and two fifths of an em.
+fn is_unicode_word_space(gap: f32, size: f32) -> bool {
+    (0.2 * size..=0.4 * size).contains(&gap)
+}
 
 /// TeX's glue between two atoms (the TeXbook's table of spacing, p. 170), in math units, and how much of
 /// it can stretch. `script` is a row in script or scriptscript style, where the entries the table
@@ -1655,9 +1978,110 @@ fn effective_classes(sides: &[(Class, Class)]) -> Vec<(Class, Class)> {
     out
 }
 
+/// A gap between two atoms, measured past TeX's glue, and what reading it needs.
+#[derive(Clone, Copy, Debug)]
+struct Gap {
+    /// The gap beyond TeX's glue, in points.
+    l: f32,
+    /// How much of TeX's glue there can stretch.
+    stretch: f32,
+    mu: f32,
+    em: f32,
+    /// Tolerances for an explicit space and for no space.
+    tol: f32,
+    none: f32,
+    /// The row is in a script style.
+    script: bool,
+}
+
+impl Reader {
+    /// For a gap `l` beyond TeX's glue before an atom of `size`: how far it may be from an explicit space
+    /// and from none and still be it, and whether it is a word space.
+    fn gap_bands(&self, l: f32, size: f32) -> (f32, f32, bool) {
+        if self.unicode {
+            (UNICODE_TOL_EM * size, UNICODE_NONE_EM * size, is_unicode_word_space(l, size))
+        } else {
+            (self.tol, self.tol, (l - WORD_SPACE * size).abs() <= 0.15)
+        }
+    }
+
+    /// The explicit spaces of a gap before atom `i` in a region read by Unicode text, noting a doubt
+    /// where the reading rests on what the font's missing metrics would settle.
+    fn unicode_space(&mut self, atoms: &[Atom], i: usize, g: Gap) -> Vec<Space> {
+        let before = i.checked_sub(1).and_then(|k| atoms.get(k));
+        let at = atoms.get(i);
+        let after_italic = before.is_some_and(|a| a.italic);
+        // Ink well past a glyph's box: where TeX's box was is not where the glyph is drawn.
+        let beyond = 0.1 * at.map_or(g.em, |a| a.size);
+        let overhung = at.is_some_and(|a| a.overhang[0] > beyond) || before.is_some_and(|a| a.overhang[1] > beyond);
+        // A large operator's italic correction, which TeX puts beside it, is not known either.
+        let next_to_op = before.is_some_and(|a| a.class_r == Class::Op) || at.is_some_and(|a| a.class_l == Class::Op);
+        let (spaces, doubt) = unicode_gap(g.l, g.mu, g.em, g.tol, g.none, after_italic);
+        let unsure = g.stretch > 0.0 || g.script || next_to_op || overhung;
+        match doubt {
+            Some(why) => self.note(Severity::Ambiguous, why),
+            None if unsure && !spaces.is_empty() => {
+                self.note(Severity::Ambiguous, format!("a gap of {:.2} pt beyond TeX's glue, read as {} explicit space(s)", g.l, spaces.len()));
+            }
+            None => {}
+        }
+        spaces
+    }
+}
+
+/// How far, in ems of the atom's size, a gap in a region read by Unicode text may be from TeX's glue or
+/// an explicit space and still be it.
+const UNICODE_TOL_EM: f32 = 0.045;
+/// How far from TeX's glue, in ems, a gap in a region read by Unicode text is still no space at all:
+/// wider than [`UNICODE_TOL_EM`], since virtual fonts (newtx) draw glyphs whose advance is not TeX's
+/// width, and the smallest explicit space (`\,`, a sixth of an em) is far from it.
+const UNICODE_NONE_EM: f32 = 0.07;
+/// The largest italic correction a letter of a font without metrics is allowed, in ems (Times italic
+/// `j` and `f` reach about 0.12).
+const ITALIC_ALLOWANCE_EM: f32 = 0.13;
+
+/// Reads a gap beyond TeX's glue in a region read by Unicode text: the explicit spaces that fit it, an
+/// unknown italic correction allowed after a letter. A gap more than one reading fits, or that only an
+/// italic correction explains, comes with a doubt; so does one nothing fits (read as no space).
+fn unicode_gap(l: f32, mu: f32, em: f32, tol: f32, none: f32, after_italic: bool) -> (Vec<Space>, Option<String>) {
+    let readings: [(Vec<Space>, f32); 9] = [
+        (Vec::new(), 0.0),
+        (vec![Space::Thin], 3.0 * mu),
+        (vec![Space::Medium], 4.0 * mu),
+        (vec![Space::Thick], 5.0 * mu),
+        (vec![Space::NegThin], -3.0 * mu),
+        (vec![Space::Thin, Space::Thin], 6.0 * mu),
+        (vec![Space::NegThin, Space::NegThin], -6.0 * mu),
+        (vec![Space::Quad], em),
+        (vec![Space::Qquad], 2.0 * em),
+    ];
+    let allowance = if after_italic { ITALIC_ALLOWANCE_EM * em } else { 0.0 };
+    let band = |w: f32| if w == 0.0 { none } else { tol };
+    let fits: Vec<&(Vec<Space>, f32)> = readings.iter().filter(|(_, w)| l >= w - band(*w) && l <= w + band(*w) + allowance).collect();
+    match fits.as_slice() {
+        [] => (Vec::new(), Some(format!("a gap of {l:.2} pt that is neither TeX's own glue nor an explicit space"))),
+        [(spaces, w)] => {
+            let doubt = if l > w + band(*w) {
+                Some(format!("a gap of {l:.2} pt after a letter: its italic correction (not known) or a space"))
+            } else if spaces.contains(&Space::NegThin) {
+                Some(format!("a gap of {l:.2} pt: a negative space, or a kern of the font"))
+            } else {
+                None
+            };
+            (spaces.clone(), doubt)
+        }
+        many => {
+            // The nearest from below: an italic correction only adds.
+            let best = many.iter().filter(|(_, w)| *w <= l + tol).min_by(|a, b| (l - a.1).abs().total_cmp(&(l - b.1).abs())).or(many.first());
+            let spaces = best.map(|(s, _)| s.clone()).unwrap_or_default();
+            (spaces, Some(format!("a gap of {l:.2} pt that {} readings fit (italic corrections are not known)", many.len())))
+        }
+    }
+}
+
 /// The explicit spaces that make up `amount` (big points): one space, or up to three of one kind
 /// (`\!\!`, `\,\,`); `None` when the amount is none of those.
-fn explicit_spaces(amount: f32, mu: f32, em: f32) -> Option<Vec<Space>> {
+fn explicit_spaces(amount: f32, mu: f32, em: f32, tol: f32) -> Option<Vec<Space>> {
     let kinds: [(Space, f32); 6] = [
         (Space::Qquad, 2.0 * em),
         (Space::Quad, em),
@@ -1668,7 +2092,7 @@ fn explicit_spaces(amount: f32, mu: f32, em: f32) -> Option<Vec<Space>> {
     ];
     for n in 1..=3usize {
         for (space, width) in kinds {
-            if (amount - n as f32 * width).abs() <= 0.15 && !(n > 1 && matches!(space, Space::Quad | Space::Qquad)) {
+            if (amount - n as f32 * width).abs() <= tol && !(n > 1 && matches!(space, Space::Quad | Space::Qquad)) {
                 return Some(vec![space; n]);
             }
         }
@@ -1683,6 +2107,7 @@ impl Reader {
         let mu = info.size / 18.0;
         let em = info.size;
         let script = info.size < 0.86 * self.top;
+        let space_tol = if self.unicode { self.tol } else { 0.15 };
         // How far the gap before atom `i` is from TeX's own glue, and how much of that glue stretches.
         let leftover = |atoms: &[Atom], i: usize| -> Option<(f32, f32)> {
             let (a, b) = (atoms.get(i.checked_sub(1)?)?, atoms.get(i)?);
@@ -1697,9 +2122,9 @@ impl Reader {
                 .iter()
                 .filter_map(|&g| leftover(atoms, g))
                 .map(|(l, _)| {
-                    if l.abs() <= TOL {
+                    if l.abs() <= self.tol {
                         0.0
-                    } else if explicit_spaces(l, mu, em).is_some() {
+                    } else if explicit_spaces(l, mu, em, space_tol).is_some() {
                         1.0
                     } else {
                         3.0
@@ -1759,7 +2184,10 @@ impl Reader {
         let ratios: Vec<f32> = gaps.iter().flatten().filter(|(_, st)| *st > 0.0).map(|(l, st)| l / (st * mu)).collect();
         // One ratio, small, for every stretchable gap: a justified line. Anything else is the author's.
         let (lo, hi) = ratios.iter().fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), r| (lo.min(*r), hi.max(*r)));
-        let stretched = ratios.iter().any(|r| r.abs() > 0.03) && hi - lo <= 0.1 && ratios.iter().all(|r| r.abs() <= 0.5);
+        // Without metrics (the Unicode path) a residue within the tolerance is an italic correction, not
+        // a stretch.
+        let past_tol = !self.unicode || gaps.iter().flatten().any(|(l, st)| *st > 0.0 && l.abs() > self.tol);
+        let stretched = past_tol && ratios.iter().any(|r| r.abs() > 0.03) && hi - lo <= 0.1 && ratios.iter().all(|r| r.abs() <= 0.5);
         if stretched {
             self.note(Severity::Info, "the glue around operators and relations is stretched, as in a justified line");
         }
@@ -1768,11 +2196,19 @@ impl Reader {
         let mut word_after: Vec<bool> = vec![false; atoms.len()];
         for (i, gap) in gaps.iter().enumerate() {
             let Some((l, st)) = *gap else { continue };
-            if l.abs() <= TOL || (stretched && st > 0.0) {
+            let size = atoms.get(i).map_or(em, |a| a.size);
+            let (tol, none, word) = self.gap_bands(l, size);
+            if l.abs() <= none || (stretched && st > 0.0) {
                 continue;
             }
-            let size = atoms.get(i).map_or(em, |a| a.size);
-            let word = (l - WORD_SPACE * size).abs() <= 0.15;
+            let edge_doubt = |this: &mut Self| {
+                if this.unicode {
+                    this.note(
+                        Severity::Ambiguous,
+                        format!("a gap of {l:.2} pt at the edge of upright text: a word space of the text font, or explicit space"),
+                    );
+                }
+            };
             // Upright letters a word space away from their neighbour are a `\text`.
             let as_text = |atoms: &mut Vec<Atom>, k: usize| -> bool {
                 match atoms.get_mut(k).map(|a| &mut a.node) {
@@ -1788,14 +2224,21 @@ impl Reader {
                 }
             };
             if word && as_text(&mut atoms, i) {
+                edge_doubt(self);
                 if let Some(w) = word_before.get_mut(i) {
                     *w = true;
                 }
             } else if word && as_text(&mut atoms, i.saturating_sub(1)) {
+                edge_doubt(self);
                 if let Some(w) = word_after.get_mut(i.saturating_sub(1)) {
                     *w = true;
                 }
-            } else if let Some(spaces) = explicit_spaces(l, mu, em) {
+            } else if self.unicode {
+                let spaces = self.unicode_space(&atoms, i, Gap { l, stretch: st, mu, em, tol, none, script });
+                if let Some(slot) = inserts.get_mut(i) {
+                    *slot = spaces;
+                }
+            } else if let Some(spaces) = explicit_spaces(l, mu, em, space_tol) {
                 // Glue that can stretch may be a justified line's, and spaces in a script are unusual.
                 let thin_run = spaces.iter().all(|s| matches!(s, Space::Thin | Space::NegThin));
                 if st > 0.0 || script || (spaces.len() > 1 && !thin_run) {
@@ -1831,6 +2274,9 @@ impl Reader {
 /// How far a gap may be from TeX's glue and still be it, in big points: positions are written to a
 /// thousandth, and the glue to the sp.
 const TOL: f32 = 0.22;
+/// [`TOL`] for a region with glyphs read by their Unicode text: their italic corrections are not
+/// known, and TeX adds them to the gaps.
+const TOL_UNICODE: f32 = 0.45;
 
 /// Italic correction of an element in ems (what TeX adds to a letter's width, and what a superscript
 /// is shifted right by).

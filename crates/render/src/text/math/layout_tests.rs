@@ -348,3 +348,166 @@ fn fractions_are_ordinary_atoms_to_the_glue() {
     let r = recover_latex(&build(1.66, true), REGION, &display).unwrap();
     assert_eq!(r.latex, "\\frac{a}{b}\\frac{a}{b}\\,d");
 }
+
+// ---- the Unicode path --------------------------------------------------------------------------------
+
+/// A glyph of a font the table does not know, read by its Unicode `text`; ink `height` ems tall.
+fn uglyph(font: u32, text: &str, size: f32, x: f32, y: f32, advance: f32, height: f32) -> GlyphDetail {
+    let mut g = glyph(font, 0, size, x, y, advance);
+    g.text = Some(text.to_owned());
+    g.ink = Some([x, y - 0.75 * height * size, x + advance, y + 0.25 * height * size]);
+    g
+}
+
+/// STIX Two Math is font 0, STIX Two Text font 1.
+fn stix() -> MathPage {
+    page_with_fonts(&["STIXTwoMath-Regular", "STIXTwoText-Regular"])
+}
+
+#[test]
+fn a_unicode_math_font_is_read_by_its_text() {
+    let mut p = stix();
+    // 𝑥 + 1 = 𝛼 at 10 pt: medium glue around +, thick around =.
+    let mu = 10.0 / 18.0;
+    let mut x = 10.0;
+    for (text, w, glue) in [("\u{1D465}", 5.0, 4.0), ("+", 6.0, 4.0), ("1", 5.0, 5.0), ("=", 6.0, 5.0), ("\u{1D6FC}", 5.0, 0.0)] {
+        p.glyphs.push(uglyph(0, text, 10.0, x, 50.0, w, 0.7));
+        x += w + glue * mu;
+    }
+    let r = recover_latex(&p, REGION, &RecoverOptions::default()).unwrap();
+    assert_eq!(r.latex, r"x + 1 = \alpha");
+    assert_eq!(r.confidence, Confidence::Confident, "{:?}", r.diagnostics);
+}
+
+#[test]
+fn a_glyph_without_text_or_of_a_font_that_says_nothing_is_not_guessed() {
+    let mut p = stix();
+    let mut g = uglyph(0, "x", 10.0, 10.0, 50.0, 5.0, 0.7);
+    g.text = None;
+    p.glyphs.push(g);
+    assert_eq!(latex(&p).unwrap_err().kind, ErrorKind::UnknownSymbol);
+    // An `R` of a symbol font (txsym's blackboard R says only "R").
+    let mut p = page_with_fonts(&["txsym"]);
+    p.glyphs.push(uglyph(0, "R", 10.0, 10.0, 50.0, 5.0, 0.7));
+    assert_eq!(latex(&p).unwrap_err().kind, ErrorKind::UnknownSymbol);
+    // An unmapped glyph counts as having no text.
+    let mut p = stix();
+    let mut g = uglyph(0, "+", 10.0, 10.0, 50.0, 5.0, 0.7);
+    g.unmapped = true;
+    p.glyphs.push(g);
+    assert_eq!(latex(&p).unwrap_err().kind, ErrorKind::UnknownSymbol);
+}
+
+#[test]
+fn a_large_operator_of_a_unicode_font_takes_its_size_from_its_ink() {
+    for (height, want) in [(1.0, Style::Text), (1.4, Style::Display)] {
+        let mut p = stix();
+        p.glyphs.push(uglyph(0, "\u{2211}", 10.0, 10.0, 50.0, 10.0, height));
+        let pool = collect(&p, REGION, symbols::table()).unwrap();
+        assert_eq!(style_evidence(&pool.els), Some(want), "{height}");
+    }
+    // Between the two: a doubt.
+    let mut p = stix();
+    p.glyphs.push(uglyph(0, "\u{2211}", 10.0, 10.0, 50.0, 10.0, 1.2));
+    let r = recover_latex(&p, REGION, &RecoverOptions::default()).unwrap();
+    assert_eq!(r.confidence, Confidence::Tentative);
+}
+
+#[test]
+fn grown_delimiters_of_a_unicode_font_are_never_confident() {
+    let mut p = stix();
+    // ( x ) two ems tall: \left…\right or \bigl…\bigr, the font's sizes being unknown.
+    p.glyphs.push(uglyph(0, "(", 10.0, 10.0, 50.0, 4.0, 2.0));
+    p.glyphs.push(uglyph(0, "\u{1D465}", 10.0, 14.0, 50.0, 5.0, 0.7));
+    p.glyphs.push(uglyph(0, ")", 10.0, 19.0, 50.0, 4.0, 2.0));
+    let r = recover_latex(&p, REGION, &RecoverOptions::default()).unwrap();
+    assert_eq!(r.latex, r"\left(x\right)");
+    assert_eq!(r.confidence, Confidence::Tentative);
+    // At its plain size it is a plain parenthesis.
+    let mut p = stix();
+    p.glyphs.push(uglyph(0, "(", 10.0, 10.0, 50.0, 4.0, 0.9));
+    p.glyphs.push(uglyph(0, "\u{1D465}", 10.0, 14.0, 50.0, 5.0, 0.7));
+    p.glyphs.push(uglyph(0, ")", 10.0, 19.0, 50.0, 4.0, 0.9));
+    let r = recover_latex(&p, REGION, &RecoverOptions::default()).unwrap();
+    assert_eq!((r.latex.as_str(), r.confidence), ("(x)", Confidence::Confident), "{:?}", r.diagnostics);
+}
+
+#[test]
+fn a_gap_only_an_unknown_italic_correction_explains_is_a_doubt() {
+    // 𝑗 then 𝑘 with 1 pt between them: the italic correction of 𝑗, or a space; the reader cannot know.
+    let mut p = stix();
+    p.glyphs.push(uglyph(0, "\u{1D457}", 10.0, 10.0, 50.0, 4.0, 0.7));
+    p.glyphs.push(uglyph(0, "\u{1D458}", 10.0, 15.0, 50.0, 5.0, 0.7));
+    let r = recover_latex(&p, REGION, &RecoverOptions::default()).unwrap();
+    assert_eq!(r.latex, "jk");
+    assert_eq!(r.confidence, Confidence::Tentative);
+    // A thin space after a digit (no italic correction) is a thin space.
+    let mut p = stix();
+    p.glyphs.push(uglyph(0, "2", 10.0, 10.0, 50.0, 5.0, 0.7));
+    p.glyphs.push(uglyph(0, "\u{1D465}", 10.0, 15.0 + 3.0 * 10.0 / 18.0, 50.0, 5.0, 0.7));
+    let r = recover_latex(&p, REGION, &RecoverOptions::default()).unwrap();
+    assert_eq!((r.latex.as_str(), r.confidence), (r"2\,x", Confidence::Confident), "{:?}", r.diagnostics);
+}
+
+#[test]
+fn text_letters_take_their_alphabet_from_the_font_and_the_page() {
+    // Times (no Unicode math font, no math italic text on the page): the text italic is math italic.
+    let mut p = page_with_fonts(&["NimbusRomNo9L-ReguItal", "NimbusRomNo9L-Regu", "rtxr"]);
+    p.glyphs.push(uglyph(0, "x", 10.0, 10.0, 50.0, 5.0, 0.7));
+    p.glyphs.push(uglyph(2, "+", 10.0, 15.0 + 4.0 * 10.0 / 18.0, 50.0, 6.0, 0.7));
+    p.glyphs.push(uglyph(1, "1", 10.0, 21.0 + 8.0 * 10.0 / 18.0, 50.0, 5.0, 0.7));
+    assert_eq!(latex(&p).unwrap(), "x + 1");
+    // With unicode-math, the same glyphs of the text fonts are \mathit and \mathrm.
+    let mut p = page_with_fonts(&["STIXTwoText-Italic", "STIXTwoText-Regular", "STIXTwoMath-Regular"]);
+    p.glyphs.push(uglyph(0, "x", 10.0, 10.0, 50.0, 5.0, 0.7));
+    p.glyphs.push(uglyph(2, "+", 10.0, 15.0 + 4.0 * 10.0 / 18.0, 50.0, 6.0, 0.7));
+    p.glyphs.push(uglyph(1, "1", 10.0, 21.0 + 8.0 * 10.0 / 18.0, 50.0, 5.0, 0.7));
+    p.glyphs.push(uglyph(2, "\u{1D466}", 10.0, 100.0, 50.0, 5.0, 0.7));
+    let r = recover_latex(&p, [0.0, 0.0, 60.0, 100.0], &RecoverOptions::default()).unwrap();
+    assert_eq!(r.latex, r"\mathit{x} + \mathrm{1}");
+}
+
+#[test]
+fn three_even_dots_of_a_unicode_font_are_cdots() {
+    let mut p = page_with_fonts(&["txsys"]);
+    for k in 0..3 {
+        p.glyphs.push(uglyph(0, "\u{00B7}", 10.0, 10.0 + 4.35 * k as f32, 50.0, 2.5, 0.1));
+    }
+    assert_eq!(latex(&p).unwrap(), r"\cdots");
+}
+
+#[test]
+fn computer_modern_and_unicode_fonts_mix_in_one_region() {
+    // mathptmx: Times letters with Computer Modern symbols.
+    let mut p = page_with_fonts(&["NimbusRomNo9L-ReguItal", "CMSY10"]);
+    p.glyphs.push(uglyph(0, "a", 10.0, 10.0, 50.0, 5.0, 0.7));
+    // CMSY 0 is the minus sign.
+    p.glyphs.push(glyph(1, 0, 10.0, 15.0 + 4.0 * 10.0 / 18.0, 50.0, 7.78));
+    p.glyphs.push(uglyph(0, "b", 10.0, 22.78 + 8.0 * 10.0 / 18.0, 50.0, 5.0, 0.7));
+    assert_eq!(latex(&p).unwrap(), "a - b");
+}
+
+#[test]
+fn a_large_operator_of_a_scaled_font_measures_in_the_text_size() {
+    // mathptmx: a display ∑ from the Symbol font at 14.35 pt beside a 10 pt summand; the summand is
+    // not its script.
+    let mut p = page_with_fonts(&["StandardSymL", "NimbusRomNo9L-ReguItal"]);
+    p.glyphs.push(uglyph(0, "\u{2211}", 14.35, 10.0, 50.0, 10.2, 1.26 * 9.96 / 14.35));
+    p.glyphs.push(uglyph(1, "k", 9.96, 10.2 + 3.0 * 9.96 / 18.0, 50.0, 4.4, 0.7));
+    let r = recover_latex(&p, REGION, &RecoverOptions::default()).unwrap();
+    assert_eq!(r.latex, r"\sum k");
+}
+
+#[test]
+fn scripts_are_never_written_twice_on_one_side() {
+    // An integral with a mark under it (read as a limit) and another beside it at the same depth: the
+    // reading `\int\limits_{-}_{\infty}` is refused, never answered.
+    let mut p = stix();
+    p.glyphs.push(uglyph(0, "\u{222B}", 10.0, 10.0, 50.0, 10.0, 2.3));
+    p.glyphs.push(uglyph(0, "\u{2212}", 7.0, 13.0, 62.0, 4.0, 0.1));
+    p.glyphs.push(uglyph(0, "\u{221E}", 7.0, 21.5, 62.0, 7.0, 0.5));
+    p.glyphs.push(uglyph(0, "\u{1D465}", 10.0, 30.0, 50.0, 5.0, 0.7));
+    let e = recover_latex(&p, REGION, &RecoverOptions::default()).unwrap_err();
+    assert_eq!(e.kind, ErrorKind::Unsupported, "{e:?}");
+    assert!(e.diagnostics.iter().any(|d| d.message.contains("same side")), "{e:?}");
+}

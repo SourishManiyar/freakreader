@@ -61,6 +61,14 @@ pub enum Alphabet {
     Fraktur,
     /// `\mathcal`.
     Calligraphic,
+    /// `unicode-math`'s `\symbf`: the bold letters of the math font (U+1D400…).
+    SymBold,
+    /// `\symbfit` (U+1D468…).
+    SymBoldItalic,
+    /// `\symsf` (U+1D5A0…).
+    SymSans,
+    /// `\symtt` (U+1D670…).
+    SymMono,
 }
 
 impl Alphabet {
@@ -74,6 +82,10 @@ impl Alphabet {
             Alphabet::Blackboard => Some("\\mathbb"),
             Alphabet::Fraktur => Some("\\mathfrak"),
             Alphabet::Calligraphic => Some("\\mathcal"),
+            Alphabet::SymBold => Some("\\symbf"),
+            Alphabet::SymBoldItalic => Some("\\symbfit"),
+            Alphabet::SymSans => Some("\\symsf"),
+            Alphabet::SymMono => Some("\\symtt"),
         }
     }
 }
@@ -111,6 +123,9 @@ pub struct Symbol {
     pub italic: i16,
     pub height: i16,
     pub depth: i16,
+    /// Read from a glyph's Unicode text ([`super::unicode`]), not from the table: no metrics, and a
+    /// size known only from the glyph's ink.
+    pub from_unicode: bool,
 }
 
 /// One glyph of a [`Compound`].
@@ -308,6 +323,7 @@ impl SymbolTable {
                     italic: metric(italic)?,
                     height: metric(height)?,
                     depth: metric(depth)?,
+                    from_unicode: false,
                 };
                 self.singles.insert((id, code.parse().ok()?), symbol);
             }
