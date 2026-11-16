@@ -137,6 +137,12 @@ impl Tally {
         (self.checked > 0).then(|| self.equal as f64 / self.checked as f64)
     }
 
+    /// The share of the *answered* equations that typeset equal: how often an answer given is right.
+    /// `None` when nothing was answered or nothing checked.
+    pub fn precision(&self) -> Option<f64> {
+        (self.answered > 0 && self.checked > 0).then(|| self.equal as f64 / self.answered as f64)
+    }
+
     pub fn mean_distance(&self) -> Option<f64> {
         (self.distance_count > 0).then(|| self.distance_sum as f64 / self.distance_count as f64)
     }
@@ -147,7 +153,8 @@ impl Tally {
             None => format!("{:>17}", "not run"),
         };
         let distance = self.mean_distance().map_or_else(|| "-".to_owned(), |d| format!("{d:.2}"));
-        format!("  {label:<22} {:>5} {:>8}  {equal}  {:>6}  {distance:>9}\n", self.count, self.answered, self.failed)
+        let precision = self.precision().map_or_else(|| "-".to_owned(), |p| format!("{:.1}%", p * 100.0));
+        format!("  {label:<22} {:>5} {:>8}  {equal}  {precision:>9}  {:>6}  {distance:>9}\n", self.count, self.answered, self.failed)
     }
 }
 
@@ -176,7 +183,8 @@ impl Report {
     pub fn render(&self, name: &str) -> String {
         let mut s = String::new();
         let _ = writeln!(s, "recoverer `{name}`");
-        let header = format!("  {:<22} {:>5} {:>8}  {:>17}  {:>6}  {:>9}\n", "", "n", "answered", "typeset-equal", "failed", "mean edit");
+        let header =
+            format!("  {:<22} {:>5} {:>8}  {:>17}  {:>9}  {:>6}  {:>9}\n", "", "n", "answered", "typeset-equal", "precision", "failed", "mean edit");
         let mut section = |title: &str, rows: Vec<(String, &Tally)>| {
             let _ = writeln!(s, "  by {title}");
             s.push_str(&header);
