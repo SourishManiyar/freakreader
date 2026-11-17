@@ -48,6 +48,7 @@ mod open;
 pub mod open_parameters;
 pub mod optimizer;
 mod page_filter;
+pub mod page_layout;
 mod pictures;
 pub mod print_raster;
 pub mod printcheck;

@@ -23,11 +23,12 @@
 
 mod dvi;
 pub mod faces;
+pub mod layout;
 mod mutate;
 mod score;
 mod truth;
 
-pub use dvi::{DviPage, Item, MAX_ITEMS, MAX_PAGES, Mark, Owner, parse_dvitype};
+pub use dvi::{DviPage, Item, MAX_EVENT_BYTES, MAX_ITEMS, MAX_PAGES, Mark, Owner, parse_dvitype};
 pub use score::{MAX_TOKENS, Mutation, Outcome, Report, Tally, edit_distance, tokens};
 pub use truth::{ALONE, EquationTruth, MAX_SOURCE_BYTES, MutantTruth, PageTruth, TruthSet};
 

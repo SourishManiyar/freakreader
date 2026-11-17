@@ -8,6 +8,7 @@ mod indexed_lookup;
 mod inline_image_ei;
 mod jbig2_invariants;
 mod knockout_backdrop;
+mod layout_oracle;
 mod luminosity_group_space;
 mod math_faces;
 mod math_glyphs;

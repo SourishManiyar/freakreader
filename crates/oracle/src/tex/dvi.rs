@@ -7,6 +7,10 @@
 //! `\special{pdfcraft:eq:ID:begin}` and `…:end` bracket an equation and `pdfcraft:tag:begin`/`end`
 //! bracket an equation number (see [`super::preamble`]); the brackets come out in the order TeX
 //! shipped the material, so membership comes from TeX itself, not from where things landed.
+//!
+//! Document structure (the layout oracle, [`super::layout`]) is bracketed by specials of its own,
+//! `pdfcraft:layout:…`. They are not interpreted here: each is kept as an [`DviPage::events`] entry
+//! with the place in the item sequence where TeX shipped it.
 
 use super::TexError;
 use std::collections::HashMap;
@@ -19,6 +23,8 @@ pub const MAX_ITEMS: usize = 2_000_000;
 pub const MAX_PAGES: usize = 10_000;
 /// Longest equation id accepted in a `\special`.
 pub const MAX_ID_BYTES: usize = 128;
+/// Longest layout special kept, in bytes (after `pdfcraft:layout:`).
+pub const MAX_EVENT_BYTES: usize = 256;
 
 /// What was set: a glyph of a font at a size, or a rule of a width and height.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -71,6 +77,9 @@ pub struct DviPage {
     pub items: Vec<(Item, Owner)>,
     /// The ids of the equations bracketed on the page, in order.
     pub equations: Vec<String>,
+    /// The layout specials (`pdfcraft:layout:TEXT`) shipped on the page, in order: `(n, TEXT)`
+    /// where `n` is how many of [`items`](DviPage::items) were shipped before it.
+    pub events: Vec<(usize, String)>,
 }
 
 impl DviPage {
@@ -217,6 +226,9 @@ pub fn parse_dvitype(listing: &str) -> Result<Vec<DviPage>, TexError> {
         }
         if op == "xxx" {
             special(page, &mut brackets, args, line_no)?;
+            if page.events.len() > MAX_ITEMS {
+                return Err(bad(line_no, format!("more than {MAX_ITEMS} layout specials")));
+            }
         }
         if let Some(x) = last_value(line, " h:=") {
             h = x;
@@ -247,6 +259,13 @@ fn special(page: &mut DviPage, brackets: &mut Brackets, args: &str, line_no: usi
     let (Some(first), Some(last)) = (args.find('\''), args.rfind('\'')) else { return Ok(()) };
     let Some(text) = args.get(first.saturating_add(1)..last) else { return Ok(()) };
     let Some(ours) = text.strip_prefix("pdfcraft:") else { return Ok(()) };
+    if let Some(event) = ours.strip_prefix("layout:") {
+        if event.is_empty() || event.len() > MAX_EVENT_BYTES {
+            return Err(bad(line_no, format!("bad layout special `{text}`")));
+        }
+        page.events.push((page.items.len(), event.to_owned()));
+        return Ok(());
+    }
     match ours {
         "tag:begin" if !brackets.in_tag => brackets.in_tag = true,
         "tag:end" if brackets.in_tag => brackets.in_tag = false,
@@ -334,6 +353,21 @@ level 3:(h=374656,v=200,w=0,x=0,y=0,z=0,hh=68,vv=63)
         assert_eq!(p.equation_items("a").map(|i| i.len()), Some(3));
         assert_eq!(p.equation_items("b"), None);
         assert!(pages[1].items.is_empty());
+    }
+
+    #[test]
+    fn layout_specials_are_kept_in_shipping_order() {
+        let listing = "Font 1: cmr10---loaded at size 655360 DVI units\n1: beginning of page 1\n\
+                       2: xxx 'pdfcraft:layout:par:begin:par:0'\n3: fntnum1 current font is cmr10\n\
+                       4: setchar65 h:=0+1=1\n5: xxx 'pdfcraft:layout:par:end:0'\n6: xxx 'pdfcraft:layout:open:head'\n";
+        let pages = parse_dvitype(listing).unwrap();
+        let p = &pages[0];
+        assert_eq!(p.items.len(), 1);
+        assert_eq!(p.events, [(0, "par:begin:par:0".to_owned()), (1, "par:end:0".to_owned()), (1, "open:head".to_owned())]);
+        let empty = format!("{}2: xxx 'pdfcraft:layout:'\n", &listing[..listing.find("2:").unwrap()]);
+        assert!(parse_dvitype(&empty).unwrap_err().to_string().contains("bad layout special"));
+        let long = format!("{}2: xxx 'pdfcraft:layout:{}'\n", &listing[..listing.find("2:").unwrap()], "x".repeat(MAX_EVENT_BYTES + 1));
+        assert!(parse_dvitype(&long).is_err());
     }
 
     #[test]

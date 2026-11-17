@@ -24,6 +24,7 @@ pub mod file_access;
 mod forms;
 mod hairlines;
 mod layers;
+mod layout;
 mod links;
 #[cfg(feature = "mcp")]
 pub mod mcp;

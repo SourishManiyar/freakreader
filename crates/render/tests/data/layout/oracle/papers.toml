@@ -1,0 +1,384 @@
+# The synthetic papers of the layout oracle (README.md). Written for this repository: the prose is
+# made up by `cargo xtask layout-oracle generate` from the seed and word lists in
+# xtask/src/layout_oracle.rs. Body directives, one per line:
+#   title|author|date|markright TEXT · maketitle · abstract N · section|subsection|subsubsection|section* [TEXT]
+#   appendix · par N [footnote] [noindent] · cont N (no paragraph break: after a display)
+#   display equation|align|gather|display|wide · list itemize|enumerate N · figure|table PLACEMENT [wide] · newpage
+# Papers whose id starts `ho_` are held out: written before the analysis, and read only by their rates.
+# amsart papers use \section alone: amsart's \subsection is run in, which this oracle does not bracket.
+
+[[paper]]
+id = "art10_onecol"
+holdout = false
+class = "article"
+options = ["10pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 101
+body = """
+title Uniform bounds for compact operators
+author A. Writer and B. Reader
+date
+maketitle
+abstract 4
+section Introduction
+par 5
+par 6 footnote
+display equation
+cont 2
+par 4
+subsection Notation
+par 5
+list itemize 3
+par 3
+section Main estimates
+par 6
+display align
+cont 3
+figure t
+par 5 footnote
+subsection A first bound
+par 4
+display equation
+cont 2
+subsection A second bound
+par 6
+table h
+par 5
+section Proofs
+par 7
+display display
+cont 3
+par 6
+subsubsection The case of small norm
+par 5
+section* Acknowledgements
+par 2
+"""
+
+[[paper]]
+id = "art11_twocol"
+holdout = false
+class = "article"
+options = ["11pt", "twocolumn"]
+geometry = "margin=2cm"
+pagestyle = "headings"
+seed = 202
+body = """
+title Averages of measurable functions on dense subspaces
+author C. Author
+date
+maketitle
+section Introduction
+par 5
+par 4 footnote
+display equation
+cont 2
+par 5
+section Background
+par 6
+subsection Measures
+par 5
+display wide
+cont 2
+list enumerate 3
+par 4
+figure t wide
+section Results
+par 6
+display align
+cont 3
+par 5 footnote
+subsection Proof of the bound
+par 7
+display equation
+cont 2
+par 6
+table b
+par 5
+section Remarks
+par 6
+par 5
+"""
+
+[[paper]]
+id = "art12_heads"
+holdout = false
+class = "article"
+options = ["12pt"]
+geometry = "left=1.2in,right=1.2in,top=1.1in,bottom=1.1in"
+pagestyle = "myheadings"
+seed = 303
+body = """
+markright Stable kernels and their limits
+title Stable kernels and their limits
+author D. Someone
+date
+maketitle
+abstract 3
+section Setting
+par 5
+subsection Kernels
+par 4
+display gather
+cont 1
+subsubsection Symmetric kernels
+par 4 footnote
+subsubsection Positive kernels
+par 5
+section Limits
+par 6
+display equation
+cont 3
+figure h
+par 5
+appendix
+section Auxiliary estimates
+par 5
+display equation
+cont 2
+subsection A lemma
+par 4
+"""
+
+[[paper]]
+id = "ams_onecol"
+holdout = false
+class = "amsart"
+options = ["10pt"]
+pagestyle = "headings"
+seed = 404
+body = """
+title Invariant measures of periodic maps
+author E. Writer
+date
+abstract 4
+maketitle
+section Introduction
+par 6
+par 5 footnote
+display equation
+cont 2
+section Preliminaries
+par 5
+list enumerate 3
+par 4
+display align
+cont 2
+section The main result
+par 6
+figure t
+par 5
+display equation
+cont 3
+section* Notes
+par 3
+appendix
+section Computations
+par 5
+"""
+
+[[paper]]
+id = "art10_note"
+holdout = false
+class = "article"
+options = ["10pt"]
+geometry = "margin=1.25in"
+pagestyle = "empty"
+seed = 505
+body = """
+section* A short note on convex sequences
+par 5
+display equation
+cont 2
+par 4
+"""
+
+[[paper]]
+id = "art10_twolong"
+holdout = false
+class = "article"
+options = ["10pt", "twocolumn"]
+pagestyle = "plain"
+seed = 606
+body = """
+title Weak limits of admissible processes
+author F. Person and G. Person
+date
+maketitle
+section Introduction
+par 7
+par 6 footnote
+par 5
+display equation
+cont 3
+section Definitions
+par 6
+subsection Processes
+par 5
+list itemize 4
+par 6
+display align
+cont 2
+subsection Limits
+par 7 footnote
+figure t
+par 6
+section Estimates
+par 8
+display wide
+cont 2
+par 7
+table t
+par 6
+subsection Uniform estimates
+par 7
+display equation
+cont 3
+par 6
+figure t wide
+section Proofs
+par 8
+par 7
+display gather
+cont 2
+par 7
+subsection Proof of the first theorem
+par 8
+par 6
+subsection Proof of the second theorem
+par 7
+display equation
+cont 2
+section Open questions
+par 6
+list enumerate 3
+par 5
+"""
+
+# --- Held out ---------------------------------------------------------------------------------
+
+[[paper]]
+id = "ho_ams_wide"
+holdout = true
+class = "amsart"
+options = ["11pt"]
+geometry = "left=1.5in,right=1.0in,top=1in,bottom=1in"
+pagestyle = "headings"
+seed = 707
+body = """
+title Regular partitions of convex domains
+author H. Writer
+date
+abstract 3
+maketitle
+section Introduction
+par 6 footnote
+display equation
+cont 2
+par 5
+section Partitions
+par 6
+display align
+cont 2
+table t
+par 5
+section Regularity
+par 6
+list itemize 3
+par 5
+display equation
+cont 3
+appendix
+section Two lemmas
+par 5
+"""
+
+[[paper]]
+id = "ho_art12_twocol"
+holdout = true
+class = "article"
+options = ["12pt", "twocolumn"]
+geometry = "margin=0.75in"
+pagestyle = "myheadings"
+seed = 808
+body = """
+markright Natural graphs of smooth maps
+title Natural graphs of smooth maps
+author I. Someone
+date
+maketitle
+section Introduction
+par 6
+par 5 footnote
+display equation
+cont 2
+subsection Outline
+par 5
+section Graphs
+par 6
+display wide
+cont 2
+figure t wide
+par 6
+subsection Local graphs
+par 5 footnote
+display align
+cont 2
+par 6
+section Conclusion
+par 5
+"""
+
+[[paper]]
+id = "ho_art11_onecol"
+holdout = true
+class = "article"
+options = ["11pt"]
+geometry = "margin=1.4in"
+pagestyle = "headings"
+seed = 909
+body = """
+title Reduced spectra of normal matrices
+author J. Writer
+date
+maketitle
+abstract 5
+section Introduction
+par 6
+display equation
+cont 2
+section Spectra
+par 5 footnote
+subsection Normal matrices
+par 6
+display gather
+cont 2
+subsubsection Small matrices
+par 4
+table h
+section* Further remarks
+par 4
+appendix
+section Tables
+par 4
+"""
+
+[[paper]]
+id = "ho_ams_note"
+holdout = true
+class = "amsart"
+options = ["12pt"]
+pagestyle = "plain"
+seed = 1010
+body = """
+title A remark on periodic series
+author K. Person
+date
+maketitle
+section The remark
+par 5
+display equation
+cont 2
+par 4 footnote
+"""
