@@ -18,6 +18,7 @@ mod math_symbols;
 mod named_form_properties;
 mod nonseparable_gray;
 mod open_type_cff_simple_font;
+mod refs_oracle;
 mod rotated_image_snap;
 mod search;
 mod separation_all;
