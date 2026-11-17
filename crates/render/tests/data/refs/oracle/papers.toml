@@ -384,6 +384,79 @@ say fig:h auto
 """
 
 [[paper]]
+id = "art10_traps"
+holdout = false
+class = "article"
+options = ["10pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 1107
+heads = "bold"
+numbering = "global"
+shared = false
+qed = "open"
+hyperref = false
+body = """
+section label=sec:t1 Counters that meet
+par 3
+display equation label=eq:t1
+cont 1
+display equation label=eq:t2
+cont 1
+begin lemma label=lem:t1 2
+list enumerate 3 paren
+end
+proof nomark 2
+say noise case
+end
+par 3
+say noise case
+begin theorem label=thm:t1 2
+end
+proof nomark 2
+say lem:t1
+end
+par 3
+say eq:t2 bare
+begin proposition label=prop:t1 2
+end
+begin corollary label=cor:t1 2
+end
+proof nomark 2
+say prop:t1
+end
+par 3
+say thm:t1
+say cor:t1
+say noise case
+section label=sec:t2 More of the same
+par 2
+begin lemma label=lem:t2 2
+list enumerate 2 paren
+end
+proof nomark 2
+say lem:t1 abbr
+end
+par 3
+say lem:t1+lem:t2 and
+say thm:t1 abbr
+say prop:t1 extra
+say eq:t1 bare
+say noise case
+begin theorem label=thm:t2 2
+end
+proof of=thm:t2 nomark 2
+say lem:t2
+say eq:t1
+end
+par 3
+say thm:t2
+say ext thm:t1
+say missing Proposition 3
+say noise interval
+"""
+
+[[paper]]
 id = "ho_ams12_caps"
 holdout = true
 class = "amsart"

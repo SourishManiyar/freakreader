@@ -3628,7 +3628,7 @@ licence = "(MIT OR Apache-2.0) AND OFL-1.1"
 licence_file = "crates/render/tests/data/math/OFL-AMSFonts.txt"
 kind = "document"
 usage = "Reference-oracle tests and report (crates/render/tests/it/refs_oracle.rs, crates/render/examples/refs_oracle.rs) and the reference tools' tests: pages whose statements, proofs and mentions are known from the DVI"
-sha256 = "f3239d279e080b81f3e4108e9276c0075552bdca600804c2fbccd338cc938500"
+sha256 = "98917ec30b3128dc2a2ac8b42a7fb856d9b7fc596442116828c2f0be5ef73ffa"
 
 [[asset]]
 path = "crates/render/tests/data/refs/oracle/ams11_sec.pdf"
@@ -3639,7 +3639,18 @@ licence = "(MIT OR Apache-2.0) AND OFL-1.1"
 licence_file = "crates/render/tests/data/math/OFL-AMSFonts.txt"
 kind = "document"
 usage = "Reference-oracle tests and report (crates/render/tests/it/refs_oracle.rs, crates/render/examples/refs_oracle.rs) and the reference tools' tests: pages whose statements, proofs and mentions are known from the DVI"
-sha256 = "281f2011e22818d01d9680a440b631677f0fad8503484e48915113279860ede4"
+sha256 = "107ea052aacab87c6faff66012f4693db472f03299389a641e673552035f37e4"
+
+[[asset]]
+path = "crates/render/tests/data/refs/oracle/art10_traps.pdf"
+title = "Reference oracle: synthetic paper art10_traps (made-up mathematics with amsthm statements, proofs and cross-references, typeset to test statement and reference detection)"
+author = "PdfCraft contributors (typeset from art10_traps.tex with pdfTeX); embedded Computer Modern and AMS symbol Type 1 subsets by the American Mathematical Society"
+source = "Contributor-original LaTeX source (crates/render/tests/data/refs/oracle/art10_traps.tex, generated from crates/render/tests/data/refs/oracle/papers.toml by `cargo xtask refs-oracle generate`, prose from the seeded word lists in xtask/src/layout_oracle.rs), compiled with TeX Live 2023 (pdfTeX 1.40.25); the embedded font subsets come from the TeX Live amsfonts package 3.04 (https://ctan.org/pkg/amsfonts)"
+licence = "(MIT OR Apache-2.0) AND OFL-1.1"
+licence_file = "crates/render/tests/data/math/OFL-AMSFonts.txt"
+kind = "document"
+usage = "Reference-oracle tests and report (crates/render/tests/it/refs_oracle.rs, crates/render/examples/refs_oracle.rs) and the reference tools' tests: pages whose statements, proofs and mentions are known from the DVI"
+sha256 = "9a9a62e7d109973b2c6964ba3c525341c0e26f5f5202901b17b55cc1706be9dd"
 
 [[asset]]
 path = "crates/render/tests/data/refs/oracle/art10_twocol.pdf"
@@ -3650,7 +3661,7 @@ licence = "(MIT OR Apache-2.0) AND OFL-1.1"
 licence_file = "crates/render/tests/data/math/OFL-AMSFonts.txt"
 kind = "document"
 usage = "Reference-oracle tests and report (crates/render/tests/it/refs_oracle.rs, crates/render/examples/refs_oracle.rs) and the reference tools' tests: pages whose statements, proofs and mentions are known from the DVI"
-sha256 = "7c26b15ad431170d48908465e29f0221cc748da29d69448d5b4ef6d0e1f0efa2"
+sha256 = "5cef602e82acb22f4818605dd59488f248ad1e3b20ea16c57b509b15ecb7e766"
 
 [[asset]]
 path = "crates/render/tests/data/refs/oracle/art11_hyper.pdf"
@@ -3672,7 +3683,7 @@ licence = "(MIT OR Apache-2.0) AND OFL-1.1"
 licence_file = "crates/render/tests/data/math/OFL-AMSFonts.txt"
 kind = "document"
 usage = "Reference-oracle tests and report (crates/render/tests/it/refs_oracle.rs, crates/render/examples/refs_oracle.rs) and the reference tools' tests: pages whose statements, proofs and mentions are known from the DVI"
-sha256 = "aeaf0cb7211a4bec9263fad0eb720fc2175d02a906897b06df5dc29952202cfe"
+sha256 = "65d8b382e94bb2614a587d290cbb81b2b6f6d9118a8cc0032ca9b60e26d80ed8"
 
 [[asset]]
 path = "crates/render/tests/data/refs/oracle/art12_italic.pdf"
@@ -3683,7 +3694,7 @@ licence = "(MIT OR Apache-2.0) AND OFL-1.1"
 licence_file = "crates/render/tests/data/math/OFL-AMSFonts.txt"
 kind = "document"
 usage = "Reference-oracle tests and report (crates/render/tests/it/refs_oracle.rs, crates/render/examples/refs_oracle.rs) and the reference tools' tests: pages whose statements, proofs and mentions are known from the DVI"
-sha256 = "1d70663807d40caaab3b434bc086adb4f4c5bafa98f071e969afbde71741ec80"
+sha256 = "150efe7496842fdf786ab3a75f78340c9a825fb0c9aaf2e91008893441075786"
 
 [[asset]]
 path = "crates/render/tests/data/refs/oracle/ho_ams10_hyper.pdf"
@@ -3705,7 +3716,7 @@ licence = "(MIT OR Apache-2.0) AND OFL-1.1"
 licence_file = "crates/render/tests/data/math/OFL-AMSFonts.txt"
 kind = "document"
 usage = "Reference-oracle tests and report (crates/render/tests/it/refs_oracle.rs, crates/render/examples/refs_oracle.rs) and the reference tools' tests: pages whose statements, proofs and mentions are known from the DVI"
-sha256 = "ce37fc808a35baee3e798492bba1de92a84962b16208ac294d2be7ecaf89e01e"
+sha256 = "d5282b793caaf09131d5850486e6ac99c1a3dd68a0fa276ff034cddcaa0ac17b"
 
 [[asset]]
 path = "crates/render/tests/data/refs/oracle/ho_art10_italic2col.pdf"
@@ -3716,7 +3727,7 @@ licence = "(MIT OR Apache-2.0) AND OFL-1.1"
 licence_file = "crates/render/tests/data/math/OFL-AMSFonts.txt"
 kind = "document"
 usage = "Reference-oracle tests and report (crates/render/tests/it/refs_oracle.rs, crates/render/examples/refs_oracle.rs) and the reference tools' tests: pages whose statements, proofs and mentions are known from the DVI"
-sha256 = "c55f209d4a031dd15da829b02ea4b5de826a0c808931b15d1a66b837c5e0fb79"
+sha256 = "e84a0e34314d34e8747b6ed9bc9d73830567502cee63717094403d3d8ec835f0"
 
 [[asset]]
 path = "crates/render/tests/data/refs/oracle/ho_art12_mixed.pdf"
@@ -3738,4 +3749,4 @@ licence = "MIT OR Apache-2.0"
 licence_file = "LICENSE-MIT"
 kind = "data"
 usage = "Expected statements, proofs, mentions and targets for the reference-oracle tests and report (crates/render/tests/it/refs_oracle.rs)"
-sha256 = "c2a0d968843ec3a7ce7bb36dbbc15feadaab92aed8a8b03d88ba21a62cbc442d"
+sha256 = "f6d8bdf2194e89dd0274914e5a8be051155afb4ea0ee0041d4edb2b1f885f204"
