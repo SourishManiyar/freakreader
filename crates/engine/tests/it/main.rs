@@ -13,4 +13,5 @@ mod office_export_images;
 mod private_image_resize;
 mod private_text_glyphs;
 mod reference_blocks;
+mod reference_graph;
 mod xfa_repeat;

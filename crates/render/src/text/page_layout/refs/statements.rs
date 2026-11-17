@@ -300,10 +300,12 @@ pub(super) fn find(pages: &[PageWords], out: &mut References) {
     let mut used: HashSet<usize> = HashSet::new();
     let head_at = |at: usize| -> Option<Head> {
         let l = flow.line(at)?;
-        if !text_kind(l.kind) || l.kind == BlockKind::DisplayEquation || !flow.starts_paragraph(at) {
+        if !(text_kind(l.kind) || l.kind == BlockKind::Heading) || l.kind == BlockKind::DisplayEquation || !flow.starts_paragraph(at) {
             return None;
         }
-        parse_head(&l.words)
+        // A short statement whose head is bold can look like a heading to the layout: it is a
+        // statement when body text follows its head on the line.
+        parse_head(&l.words).filter(|h| l.kind != BlockKind::Heading || (h.number.is_some() && l.words.len() > h.words))
     };
     let mut at = 0;
     while at < n {

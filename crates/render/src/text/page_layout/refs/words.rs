@@ -90,7 +90,11 @@ fn words_of(line: &Line, page: &MathPage, budget: &mut usize) -> Built {
         w.starts.push(w.text.len());
         w.glyphs.push(g);
         w.spans.push([r[0], r[2]]);
-        if let Some(text) = gd.text.as_deref() {
+        // A big operator or delimiter (CMEX) between letters is no part of the word's text: an
+        // inline sum the layout drew into a number (`2∑.2.`) would hide it.
+        let font_name = page.fonts.get(gd.font as usize).and_then(|f| f.name.as_deref()).unwrap_or("");
+        let big = font_name.get(..4).is_some_and(|p| p.eq_ignore_ascii_case("CMEX"));
+        if let Some(text) = gd.text.as_deref().filter(|_| !big) {
             spell(text, &mut w.text);
         }
         union(&mut w.rect, &r);
