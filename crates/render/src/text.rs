@@ -408,6 +408,7 @@ mod device;
 mod layout;
 pub mod math;
 mod order;
+pub mod page_layout;
 
 use device::{CELL_GAP, WORD_GAP};
 #[cfg(test)]
