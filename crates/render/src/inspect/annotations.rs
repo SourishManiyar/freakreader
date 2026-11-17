@@ -318,8 +318,10 @@ impl<'a> Inspector<'a> {
         unfit_quads: &mut HashSet<ObjectId>,
     ) -> Option<Link> {
         let rect = rect4(self.resolve(d.get(b"Rect").ok()?));
+        let mut dest_name = None;
         let target = if let Ok(dest) = d.get(b"Dest") {
             let (page, view) = self.dest(dest, 0)?;
+            dest_name = self.dest_name(dest, text_budget);
             LinkTarget::Page(page, view)
         } else {
             match self.action_target(d.get(b"A").ok().and_then(|a| self.dict(a))?, text_budget)? {
@@ -332,6 +334,12 @@ impl<'a> Inspector<'a> {
                     }
                     _ => LinkTarget::Uri(uri),
                 },
+                // A go-to's `/D` may be a name too (§12.6.4.2).
+                target @ LinkTarget::Page(..) => {
+                    let action = d.get(b"A").ok().and_then(|a| self.dict(a));
+                    dest_name = action.and_then(|a| a.get(b"D").ok()).and_then(|dest| self.dest_name(dest, text_budget));
+                    target
+                }
                 other => other,
             }
         };
@@ -362,7 +370,7 @@ impl<'a> Inspector<'a> {
             }
             _ => Vec::new(),
         };
-        Some(Link { page, index, rect, quads, target })
+        Some(Link { page, index, rect, quads, target, dest_name })
     }
 
     /// Lists the link annotation `d`, and notes the JavaScript it runs. JavaScript is read from the

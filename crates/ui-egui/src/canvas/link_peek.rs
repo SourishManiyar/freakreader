@@ -1,18 +1,24 @@
-//! The reference preview: with the Select tool, a right-click on a link to a place in this
-//! document (a theorem, an equation, a cited work) shows that place in a small window by the link,
-//! so the reader can look without leaving the page they are on. Another right-click closes it, as
-//! does Escape (`app/keys.rs`); a click on the preview goes there.
+//! The reference preview: with the Select tool, resting the pointer on a link to a place in this
+//! document (a theorem, an equation, a cited work) for [`HOVER_DELAY`], or a right-click on it,
+//! shows that place in a small window by the link, so the reader can look without leaving the
+//! page they are on. A preview the pointer opened closes [`HOVER_GRACE`] after the pointer leaves
+//! the link and the window, so the pointer can cross to the window; one a right-click opened
+//! stays. Another right-click closes it, as does Escape (`app/keys.rs`); a click on the preview
+//! goes there. Preferences ▸ Documents and view turns the pointer's previews off.
 //!
-//! What is shown is the engine's band of the target page ([`pdfcraft_engine::link_preview`]),
-//! drawn by a render thread of its own ([`RenderPool::companion`]) with the page view's settings,
-//! so the page view's queue, which it replaces every frame, is left alone. The preview closes when
-//! the document changes (its pages may be gone), when a dialog comes over the pages, and when its
-//! link's page leaves the screen.
+//! What is shown is the block the destination names ([`pdfcraft_engine::link_preview`]): the
+//! target page's glyphs are read first, then the block is drawn, both by a render thread of its
+//! own ([`RenderPool::companion`]) with the page view's settings, so the page view's queue,
+//! which it replaces every frame, is left alone. Each request replaces the one before. The
+//! window shows once the block is known (or [`GLYPHS_PATIENCE`] has passed, and the band below
+//! the destination shows). The preview closes when the document changes (its pages may be
+//! gone), when a dialog comes over the pages, and when its link's page leaves the screen; the
+//! pointer's also while the pages scroll, zoom or are dragged.
 
 use egui::emath::GuiRounding as _;
 use egui::{Align2, Color32, CornerRadius, Pos2, Rect, Sense, Stroke, Vec2, pos2, vec2};
-use pdfcraft_engine::link_preview::{LinkPreview, link_preview};
-use pdfcraft_render::{DestView, DocInfo, LinkTarget, RenderPool, RenderRequest, Tile};
+use pdfcraft_engine::link_preview::{LinkPreview, RefKind, link_preview};
+use pdfcraft_render::{DestView, DocInfo, LinkTarget, PageInfo, RenderPool, RenderRequest, RequestKind, Tile};
 
 use super::DocView;
 use crate::theme::{self, Tokens};
@@ -34,6 +40,52 @@ const PAD: f32 = 8.0;
 const CAPTION_GAP: f32 = 6.0;
 /// The longest side of the rendered picture, in device pixels (the renderer's tile limit).
 const MAX_SIDE: f32 = 4096.0;
+/// How long the pointer rests on a link before its preview opens, in seconds: long enough that
+/// moving across a page of references opens none, as a tooltip waits.
+pub const HOVER_DELAY: f64 = 0.4;
+/// How long a preview the pointer opened stays after the pointer leaves its link and its window,
+/// in seconds: time to cross the gap between them.
+pub const HOVER_GRACE: f64 = 0.3;
+/// How long the window waits for the target page's glyphs before it shows the band below the
+/// destination instead, in seconds.
+pub const GLYPHS_PATIENCE: f64 = 0.5;
+/// The tag of the glyph request: a picture's tag is its scale in thousandths, never this.
+const GLYPHS_TAG: u64 = u64::MAX;
+
+/// A link to a place in this document under the pointer: its page, its index in that page's
+/// `/Annots` (both 0-based), and where it is on screen.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Pointed {
+    pub page: usize,
+    pub index: usize,
+    pub on_screen: Rect,
+}
+
+/// The pointer's previews: the link it rests on and since when, and a link whose preview was
+/// closed while the pointer is on it (which does not open again until the pointer leaves it).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct LinkHover {
+    resting: Option<(Pointed, f64)>,
+    dismissed: Option<(usize, usize)>,
+}
+
+impl LinkHover {
+    /// The preview of link `source` (page, `/Annots` index) was closed: it does not open again
+    /// while the pointer stays on the link.
+    pub fn dismiss(&mut self, source: (usize, usize)) {
+        self.resting = None;
+        self.dismissed = Some(source);
+    }
+}
+
+/// What opened a preview.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Trigger {
+    /// The pointer rested on the link: the preview closes when the pointer goes.
+    Hover,
+    /// A right-click: the preview stays until closed.
+    Click,
+}
 
 /// A preview on screen: the link it belongs to, what it shows, and the picture once drawn.
 pub struct LinkPeek {
@@ -47,6 +99,20 @@ pub struct LinkPeek {
     dest: DestView,
     /// The target page's label, for the caption.
     label: String,
+    /// The target page, for fitting the area to its glyphs.
+    target_page: PageInfo,
+    /// What opened the preview.
+    trigger: Trigger,
+    /// When the target page's glyphs were asked for (`ctx` time, seconds).
+    glyphs_asked: Option<f64>,
+    /// The area is final: fitted to the block, or the band once the glyphs failed or were slow.
+    settled: bool,
+    /// Where the link was on screen when the pointer opened the preview.
+    opened_at: Option<Rect>,
+    /// When the pointer left the link and the window, while it stays away.
+    left_at: Option<f64>,
+    /// The pointer was over the window last frame.
+    pointer_inside: bool,
     /// The document's edit generation the preview was made from.
     generation: u64,
     pool: RenderPool,
@@ -66,17 +132,24 @@ impl std::fmt::Debug for LinkPeek {
 impl LinkPeek {
     /// The preview of the link at `/Annots` index `index` on `page`, when it goes to a page of
     /// this document.
-    pub(crate) fn open(doc: &pdfcraft_engine::Document, page: usize, index: usize) -> Option<Self> {
+    pub(crate) fn open(doc: &pdfcraft_engine::Document, page: usize, index: usize, trigger: Trigger) -> Option<Self> {
         let preview = link_preview(&doc.info, page, index)?;
         let link = doc.info.links.iter().find(|l| l.page == page && l.index == index)?;
         let LinkTarget::Page(_, dest) = link.target else { return None };
-        let label = doc.info.pages.get(preview.page)?.label.clone();
+        let target_page = doc.info.pages.get(preview.page)?.clone();
         Some(Self {
             source: (page, index),
             link_rect: link.rect,
             preview,
             dest,
-            label,
+            label: target_page.label.clone(),
+            target_page,
+            trigger,
+            glyphs_asked: None,
+            settled: false,
+            opened_at: None,
+            left_at: None,
+            pointer_inside: false,
             generation: doc.edit_generation(),
             pool: doc.renderer.companion(),
             asked: None,
@@ -92,8 +165,8 @@ impl LinkPeek {
     }
 
     /// The part of the document shown.
-    pub fn preview(&self) -> LinkPreview {
-        self.preview
+    pub fn preview(&self) -> &LinkPreview {
+        &self.preview
     }
 
     /// Whether the picture has come back from the renderer.
@@ -104,6 +177,71 @@ impl LinkPeek {
     /// Whether the renderer could not draw the area.
     pub fn failed(&self) -> bool {
         self.failed
+    }
+
+    /// What opened the preview.
+    pub fn trigger(&self) -> Trigger {
+        self.trigger
+    }
+
+    /// Whether the area is final (the block, or the band), so the window shows.
+    pub fn settled(&self) -> bool {
+        self.settled
+    }
+
+    /// What the window's caption says: the kind and number the destination's name gives with the
+    /// target page's label ("Equation 4.7 · page 12"), else where it goes. A statement's or a
+    /// citation's first words say what it is, on the picture itself.
+    pub fn caption(&self) -> String {
+        let p = self.label.as_str();
+        let template = match (self.preview.reference.kind, self.preview.reference.number.as_deref()) {
+            (_, None) => None,
+            (RefKind::Equation, Some(_)) => Some(tl!("Equation {n} · page {p}")),
+            (RefKind::Section, Some(_)) => Some(tl!("Section {n} · page {p}")),
+            (RefKind::Figure, Some(_)) => Some(tl!("Figure {n} · page {p}")),
+            (RefKind::Table, Some(_)) => Some(tl!("Table {n} · page {p}")),
+            (RefKind::Item, Some(_)) => Some(tl!("Item {n} · page {p}")),
+            (RefKind::TheoremLike | RefKind::Citation | RefKind::Page | RefKind::Unknown, Some(_)) => None,
+        };
+        match (template, self.preview.reference.number.as_deref()) {
+            (Some(template), Some(n)) => crate::i18n::fmt(template, &[("n", n), ("p", p)]),
+            _ => crate::i18n::fmt(tl!("Go to page {p}"), &[("p", p)]),
+        }
+    }
+
+    /// Settle the area, at `now` (seconds): ask for the target page's glyphs once, fit the area
+    /// to the block when they come back, and give up on them after [`GLYPHS_PATIENCE`]. `true`
+    /// once the area is final.
+    fn settle(&mut self, now: f64) -> bool {
+        if self.settled {
+            return true;
+        }
+        let Some(asked) = self.glyphs_asked else {
+            if !self.preview.wants_glyphs() {
+                self.settled = true;
+                return true;
+            }
+            let request = RenderRequest { page: self.preview.page, kind: RequestKind::Glyphs, tag: GLYPHS_TAG, ..Default::default() };
+            self.pool.set_queue(vec![request]);
+            self.glyphs_asked = Some(now);
+            return false;
+        };
+        while let Some(out) = self.pool.try_recv() {
+            if out.request.tag != GLYPHS_TAG {
+                continue;
+            }
+            // Glyphs that could not be read leave the band.
+            if let Some(math) = out.glyphs {
+                self.preview.fit(&self.target_page, &math);
+            }
+            self.settled = true;
+        }
+        // A clock that does not read as a number gives up at once.
+        let waited = now - asked;
+        if !self.settled && (waited >= GLYPHS_PATIENCE || waited.is_nan()) {
+            self.settled = true;
+        }
+        self.settled
     }
 
     /// A watch on the preview's render thread, which tells when it has exited (it does once the
@@ -149,7 +287,8 @@ impl LinkPeek {
             self.asked = Some(tag);
         }
         while let Some(out) = self.pool.try_recv() {
-            if out.request.tag != tag {
+            // A glyph request given up on comes back late: not a picture.
+            if out.request.tag != tag || out.request.kind != RequestKind::Pixels {
                 continue;
             }
             if out.error.is_some() || out.width == 0 || out.height == 0 {
@@ -168,12 +307,93 @@ impl LinkPeek {
 /// preview closes, wherever the right-click is; otherwise the link's preview opens. Returns whether
 /// the right-click was the preview's: the page's menu stays shut then.
 pub(super) fn right_click(view: &mut DocView, doc: &pdfcraft_engine::Document, found: Option<(usize, usize)>) -> bool {
-    if view.link_peek.take().is_some() {
+    // A right-click on the link whose preview the pointer opened keeps it open.
+    if let Some(peek) = view.link_peek.as_mut().filter(|p| p.trigger == Trigger::Hover && Some(p.source) == found) {
+        peek.trigger = Trigger::Click;
+        return true;
+    }
+    if let Some(peek) = view.link_peek.take() {
+        view.link_hover.dismiss(peek.source);
         return true;
     }
     let Some((page, index)) = found else { return false };
-    view.link_peek = LinkPeek::open(doc, page, index);
+    view.link_peek = LinkPeek::open(doc, page, index, Trigger::Click);
     view.link_peek.is_some()
+}
+
+/// What the pointer does to the previews this frame. `pointed`: the link to a place in this
+/// document under it, when a page found one (Select tool, no button down). `allowed`: the
+/// preference is on and nothing stops a preview (no dialog, menu or palette over the pages, not
+/// full screen, no text field holding the keys, the pages not scrolling). `pressed`: a button is
+/// down. `now`: `ctx` time in seconds.
+///
+/// After the pointer rests on one link for [`HOVER_DELAY`], with the link still where it was
+/// on screen (a scroll or a zoom starts the wait again), its preview opens. A preview the pointer
+/// opened closes when previews are not allowed, when a button goes down outside it, when its
+/// link moves on screen, and [`HOVER_GRACE`] after the pointer has left both the link and the
+/// window.
+pub(super) fn hover(
+    ctx: &egui::Context,
+    view: &mut DocView,
+    doc: &pdfcraft_engine::Document,
+    pointed: Option<Pointed>,
+    allowed: bool,
+    pressed: bool,
+    now: f64,
+) {
+    let inside = view.link_peek.as_ref().is_some_and(|p| p.pointer_inside);
+    // Over the window, a link under it is not pointed at.
+    let pointed = pointed.filter(|_| !inside && allowed && !pressed);
+    if view.link_hover.dismissed.is_some_and(|d| pointed.is_none_or(|p| (p.page, p.index) != d)) {
+        view.link_hover.dismissed = None;
+    }
+    let pointer_peek = view.link_peek.as_ref().is_some_and(|p| p.trigger == Trigger::Hover);
+    if pointer_peek {
+        let close = view.link_peek.as_mut().is_some_and(|peek| {
+            let on_link = pointed.is_some_and(|p| (p.page, p.index) == peek.source);
+            let moved = pointed.filter(|_| on_link).zip(peek.opened_at).is_some_and(|(p, at)| p.on_screen != at);
+            if !allowed || (pressed && !peek.pointer_inside) || moved {
+                return true;
+            }
+            if on_link || peek.pointer_inside {
+                peek.left_at = None;
+                return false;
+            }
+            let left = *peek.left_at.get_or_insert(now);
+            if now - left >= HOVER_GRACE {
+                return true;
+            }
+            ctx.request_repaint_after(std::time::Duration::from_secs_f64((HOVER_GRACE - (now - left)).max(0.0)));
+            false
+        });
+        if close {
+            view.link_peek = None;
+        }
+    }
+    let Some(p) = pointed else {
+        view.link_hover.resting = None;
+        return;
+    };
+    let shown = view.link_peek.as_ref().is_some_and(|peek| peek.source == (p.page, p.index));
+    if shown || view.link_hover.dismissed == Some((p.page, p.index)) {
+        view.link_hover.resting = None;
+        return;
+    }
+    let since = match view.link_hover.resting {
+        Some((resting, since)) if resting == p => since,
+        _ => now,
+    };
+    let rested = now - since;
+    if rested >= HOVER_DELAY {
+        view.link_hover.resting = None;
+        if let Some(mut peek) = LinkPeek::open(doc, p.page, p.index, Trigger::Hover) {
+            peek.opened_at = Some(p.on_screen);
+            view.link_peek = Some(peek);
+        }
+    } else {
+        view.link_hover.resting = Some((p, since));
+        ctx.request_repaint_after(std::time::Duration::from_secs_f64((HOVER_DELAY - rested).max(0.0)));
+    }
 }
 
 /// The zoom the preview is drawn at: the link's page's (screen points per page point), but never
@@ -229,6 +449,12 @@ pub(super) fn show(ui: &egui::Ui, view: &mut DocView, doc: &pdfcraft_engine::Doc
         return;
     }
     let ctx = ui.ctx().clone();
+    // Nothing shows until the area is known: the window would change size under the pointer.
+    let now = ctx.input(|i| i.time);
+    if !peek.settle(now) {
+        ctx.request_repaint_after(std::time::Duration::from_millis(16));
+        return;
+    }
     let t = Tokens::get(&ctx);
     let room = vec2(viewport.width() - 2.0 * (EDGE + PAD), viewport.height() * (MAX_HEIGHT_SHARE * size).min(MAX_HEIGHT_SHARE_CAP));
     let ppp = ctx.pixels_per_point();
@@ -236,7 +462,7 @@ pub(super) fn show(ui: &egui::Ui, view: &mut DocView, doc: &pdfcraft_engine::Doc
     if peek.render(&ctx, picture, ppp) {
         ctx.request_repaint_after(std::time::Duration::from_millis(16));
     }
-    let caption = crate::i18n::fmt(tl!("Go to page {p}"), &[("p", &peek.label)]);
+    let caption = peek.caption();
     let caption_font = theme::medium(12.0);
     let caption_h = ctx.fonts_mut(|f| f.row_height(&caption_font));
     let size = picture + vec2(2.0 * PAD, 2.0 * PAD + caption_h + CAPTION_GAP);
@@ -244,6 +470,7 @@ pub(super) fn show(ui: &egui::Ui, view: &mut DocView, doc: &pdfcraft_engine::Doc
     let at = place(link, size, viewport).round_to_pixels(ppp);
     let mut go = false;
     let mut close = false;
+    let mut inside = false;
     egui::Area::new(egui::Id::unique(("link-preview", view.id.0))).order(egui::Order::Foreground).fixed_pos(at).constrain(false).show(&ctx, |ui| {
         let frame = egui::Frame::new()
             .fill(t.card)
@@ -274,13 +501,19 @@ pub(super) fn show(ui: &egui::Ui, view: &mut DocView, doc: &pdfcraft_engine::Doc
             resp
         });
         close = shown.response.secondary_clicked() || shown.inner.secondary_clicked();
+        // The window's own response: whether the pointer is on it, so a preview the pointer
+        // opened stays while it is.
+        inside = shown.response.contains_pointer() || shown.inner.contains_pointer();
     });
+    peek.pointer_inside = inside;
     if go {
         let (target, dest) = (peek.preview.page, peek.dest);
         view.link_peek = None;
         view.go_to_dest(target, dest, info);
     } else if close {
+        let source = peek.source;
         view.link_peek = None;
+        view.link_hover.dismiss(source);
     }
 }
 
@@ -293,9 +526,23 @@ mod tests {
         LinkPeek {
             source: (0, 0),
             link_rect: [0.0; 4],
-            preview: LinkPreview { page: 1, area },
+            preview: LinkPreview {
+                page: 1,
+                area,
+                view: DestView::Top,
+                name: None,
+                reference: pdfcraft_engine::link_preview::ref_name(""),
+                fitted: false,
+            },
             dest: DestView::Top,
             label: "2".into(),
+            target_page: PageInfo { width: 612.0, height: 792.0, label: "2".into(), crop: [0.0, 0.0, 612.0, 792.0], rotation: 0 },
+            trigger: Trigger::Click,
+            glyphs_asked: None,
+            settled: false,
+            opened_at: None,
+            left_at: None,
+            pointer_inside: false,
             generation: 0,
             pool,
             asked: None,

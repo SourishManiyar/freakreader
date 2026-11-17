@@ -1,0 +1,100 @@
+\title{A Synthetic Test Paper on Series}
+\author{Test Fixture}
+\date{}
+\maketitle
+\begin{abstract}
+This paper is synthetic. It exists to exercise cross-references: theorems, lemmas, equations,
+citations, figures and a bibliography, in documents set with hyperref. It makes no new claims.
+\end{abstract}
+
+\section{Introduction}
+We follow the notation of \cite{alpha} and \cite{beta}. The main result is
+Theorem~\ref{thm:main}, which rests on Lemma~\ref{lem:tail} and on the identity \eqref{eq:basel}.
+Section~\ref{sec:proofs} contains the proofs, and Figure~\ref{fig:partial} shows partial sums.
+
+\begin{definition}[Partial sum]\label{def:partial}
+For a sequence $(a_n)_{n\ge 1}$ of real numbers, the \emph{partial sum} of order $N$ is
+$s_N=\sum_{n=1}^{N}a_n$.
+\end{definition}
+
+\begin{remark}\label{rem:conv}
+A series \emph{converges} when $s_N$ converges as $N\to\infty$; see Definition~\ref{def:partial}.
+\end{remark}
+
+\section{Statements}\label{sec:statements}
+\begin{lemma}\label{lem:tail}
+Let $a_n\ge 0$ and suppose that $\sum_{n\ge1}a_n<\infty$. Then
+\begin{equation}\label{eq:tail}
+\lim_{N\to\infty}\sum_{n>N}a_n = 0 .
+\end{equation}
+\end{lemma}
+
+\begin{proposition}\label{prop:comp}
+If $0\le b_n\le a_n$ for all $n$ and $\sum a_n$ converges, then $\sum b_n$ converges and
+$\sum b_n\le\sum a_n$.
+\end{proposition}
+
+\begin{theorem}[Main result]\label{thm:main}
+For every $p>1$ the series $\sum_{n\ge1} n^{-p}$ converges. Moreover, for $p=2$,
+\begin{equation}\label{eq:basel}
+\sum_{n=1}^{\infty}\frac{1}{n^{2}}=\frac{\pi^{2}}{6}.
+\end{equation}
+\end{theorem}
+
+\begin{corollary}\label{cor:sqrt}
+The series $\sum_{n\ge1} 1/\sqrt{n^{3}}$ converges.
+\end{corollary}
+
+\section{Proofs}\label{sec:proofs}
+\begin{proof}[Proof of Lemma~\ref{lem:tail}]
+The tail equals $s-s_N$ where $s$ is the sum. Since $s_N\to s$, the tail tends to $0$,
+which is \eqref{eq:tail}.
+\end{proof}
+
+\begin{proof}[Proof of Proposition~\ref{prop:comp}]
+By hypothesis the partial sums of $\sum b_n$ are increasing and bounded above by those of
+$\sum a_n$. A bounded increasing sequence converges, and the inequality passes to the limit.
+\end{proof}
+
+\begin{proof}[Proof of Theorem~\ref{thm:main}]
+Compare with an integral. For $n\ge2$ we have
+\begin{align}
+\frac{1}{n^{p}} &\le \int_{n-1}^{n}\frac{dx}{x^{p}}, \label{eq:integral}\\
+\sum_{n=2}^{N}\frac{1}{n^{p}} &\le \int_{1}^{N}\frac{dx}{x^{p}}\le\frac{1}{p-1}. \label{eq:bound}
+\end{align}
+By \eqref{eq:bound} the partial sums are bounded, so the series converges by
+Proposition~\ref{prop:comp}. The value for $p=2$ is the classical one stated in
+\eqref{eq:basel}; see \cite{alpha}.
+\end{proof}
+
+\begin{proof}[Proof of Corollary~\ref{cor:sqrt}]
+Take $p=3/2$ in Theorem~\ref{thm:main}.
+\end{proof}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[scale=0.8]
+\draw[->] (0,0) -- (6,0) node[right] {$N$};
+\draw[->] (0,0) -- (0,3) node[above] {$s_N$};
+\foreach \x/\y in {1/1,2/1.25,3/1.36,4/1.42,5/1.46}
+  \fill (\x,\y) circle (1.5pt);
+\end{tikzpicture}
+\caption{Partial sums of $\sum n^{-2}$.}\label{fig:partial}
+\end{figure}
+
+\begin{table}[ht]
+\centering
+\caption{Values used in Figure~\ref{fig:partial}.}\label{tab:values}
+\begin{tabular}{rr}
+$N$ & $s_N$ \\ \hline
+1 & 1.00 \\
+2 & 1.25 \\
+3 & 1.36 \\
+\end{tabular}
+\end{table}
+
+\begin{thebibliography}{9}
+\bibitem{alpha} A.~Author, \emph{A Synthetic Book on Series}, Fixture Press, 2001.
+\bibitem{beta} B.~Writer, Notes on convergence, \emph{Journal of Invented Results} \textbf{12} (2005), 1--20.
+\bibitem{gamma} C.~Scribe, Unused reference, \emph{Fixtures Quarterly} \textbf{3} (2010), 5--9.
+\end{thebibliography}

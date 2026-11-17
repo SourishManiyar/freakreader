@@ -145,6 +145,7 @@ impl PdfCraftApp {
             "text_size": self.text_size,
             "ui_font": self.ui_font,
             "link_preview_size": self.link_preview_size,
+            "link_preview_hover": self.link_preview_hover,
             "flatten_fill_sign": self.flatten_fill_sign_on_save,
             "ask_to_lock_signatures": self.ask_to_lock_signatures,
             "fill_text_size": self.fill_text_size,
@@ -509,6 +510,8 @@ impl PdfCraftApp {
         // Settings are untrusted: an unknown face, or one this build lacks, is Inter.
         self.ui_font = serde_json::from_value::<theme::UiFont>(v["ui_font"].clone()).ok().filter(|f| f.available()).unwrap_or_default();
         self.link_preview_size = offered("link_preview_size", &crate::canvas::link_peek::PREVIEW_SIZES);
+        // Settings are untrusted: anything but a boolean keeps the default (on).
+        self.link_preview_hover = v["link_preview_hover"].as_bool().unwrap_or(true);
         // Settings are untrusted: an unusable pattern keeps the default.
         if let Some(f) = v["date_format"].as_str() {
             let _ = self.session.set_date_format(f);

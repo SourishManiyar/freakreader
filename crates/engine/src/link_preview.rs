@@ -1,16 +1,23 @@
 //! Where an in-document link goes, as a part of its target page to look at without leaving the
-//! page being read: the reference preview a right-click on a cross-reference shows (a theorem, an
-//! equation, a cited work).
+//! page being read: the reference preview a pointer resting on a cross-reference (or a
+//! right-click on it) shows: a theorem, an equation, a cited work.
 //!
-//! The part shown is a band the width of the page that starts just above the destination's
+//! The part shown is first a band the width of the page that starts just above the destination's
 //! position and runs down from it, or the destination's own rectangle for `/FitR`. A destination
-//! with no position on its page (`/Fit`, `/FitV`, a bare page) shows the top of the page.
+//! with no position on its page (`/Fit`, `/FitV`, a bare page) shows the top of the page. Once
+//! the target page's glyphs are read ([`MathPage`]), [`LinkPreview::fit`] narrows the band to
+//! the block the destination names ([`RefKind`], from its hyperref name): an equation's lines, a
+//! statement, one bibliography entry, a heading and its first lines, a float with its caption.
 //! Everything is in the target page's view space: points from its top-left as displayed, y down,
 //! after `/Rotate` ([`PageInfo::user_to_view`]), which is how a renderer [`pdfcraft_render::Tile`]
 //! is placed.
 
-use pdfcraft_render::{DestView, DocInfo, LinkTarget, PageInfo};
+mod block;
+mod names;
 
+pub use names::{MAX_REF_NUMBER_BYTES, RefKind, RefName, ref_name};
+use pdfcraft_render::text::math::MathPage;
+use pdfcraft_render::{DestView, DocInfo, LinkTarget, PageInfo};
 /// How far above the destination's position the band starts, in points: a destination usually
 /// marks a line's baseline or its top, and the line it names should show whole.
 pub const PREVIEW_ABOVE: f32 = 14.0;
@@ -26,13 +33,90 @@ pub const PREVIEW_FIT_MARGIN: f32 = 12.0;
 pub const PREVIEW_FIT_MIN: f32 = 4.0;
 
 /// The part of the document an in-document link points at.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LinkPreview {
     /// The target page, 0-based.
     pub page: usize,
     /// The area of the target page to show, in its view space (`[x0, y0, x1, y1]`, points from
     /// the top-left as displayed, `x0 < x1`, `y0 < y1`), always inside the page.
     pub area: [f32; 4],
+    /// Where on the target page the destination is.
+    pub view: DestView,
+    /// The named destination the link goes through, when it has one (`equation.4.7`).
+    pub name: Option<String>,
+    /// What the name says the destination is.
+    pub reference: RefName,
+    /// `area` is the block the destination names, found from the page's glyphs, rather than the
+    /// band below it.
+    pub fitted: bool,
+}
+
+impl LinkPreview {
+    /// Whether the target page's glyphs can narrow the area to a block: a destination with a
+    /// position on its page whose name says what it is. A `/FitR` rectangle shows itself.
+    pub fn wants_glyphs(&self) -> bool {
+        !self.fitted
+            && !matches!(self.reference.kind, RefKind::Page | RefKind::Unknown)
+            && matches!(self.view, DestView::Xyz { top: Some(_), .. } | DestView::FitH { top: Some(_) })
+    }
+
+    /// Narrow the area to the block the destination names on `page` (the target page's
+    /// [`PageInfo`]), as `math` (its glyphs) shows it. `false`, and the area left as it is, when
+    /// the page does not show one there (no text near the destination, a scan, text that does
+    /// not run across).
+    pub fn fit(&mut self, page: &PageInfo, math: &MathPage) -> bool {
+        if !self.wants_glyphs() {
+            return false;
+        }
+        match block_area(page, self.view, self.reference.kind, math) {
+            Some(area) => {
+                self.area = area;
+                self.fitted = true;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// What the preview shows, in English, for automation: "Equation 4.7 · page 12" when the
+    /// name gives a kind with a number (`page_label` is the target page's label), else
+    /// "Page 12". A statement's or a citation's first words say what it is, on the picture.
+    pub fn label(&self, page_label: &str) -> String {
+        match (self.reference.kind_word(), self.reference.number.as_deref()) {
+            (Some(word), Some(n)) => format!("{word} {n} · page {page_label}"),
+            _ => format!("Page {page_label}"),
+        }
+    }
+}
+
+impl RefName {
+    /// The English word the preview's caption names a kind with, for the kinds whose number it
+    /// shows: equation, section, figure, table, item. A statement, a citation and a page say what
+    /// they are on the picture itself.
+    pub fn kind_word(&self) -> Option<&'static str> {
+        match self.kind {
+            RefKind::Equation => Some("Equation"),
+            RefKind::Section => Some("Section"),
+            RefKind::Figure => Some("Figure"),
+            RefKind::Table => Some("Table"),
+            RefKind::Item => Some("Item"),
+            RefKind::TheoremLike | RefKind::Citation | RefKind::Page | RefKind::Unknown => None,
+        }
+    }
+}
+
+/// The block of kind `kind` that a destination `view` names on `page`, as `math` (the page's
+/// glyphs) shows it: the area to preview, in view space, inside the page. `None` when the page
+/// shows none there (see [`LinkPreview::fit`]), or the destination has no position.
+pub fn block_area(page: &PageInfo, view: DestView, kind: RefKind, math: &MathPage) -> Option<[f32; 4]> {
+    let (left, top) = match view {
+        DestView::Xyz { left, top, .. } => (left, top),
+        DestView::FitH { top } => (None, top),
+        DestView::Top | DestView::Fit | DestView::FitV { .. } | DestView::FitR { .. } => return None,
+    };
+    let (w, h) = (page.width, page.height);
+    let [fx, fy] = page.dest_fraction(left, top, 0);
+    block::block_area(math, [w, h], fx.map(|f| f * w), fy? * h, kind)
 }
 
 /// The area of `page` to show for a destination `view` on it.
@@ -69,12 +153,21 @@ pub fn preview_area(page: &PageInfo, view: DestView) -> [f32; 4] {
 
 /// What the link at `/Annots` index `index` on `page` (both 0-based) points at, when it goes to
 /// a page of this document; `None` for a link elsewhere (a web address, another file, a layer
-/// change), one whose target page doesn't exist, or no such link.
+/// change), one whose target page doesn't exist, or no such link. The area is the band; see
+/// [`LinkPreview::fit`].
 pub fn link_preview(info: &DocInfo, page: usize, index: usize) -> Option<LinkPreview> {
     let link = info.links.iter().find(|l| l.page == page && l.index == index)?;
     let LinkTarget::Page(target, view) = link.target else { return None };
+    dest_preview(info, target, view, link.dest_name.as_deref())
+}
+
+/// What a destination `view` on page `target` (0-based), named `name` when it is a named
+/// destination, shows; `None` when the page doesn't exist. The area is the band; see
+/// [`LinkPreview::fit`].
+pub fn dest_preview(info: &DocInfo, target: usize, view: DestView, name: Option<&str>) -> Option<LinkPreview> {
     let shown = info.pages.get(target)?;
-    Some(LinkPreview { page: target, area: preview_area(shown, view) })
+    let reference = name.map_or(RefName { kind: RefKind::Unknown, number: None }, ref_name);
+    Some(LinkPreview { page: target, area: preview_area(shown, view), view, name: name.map(str::to_owned), reference, fitted: false })
 }
 
 #[cfg(test)]
@@ -117,6 +210,25 @@ mod tests {
         // A sliver of a rectangle reads as a band from where it is.
         let sliver = preview_area(&letter(0), DestView::FitR { rect: [100.0, 500.0, 100.0, 500.0] });
         assert_eq!((sliver[0], sliver[2]), (0.0, 612.0));
+    }
+
+    #[test]
+    fn a_preview_is_fitted_only_where_a_block_is_found() {
+        let info = DocInfo { pages: vec![letter(0)], ..Default::default() };
+        let view = DestView::Xyz { left: Some(72.0), top: Some(692.0), zoom: None };
+        let mut preview = dest_preview(&info, 0, view, Some("equation.4.7")).expect("page 1");
+        assert_eq!((preview.reference.kind, preview.reference.number.as_deref()), (RefKind::Equation, Some("4.7")));
+        assert_eq!(preview.label("iv"), "Equation 4.7 · page iv");
+        let band = preview.area;
+        // A page with no text (a scan): the band stays.
+        assert!(!preview.fit(&letter(0), &MathPage::default()));
+        assert_eq!((preview.area, preview.fitted), (band, false));
+        // A /FitR rectangle shows itself, and an unnamed destination has no block to look for.
+        let fit_r = dest_preview(&info, 0, DestView::FitR { rect: [100.0, 500.0, 300.0, 600.0] }, Some("equation.1")).expect("page 1");
+        assert!(!fit_r.wants_glyphs());
+        assert!(!dest_preview(&info, 0, view, None).expect("page 1").wants_glyphs());
+        assert_eq!(dest_preview(&info, 0, view, Some("theorem.2.1")).expect("page 1").label("1"), "Page 1");
+        assert!(dest_preview(&info, 1, view, None).is_none(), "no such page");
     }
 
     #[test]

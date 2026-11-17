@@ -60,6 +60,17 @@ fn result_bytes(page: &RenderedPage) -> usize {
             bytes = bytes.saturating_add(glyph.text.capacity());
         }
     }
+    if let Some(math) = &page.glyphs {
+        bytes = bytes
+            .saturating_add(std::mem::size_of_val(&**math))
+            .saturating_add(math.glyphs.capacity().saturating_mul(std::mem::size_of::<crate::text::math::GlyphDetail>()))
+            .saturating_add(math.rules.capacity().saturating_mul(std::mem::size_of::<crate::text::math::Rule>()))
+            .saturating_add(math.fonts.capacity().saturating_mul(std::mem::size_of::<crate::text::math::MathFont>()));
+        for glyph in &math.glyphs {
+            let strings = glyph.name.as_ref().map_or(0, String::capacity).saturating_add(glyph.text.as_ref().map_or(0, String::capacity));
+            bytes = bytes.saturating_add(strings);
+        }
+    }
     bytes
 }
 
@@ -317,6 +328,7 @@ mod tests {
             rgba: Pixels::from(vec![0u32; bytes / 4]),
             error: None,
             text: None,
+            glyphs: None,
             warnings: Vec::new(),
             millis: 0,
         }

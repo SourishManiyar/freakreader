@@ -1,7 +1,8 @@
+use super::annotations::MAX_LINK_ATTACHMENT_TEXT_BYTES;
 #[cfg(test)]
 use super::core::inspect;
 use super::core::{load_options, spend};
-use super::model::{DestView, LinkTarget, OutlineItem, PageInfo};
+use super::model::{DestView, LinkTarget, MAX_DEST_NAME_BYTES, OutlineItem, PageInfo};
 use super::{
     Arc, AssertUnwindSafe, BTreeMap, Dictionary, Document, HashMap, HashSet, Inspector, LazyStructure, MAX_LABEL_BYTES, MAX_LABEL_TOTAL_BYTES,
     MAX_LABEL_TREE_DEPTH, MAX_LABEL_TREE_WORK, MAX_PREFIX_BYTES, MAX_PREFIX_TOTAL_BYTES, Object, ObjectId, Structure, alpha, catch_unwind, roman,
@@ -61,6 +62,21 @@ impl<'a> Inspector<'a> {
             Object::String(key, _) | Object::Name(key) => self.named_dest(key).and_then(|d| self.dest(d, depth + 1)),
             _ => None,
         }
+    }
+
+    /// The name a destination is given by, when it is a name or a string (ISO 32000-2
+    /// §12.3.2.4) rather than an explicit array: the key read as a text string, spent from
+    /// `text_budget`. `None` past [`MAX_DEST_NAME_BYTES`] bytes as written, or once the budget is
+    /// spent.
+    pub(super) fn dest_name(&self, dest: &Object, text_budget: &mut usize) -> Option<String> {
+        let key = match self.resolve(dest) {
+            Object::String(key, _) | Object::Name(key) => key,
+            _ => return None,
+        };
+        if key.len() > MAX_DEST_NAME_BYTES {
+            return None;
+        }
+        spend(key, text_budget, text_string)
     }
 
     fn named_dest(&self, key: &[u8]) -> Option<&'a Object> {
@@ -502,6 +518,95 @@ pub fn named_destination(bytes: Arc<Vec<u8>>, password: Option<&str>, name: &str
     catch_unwind(AssertUnwindSafe(|| find(&Document::load_mem_with_options(&bytes, load_options(password)).ok()?))).ok().flatten()
 }
 
+/// Most named destinations [`named_destinations`] lists. A paper has a few hundred; a hostile
+/// file can name millions from a few bytes each.
+pub const MAX_NAMED_DESTINATIONS: usize = 100_000;
+
+/// One named destination of a document.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NamedDestination {
+    /// The name, read as a text string (UTF-16, PDFDocEncoding or UTF-8 as written).
+    pub name: String,
+    /// The 0-based page it goes to.
+    pub page: usize,
+    /// Where on the page.
+    pub view: DestView,
+}
+
+/// A document's named destinations ([`named_destinations`]).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct NamedDestinations {
+    /// In page order, then top to bottom on the page, then by name.
+    pub list: Vec<NamedDestination>,
+    /// Names left out: past [`MAX_NAMED_DESTINATIONS`], longer than [`MAX_DEST_NAME_BYTES`],
+    /// or past the document's allowance for name text.
+    pub left_out: usize,
+    /// Names that lead to no page of the document: a missing or deleted page, a cycle of names,
+    /// or a value that is not a destination.
+    pub unresolved: usize,
+}
+
+/// Every named destination of the document (ISO 32000-2 §12.3.2.4): the `/Names /Dests` name
+/// tree, then the PDF 1.1 catalog `/Dests` dictionary for names the tree does not have. A name
+/// that two keys read as (or a key repeated in the tree) is listed once, the first. Bounded:
+/// the tree's depth and cycles as [`named_destination`] reads it, its keys' bytes by the
+/// document's text allowance, and the list by [`MAX_NAMED_DESTINATIONS`]. `None` when the
+/// document can't be read. Read like [`named_destination`].
+pub fn named_destinations(bytes: Arc<Vec<u8>>, password: Option<&str>) -> Option<NamedDestinations> {
+    let find = |doc: &dyn Structure| {
+        let insp = Inspector::new(doc);
+        let mut out = NamedDestinations::default();
+        let mut seen: HashSet<String> = HashSet::new();
+        let mut text_budget = MAX_LINK_ATTACHMENT_TEXT_BYTES;
+        let catalog_dests = insp.doc.catalog().ok().and_then(|c| c.get(b"Dests").ok()).and_then(|o| insp.dict(o));
+        let tree = insp.named.iter().map(|(k, v)| (k.as_slice(), *v));
+        let old = catalog_dests.into_iter().flat_map(|d| d.iter().map(|(k, v)| (k.as_slice(), v)));
+        // The tree's own order is a hash map's: sort its keys, so which of two keys reading as
+        // one name is kept does not change from run to run.
+        let mut keys: Vec<(&[u8], &Object)> = tree.collect();
+        keys.sort_by(|a, b| a.0.cmp(b.0));
+        for (key, value) in keys.into_iter().chain(old) {
+            if out.list.len() >= MAX_NAMED_DESTINATIONS || key.len() > MAX_DEST_NAME_BYTES {
+                out.left_out = out.left_out.saturating_add(1);
+                continue;
+            }
+            let Some(name) = spend(key, &mut text_budget, text_string) else {
+                out.left_out = out.left_out.saturating_add(1);
+                continue;
+            };
+            if seen.contains(&name) {
+                continue;
+            }
+            match insp.dest(value, 1).filter(|(page, _)| *page < insp.page_ids.len()) {
+                Some((page, view)) => {
+                    seen.insert(name.clone());
+                    out.list.push(NamedDestination { name, page, view });
+                }
+                None => out.unresolved = out.unresolved.saturating_add(1),
+            }
+        }
+        // Top to bottom: a larger user-space `top` is higher on the page; one with none first.
+        let top = |d: &NamedDestination| match d.view {
+            DestView::Xyz { top, .. } | DestView::FitH { top } => top.filter(|t| t.is_finite()).unwrap_or(f32::INFINITY),
+            DestView::FitR { rect } => rect[1].max(rect[3]),
+            DestView::Top | DestView::Fit | DestView::FitV { .. } => f32::INFINITY,
+        };
+        out.list.sort_by(|a, b| a.page.cmp(&b.page).then(top(b).total_cmp(&top(a))).then_with(|| a.name.cmp(&b.name)));
+        out
+    };
+    let lazy = catch_unwind(AssertUnwindSafe(|| {
+        let doc = LazyStructure::new(bytes.clone(), password).ok()?;
+        let found = find(&doc);
+        (!doc.failed()).then_some(found)
+    }))
+    .ok()
+    .flatten();
+    if lazy.is_some() {
+        return lazy;
+    }
+    catch_unwind(AssertUnwindSafe(|| Some(find(&Document::load_mem_with_options(&bytes, load_options(password)).ok()?)))).ok().flatten()
+}
+
 #[cfg(test)]
 mod open_dest_tests {
     use std::sync::Arc;
@@ -654,5 +759,105 @@ mod open_dest_tests {
         assert_eq!(open_dest(catalog, &tree(2)), Some((1, DestView::Fit)));
         // 17 MiB of repeats of one reference spend the 16 MiB allowance before the real key.
         assert_eq!(open_dest(catalog, &tree(17)), None);
+    }
+}
+
+#[cfg(test)]
+mod dest_name_tests {
+    use std::sync::Arc;
+
+    use super::{DestView, LinkTarget, MAX_DEST_NAME_BYTES, MAX_NAMED_DESTINATIONS, inspect, named_destinations};
+
+    /// Two 612×792 pages (objects 3 and 4); page 1 has the link annotations `links` (objects 5,
+    /// 6, …), and `catalog` is added to the catalog dictionary. `extra` follow the links.
+    fn pdf(catalog: &str, links: &[String], extra: &[String]) -> Vec<u8> {
+        let annots: Vec<String> = (0..links.len()).map(|i| format!("{} 0 R", 5 + i)).collect();
+        let mut objs = vec![
+            format!("<< /Type /Catalog /Pages 2 0 R {catalog} >>"),
+            "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>".to_string(),
+            format!("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [{}] >>", annots.join(" ")),
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>".to_string(),
+        ];
+        objs.extend(links.iter().cloned());
+        objs.extend(extra.iter().cloned());
+        let mut out = b"%PDF-1.7\n".to_vec();
+        let mut offsets = Vec::new();
+        for (i, o) in objs.iter().enumerate() {
+            offsets.push(out.len());
+            out.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+        }
+        let xref = out.len();
+        out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+        for o in offsets {
+            out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+        }
+        out.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+        out
+    }
+
+    fn link(dest: &str) -> String {
+        format!("<< /Type /Annot /Subtype /Link /Rect [72 700 120 712] {dest} >>")
+    }
+
+    const TREE: &str = "/Names << /Dests << /Names [(equation.2.1) [4 0 R /XYZ 100 500 null] (cite.knuth) << /D [4 0 R /FitH 300] >>] >> >>";
+
+    #[test]
+    fn a_link_keeps_the_name_it_resolves_through() {
+        let links = [
+            link("/Dest (equation.2.1)"),
+            link("/A << /S /GoTo /D (cite.knuth) >>"),
+            link("/Dest [4 0 R /Fit]"),
+            link("/Dest /old"),
+            link("/A << /S /URI /URI (https://example.com) >>"),
+        ];
+        let info = inspect(Arc::new(pdf(&format!("{TREE} /Dests << /old [3 0 R /Fit] >>"), &links, &[])), None).expect("inspects");
+        let names: Vec<(Option<&str>, &LinkTarget)> = info.links.iter().map(|l| (l.dest_name.as_deref(), &l.target)).collect();
+        assert_eq!(names[0], (Some("equation.2.1"), &LinkTarget::Page(1, DestView::Xyz { left: Some(100.0), top: Some(500.0), zoom: None })));
+        assert_eq!(names[1], (Some("cite.knuth"), &LinkTarget::Page(1, DestView::FitH { top: Some(300.0) })));
+        assert_eq!(names[2], (None, &LinkTarget::Page(1, DestView::Fit)), "an explicit destination has no name");
+        assert_eq!(names[3], (Some("old"), &LinkTarget::Page(0, DestView::Fit)), "a PDF 1.1 name");
+        assert_eq!(names[4].0, None);
+    }
+
+    #[test]
+    fn a_hostile_name_is_followed_but_not_kept() {
+        let long = "x".repeat(MAX_DEST_NAME_BYTES + 1);
+        let tree = format!("/Names << /Dests << /Names [({long}) [4 0 R /Fit] <FEFF00E9> [4 0 R /Fit] <FFFE41> [4 0 R /Fit]] >> >>");
+        let links = [link(&format!("/Dest ({long})")), link("/Dest <FEFF00E9>"), link("/Dest <FFFE41>")];
+        let info = inspect(Arc::new(pdf(&tree, &links, &[])), None).expect("inspects");
+        // Too long to keep, but the link still goes there.
+        assert_eq!((info.links[0].dest_name.as_deref(), &info.links[0].target), (None, &LinkTarget::Page(1, DestView::Fit)));
+        // UTF-16 reads as text; bytes that are not UTF-8 read as PDFDocEncoding, never fail.
+        assert_eq!(info.links[1].dest_name.as_deref(), Some("é"));
+        assert!(info.links[2].dest_name.as_deref().is_some_and(|n| !n.is_empty()), "{:?}", info.links[2].dest_name);
+    }
+
+    #[test]
+    fn named_destinations_are_listed_in_page_order_once_each() {
+        let catalog = format!("{TREE} /Dests << /old [3 0 R /XYZ 0 700 0] /cite.knuth [3 0 R /Fit] >>");
+        let found = named_destinations(Arc::new(pdf(&catalog, &[], &[])), None).expect("reads");
+        let listed: Vec<(&str, usize)> = found.list.iter().map(|d| (d.name.as_str(), d.page)).collect();
+        // Page 1 first; on page 2, the higher one (FitH 300 is lower than XYZ 500) after.
+        assert_eq!(listed, [("old", 0), ("equation.2.1", 1), ("cite.knuth", 1)], "the tree's cite.knuth, not /Dests'");
+        assert_eq!((found.left_out, found.unresolved), (0, 0));
+        assert_eq!(named_destinations(Arc::new(b"not a pdf".to_vec()), None), None);
+    }
+
+    #[test]
+    fn named_destinations_survive_cycles_missing_pages_and_floods() {
+        // A name naming itself, a page that is not one, a dictionary without /D, a tree that is its
+        // own kid, and a name too long to list.
+        let long = "y".repeat(MAX_DEST_NAME_BYTES + 1);
+        let catalog = format!("/Names << /Dests 5 0 R >> /Dests << /loop /loop /gone [99 0 R /Fit] /odd << /X 1 >> /{long} [3 0 R /Fit] >>");
+        let tree = ["<< /Kids [5 0 R 6 0 R] >>".to_string(), "<< /Names [(ok) [3 0 R /Fit] (ok) [4 0 R /Fit]] >>".to_string()];
+        // The tree is object 5 here (no links), its leaf object 6.
+        let found = named_destinations(Arc::new(pdf(&catalog, &[], &tree)), None).expect("reads");
+        assert_eq!(found.list.iter().map(|d| (d.name.as_str(), d.page)).collect::<Vec<_>>(), [("ok", 0)]);
+        assert_eq!((found.unresolved, found.left_out), (3, 1));
+        // More names than the cap: the list stops at it and says how many were left out.
+        let many = MAX_NAMED_DESTINATIONS + 5;
+        let names: String = (0..many).map(|i| format!("(n{i:06}) [3 0 R /Fit] ")).collect();
+        let found = named_destinations(Arc::new(pdf(&format!("/Names << /Dests << /Names [{names}] >> >>"), &[], &[])), None).expect("reads");
+        assert_eq!((found.list.len(), found.left_out), (MAX_NAMED_DESTINATIONS, 5));
     }
 }

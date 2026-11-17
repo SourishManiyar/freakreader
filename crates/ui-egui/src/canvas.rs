@@ -707,6 +707,9 @@ pub struct DocView {
     pub links: crate::link_ui::LinkView,
     /// The reference preview open by a link: where it goes, shown by the link ([`link_peek`]).
     pub link_peek: Option<link_peek::LinkPeek>,
+    /// The link the pointer rests on, before its preview opens, and the one whose preview was just
+    /// closed while the pointer is still on it ([`link_peek::hover`]).
+    pub(crate) link_hover: link_peek::LinkHover,
     /// Redact tool: the box being drawn, and a mark to add (page, quads) for the app to style.
     pub redact_drag: crate::redact_ui::AreaDrag,
     pub pending_redaction: Option<(usize, Vec<[f64; 8]>)>,
@@ -1164,6 +1167,7 @@ impl DocView {
             content: Default::default(),
             links: Default::default(),
             link_peek: None,
+            link_hover: Default::default(),
             redact_drag: None,
             pending_redaction: None,
             redactions_applied: 0,
@@ -1340,6 +1344,8 @@ struct PageEnv<'a> {
     added: &'a Vec<pdfcraft_engine::Added>,
     /// Preferences ▸ Reference preview size, in percent ([`link_peek::PREVIEW_SIZES`]).
     link_preview_size: u16,
+    /// Preferences ▸ Show a reference preview when the pointer rests on a link.
+    link_preview_hover: bool,
     allowed: bool,
     author: &'a String,
     auto_delta: Vec2,
@@ -1381,6 +1387,8 @@ struct PageEnv<'a> {
     middle_gesture: bool,
     modal: bool,
     navigation_enabled: bool,
+    /// A dialog, the palette, a popup or a menu is over the pages ([`PdfCraftApp::over_pages`]).
+    over_pages: bool,
     paper: Color32,
     show_page_edge_shadows: bool,
     ppp: f32,
@@ -1471,6 +1479,9 @@ struct PageFrame<'a> {
     /// The link to a place in this document under this frame's right-click, with the Select tool:
     /// (page, `/Annots` index), for its preview ([`link_peek`]).
     peek_link: Option<(usize, usize)>,
+    /// The link to a place in this document under the pointer, with the Select tool and no button
+    /// down, for its preview on a rest ([`link_peek::hover`]).
+    hover_link: Option<link_peek::Pointed>,
 }
 
 impl PageFrame<'_> {
@@ -1954,6 +1965,7 @@ fn draw_pages(
         field_hover: None,
         right_clicked: false,
         peek_link: None,
+        hover_link: None,
     };
     for &i in visible_pages {
         draw_page(ui, view, &mut frame, i);
@@ -1971,6 +1983,7 @@ fn draw_pages(
         out: page_out,
         right_clicked,
         peek_link,
+        hover_link,
         ..
     } = frame;
     crate::forms_ui::hover_moved(view, field_hover);
@@ -2240,6 +2253,12 @@ fn draw_pages(
         };
         default_page_context_menu(ui, page, at, perms, &mut page_action);
     });
+    // The pointer's previews: never while something is over the pages, a text field holds the
+    // keys, the pages scroll or full screen shows them.
+    let still = delta == Vec2::ZERO && !ui.ctx().memory(|m| m.focused().is_some());
+    let previews = env.link_preview_hover && tool == QuickTool::Select && unobstructed && !env.over_pages && !presenting && still;
+    let now = ui.input(|i| i.time);
+    link_peek::hover(ui.ctx(), view, doc, hover_link, previews, ptr.any_down, now);
     link_peek::show(ui, view, doc, info, modal, env.link_preview_size);
     // Copy comments / Paste comments from the page's menu or a Comments panel card.
     let copy_comments = std::mem::take(&mut view.comments.copy_request);
@@ -3284,6 +3303,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     // No dialog, close prompt or palette over the page: only then does page input count.
     let modal = app.modal_open();
     let unobstructed = !modal && !app.palette_open;
+    let over_pages = app.over_pages(ui.ctx());
     // A menu click can open a dialog after the frame's first look.
     app.page_keys = app.page_keys.also(app.covers_pages());
     let keys = app.page_keys;
@@ -3415,6 +3435,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     let env = PageEnv {
         added: &added,
         link_preview_size: app.link_preview_size,
+        link_preview_hover: app.link_preview_hover,
         allowed,
         animates,
         author: &author,
@@ -3451,6 +3472,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         middle_gesture,
         modal,
         navigation_enabled,
+        over_pages,
         paper,
         show_page_edge_shadows: app.show_page_edge_shadows,
         ppp,
