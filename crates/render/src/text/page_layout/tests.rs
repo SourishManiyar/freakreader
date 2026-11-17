@@ -335,3 +335,12 @@ fn labels_numbers_and_tags_read_as_they_should() {
     assert_eq!(heading_number(""), None);
     assert_eq!(heading_number("1234.5 x"), None);
 }
+
+#[test]
+fn a_display_number_is_found_wherever_its_row_falls() {
+    use super::analyse::equation_tag;
+    assert_eq!(equation_tag("(2.1) x = y").as_deref(), Some("(2.1)"));
+    assert_eq!(equation_tag("x = y (3)").as_deref(), Some("(3)"));
+    assert_eq!(equation_tag("n sum (4) a = b k=0").as_deref(), Some("(4)"));
+    assert_eq!(equation_tag("f(x) = g(T)"), None);
+}

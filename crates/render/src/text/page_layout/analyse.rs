@@ -1118,8 +1118,9 @@ fn mark_running(blocks: &mut [Block], cx: &Ctx<'_>, page_index: usize, height: f
     }
 }
 
-/// The number of a display: in parentheses at the start (on the left) or at the end.
-fn equation_tag(text: &str) -> Option<String> {
+/// The number of a display: in parentheses at the start (on the left), at the end, or as a word of
+/// its own.
+pub(super) fn equation_tag(text: &str) -> Option<String> {
     let first = text.trim_start();
     if let Some(end) = first.find(')')
         && let Some(cand) = first.get(..=end)
@@ -1128,8 +1129,13 @@ fn equation_tag(text: &str) -> Option<String> {
         return Some(cand.to_owned());
     }
     let t = text.trim_end();
-    let cand = t.get(t.rfind('(')?..)?;
-    is_tag(cand).then(|| cand.to_owned())
+    if let Some(cand) = t.rfind('(').and_then(|at| t.get(at..))
+        && is_tag(cand)
+    {
+        return Some(cand.to_owned());
+    }
+    // A number on a row of its own between the display's other rows (lines go by baseline).
+    text.split_whitespace().find(|w| is_tag(w)).map(str::to_owned)
 }
 
 /// A heading's information, or `None` when the block does not look like one.

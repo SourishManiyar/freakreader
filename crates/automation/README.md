@@ -167,6 +167,28 @@ claude mcp add pdfcraft -- "$env:LOCALAPPDATA\Programs\ArtCraft\PdfCraft\pdfcraf
 claude mcp add pdfcraft -- pdfcraft-cli mcp --root <dir>
 ```
 
+## Page layout and sections
+
+`page_layout {doc, pages?, text?, lines?}` analyses pages of a typeset document (a paper) from their
+geometry: `columns` (box, zone, index, how many side by side), `blocks` with `kind` (`title`,
+`abstract`, `heading`, `paragraph`, `display_equation`, `float`, `caption`, `footnote`,
+`running_header`, `running_footer`, `page_number`, `list_item`, `other`), box, place in
+`reading_order`, column, `confidence` and text, a heading's `level`, `number`, `level_guessed` and
+`appendix`, a display's `equation_tag`, and a float's caption (and back). `lines: true` adds each
+line's baseline and glyph indices. Each page carries `diagnostics` with a code (`no_text`,
+`columns_undecided`, `heading_level_guessed`, `running_unconfirmed`, …) for what it is unsure of; a
+scan or a blank page is an empty layout with `no_text`, not an error. Running heads and page numbers
+are confirmed by repetition across pages, reading neighbouring pages when fewer than five are asked
+for. At most 200 pages per call.
+
+`doc_sections {doc}` returns the section tree from the headings: page, block, level, number, title,
+parent, appendix and `level_guessed`, with the running elements found and how many pages were read
+(at most 2000). Both need copy permission and read the current snapshot, unsaved edits included.
+
+The analysis is scored by the layout oracle (`crates/render/tests/data/layout/oracle/README.md`):
+synthetic LaTeX papers whose structure TeX itself reports. `cargo run -p pdfcraft-engine --example
+layout_overlay -- IN.pdf PAGE OUT.png` draws what it found onto the page.
+
 ## Adding a tool
 
 1. Add the engine capability first, with its tests (the tool is a thin adapter).
