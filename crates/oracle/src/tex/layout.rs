@@ -282,15 +282,16 @@ pub fn build(doc: &str, pages: &[DviPage]) -> Result<Vec<LayoutPage>, TexError> 
         for (_, text) in events {
             apply(&mut stack, text, &mut kinds, &mut new_key)?;
         }
-        // An equation number joins the equation shipped nearest before it, else after it.
+        // An equation number joins the equation set nearest to it on the page: on its row. (On the
+        // left, amsart's `leqno`, it is shipped before its equation's bracket opens.)
+        let eq_items: Vec<usize> = (0..page.items.len()).filter(|&k| matches!(page.items.get(k), Some((_, Owner::Equation(_))))).collect();
         for i in 0..page.items.len() {
-            if !matches!(page.items.get(i), Some((_, Owner::Tag))) {
-                continue;
-            }
-            let is_eq = |k: usize| matches!(page.items.get(k), Some((_, Owner::Equation(_))));
-            let before = (0..i).rev().find(|&k| is_eq(k));
-            let after = (i.saturating_add(1)..page.items.len()).find(|&k| is_eq(k));
-            let found = before.or(after).and_then(|k| owner.get(k).copied().flatten());
+            let Some((tag, Owner::Tag)) = page.items.get(i) else { continue };
+            let nearest = eq_items.iter().copied().min_by_key(|&k| {
+                let v = page.items.get(k).map_or(i64::MAX, |(item, _)| item.v.saturating_sub(tag.v).saturating_abs());
+                (v, k.abs_diff(i))
+            });
+            let found = nearest.and_then(|k| owner.get(k).copied().flatten());
             if let Some(slot) = owner.get_mut(i) {
                 *slot = found;
             }
@@ -1009,6 +1010,18 @@ mod tests {
         let kinds: Vec<Kind> = out[0].blocks.iter().map(|b| b.kind).collect();
         assert_eq!(kinds, [Kind::Paragraph, Kind::Caption, Kind::Paragraph]);
         assert!(out[0].unowned.is_empty());
+    }
+
+    #[test]
+    fn a_number_on_the_left_joins_the_equation_on_its_row() {
+        let mut p = DviPage::default();
+        p.equations = vec!["a".into(), "b".into()];
+        p.items.push((glyph(65, 100 * PT, 10 * PT), Owner::Equation(0)));
+        p.items.push((glyph(40, 0, 40 * PT), Owner::Tag));
+        p.items.push((glyph(66, 100 * PT, 40 * PT), Owner::Equation(1)));
+        let out = build("d", &[p]).unwrap();
+        let blocks: Vec<Vec<usize>> = out[0].blocks.iter().map(|b| b.items.clone()).collect();
+        assert_eq!(blocks, [vec![0], vec![1, 2]]);
     }
 
     #[test]
