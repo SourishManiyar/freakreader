@@ -3169,6 +3169,8 @@ fn protecting_through_tools() {
         ("text_recover_latex", json!({ "doc": re, "page": 1, "rect": [0, 0, 100, 100] })),
         ("page_layout", json!({ "doc": re })),
         ("doc_sections", json!({ "doc": re })),
+        ("doc_blocks", json!({ "doc": re })),
+        ("doc_references", json!({ "doc": re })),
         ("text_paragraphs", json!({ "doc": re, "page": 1 })),
         ("doc_export_text", json!({ "doc": re, "path": "out.txt" })),
         ("doc_export_images", json!({ "doc": re, "folder": "pages" })),

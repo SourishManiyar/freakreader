@@ -77,6 +77,8 @@ impl Automation {
             "text_recover_latex" => self.text_recover_latex(&a)?,
             "page_layout" => self.page_layout(&a)?,
             "doc_sections" => self.doc_sections(&a)?,
+            "doc_blocks" => self.doc_blocks(&a)?,
+            "doc_references" => self.doc_references(&a)?,
             "text_glyph_details" => self.text_glyph_details(&a)?,
             "text_find" => self.text_find(&a)?,
             "text_replace" => self.text_replace(&a)?,

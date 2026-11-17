@@ -203,6 +203,26 @@ The analysis is scored by the layout oracle (`crates/render/tests/data/layout/or
 synthetic LaTeX papers whose structure TeX itself reports. `cargo run -p pdfcraft-engine --example
 layout_overlay -- IN.pdf PAGE OUT.png` draws what it found onto the page.
 
+## Statements and references
+
+`doc_blocks {doc, kinds?}` lists a typeset paper's referable blocks: theorem-like statements (the
+printed word as `label`, an open set read from the text: Theorem, Lemma, Definition, Remark, Main
+Theorem, …; `number` as printed; `name` in parentheses), proofs (`proves`: the statement their head
+names, else the one right before them; `end_mark`: `box`, `filled_square`, `square`, `qed`, or none),
+numbered headings, numbered displays, figures and tables, each with its extent page by page.
+`doc_references {doc, source?, min_confidence?, resolved?, page?}` lists where the text mentions them
+(`Lemma 2.1`, `Lemmas 2.1 and 2.3`, `Lemmas 2.1–2.3`, `Thm. 3`, `Section 3`, `§ 3`, `Figure 2`,
+`Eq. (3.4)`, `(3.4)` after `by`, `see`, `from`, `in`, …): each with its clickable extent, its `target`
+block (`null` with `unresolved` `external`, `missing` or `ambiguous` when it names another work, a
+block that is not there, or two), and its `source`: `link` where a link annotation covers it (the link
+decides; a `link_disagrees` diagnostic says when the text read otherwise) or `inferred`, with a
+`confidence` (the viewer previews inferred mentions at 0.7 or more). The kind always comes from the
+word, never from the number: Lemma 2.1 and Theorem 2.1 may share a counter. Both read at most 2000
+pages (`truncated`), are read-only and need copy permission. The analysis is
+`pdfcraft_render::text::page_layout::refs`, the graph `pdfcraft_engine::references`; scores against
+TeX's own answer are in `crates/render/tests/data/refs/oracle/README.md` (`cargo xtask refs-oracle
+report`). Bibliography citations are not read yet.
+
 ## Adding a tool
 
 1. Add the engine capability first, with its tests (the tool is a thin adapter).
