@@ -1,0 +1,27 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{pdfcraftlayout}[2026/11/17 PdfCraft layout oracle brackets]
+\RequirePackage{etoolbox}
+\def\pdfcraft@s#1{\special{pdfcraft:layout:#1}}
+\newcommand*\pdfcraftopen[1]{\pdfcraft@s{open:#1}}
+\newcommand*\pdfcraftclose[1]{\pdfcraft@s{close:#1}}
+\newcommand*\pdfcraftenv[1]{\def\pdfcraft@env{#1}}
+\newcommand*\pdfcraftbegin[1]{\special{pdfcraft:eq:#1:begin}}
+\newcommand*\pdfcraftend[1]{\special{pdfcraft:eq:#1:end}}
+% The kind of the next paragraph: a one-shot (heading, title, footnote) or the environment's.
+\def\pdfcraft@env{par}
+\global\let\pdfcraft@next\@empty
+\def\pdfcraft@kind{\ifx\pdfcraft@next\@empty\pdfcraft@env\else\pdfcraft@next\fi}
+\AddToHook{para/begin}{\pdfcraft@s{par:begin:\pdfcraft@kind:\the\currentgrouplevel}\global\let\pdfcraft@next\@empty}
+\AddToHook{para/end}{\pdfcraft@s{par:end:\the\currentgrouplevel}}
+\def\pdfcraft@fail#1{\PackageError{pdfcraftlayout}{cannot patch #1}{}}
+\pretocmd\@startsection{\gdef\pdfcraft@next{heading#2}}{}{\pdfcraft@fail{startsection}}
+\pretocmd\@maketitle{\gdef\pdfcraft@next{title}\def\pdfcraft@env{other}}{}{\pdfcraft@fail{maketitle}}
+\pretocmd\@footnotetext{\gdef\pdfcraft@next{footnote}}{}{\pdfcraft@fail{footnotetext}}
+\AtBeginEnvironment{abstract}{\def\pdfcraft@env{abstract}}
+\let\pdfcraft@footnoterule\footnoterule
+\def\footnoterule{\pdfcraft@s{open:skip}\pdfcraft@footnoterule\pdfcraft@s{close:skip}}
+\patchcmd\@outputpage{{\@thehead}}{{\pdfcraft@s{open:head}\pdfcraft@numbered\@thehead\pdfcraft@s{close:head}}}{}{\pdfcraft@fail{head}}
+\patchcmd\@outputpage{{\@thefoot}}{{\pdfcraft@s{open:foot}\pdfcraft@numbered\@thefoot\pdfcraft@s{close:foot}}}{}{\pdfcraft@fail{foot}}
+\def\pdfcraft@numbered{\let\pdfcraft@thepage\thepage\def\thepage{\pdfcraft@s{open:pagenum}\pdfcraft@thepage\pdfcraft@s{close:pagenum}}}
+% amsmath's \maketag@@@, with the equation number bracketed as the math oracle brackets it.
+\@ifpackageloaded{amsmath}{\def\maketag@@@#1{\hbox{\m@th\normalfont\special{pdfcraft:tag:begin}#1\special{pdfcraft:tag:end}}}}{}

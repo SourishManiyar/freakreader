@@ -113,7 +113,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     }
 }
 
-fn cargo(fixed: &[&str], extra: &[String]) -> anyhow::Result<()> {
+pub(crate) fn cargo(fixed: &[&str], extra: &[String]) -> anyhow::Result<()> {
     let mut c = Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".into()));
     c.current_dir(root()).args(fixed).args(extra);
     let status = c.status().context("running cargo")?;
@@ -214,17 +214,34 @@ fn paragraphs_source(pages: &[ParagraphPage], equations: &BTreeMap<&str, &Equati
 }
 
 /// A document typeset to DVI (listed) and to PDF, with and without brackets.
-struct Built {
-    pages: Vec<DviPage>,
-    pdf: Vec<u8>,
+pub(crate) struct Built {
+    pub(crate) pages: Vec<DviPage>,
+    pub(crate) pdf: Vec<u8>,
 }
 
 fn build(tex: &Tex, work: &Path, stem: &str, source: &str, plain_source: &str) -> anyhow::Result<Built> {
+    build_with(tex, work, stem, source, plain_source, &[])
+}
+
+/// [`build`] with more files beside the source: `(name, bracketed, plain)` (the layout oracle's
+/// package, with and without its specials).
+pub(crate) fn build_with(
+    tex: &Tex,
+    work: &Path,
+    stem: &str,
+    source: &str,
+    plain_source: &str,
+    extra: &[(&str, &str, &str)],
+) -> anyhow::Result<Built> {
     let dir = work.join(stem);
     let plain = dir.join("plain");
     std::fs::create_dir_all(&plain)?;
     std::fs::write(dir.join(format!("{stem}.tex")), source)?;
     std::fs::write(plain.join(format!("{stem}.tex")), plain_source)?;
+    for (name, bracketed, unbracketed) in extra {
+        std::fs::write(dir.join(name), bracketed)?;
+        std::fs::write(plain.join(name), unbracketed)?;
+    }
     let timeout = Duration::from_secs(300);
     tex.compile(&dir, stem, Output::Dvi, timeout)?;
     let pages = tex.list(&dir, stem)?;

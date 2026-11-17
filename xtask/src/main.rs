@@ -8,6 +8,7 @@ mod demo_pdf;
 mod fuzz;
 mod gates;
 mod layers;
+mod layout_oracle;
 mod license_check;
 mod macos_integration;
 mod math_oracle;
@@ -59,6 +60,11 @@ const COMMANDS: &[(&str, &str, Command)] = &[
         "math-oracle",
         "Equation-level oracle for LaTeX recovery: `generate [--check]` (needs TeX Live), `report`, `test` (crates/render/tests/data/math/oracle)",
         math_oracle::run,
+    ),
+    (
+        "layout-oracle",
+        "Page-layout oracle: `generate [--check]` typesets synthetic papers with block brackets (needs TeX Live), `report`, `test` (crates/render/tests/data/layout/oracle)",
+        layout_oracle::run,
     ),
     (
         "math-symbols",
