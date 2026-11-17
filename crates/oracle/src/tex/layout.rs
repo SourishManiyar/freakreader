@@ -1014,8 +1014,7 @@ mod tests {
 
     #[test]
     fn a_number_on_the_left_joins_the_equation_on_its_row() {
-        let mut p = DviPage::default();
-        p.equations = vec!["a".into(), "b".into()];
+        let mut p = DviPage { equations: vec!["a".into(), "b".into()], ..Default::default() };
         p.items.push((glyph(65, 100 * PT, 10 * PT), Owner::Equation(0)));
         p.items.push((glyph(40, 0, 40 * PT), Owner::Tag));
         p.items.push((glyph(66, 100 * PT, 40 * PT), Owner::Equation(1)));
