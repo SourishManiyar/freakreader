@@ -261,7 +261,7 @@ pub(super) fn page_tool_input(ui: &mut egui::Ui, view: &mut DocView, frame: &mut
         && let Some(index) = link_context
     {
         if view.presentation.is_none() && pdfcraft_engine::link_preview::link_preview(info, i, index).is_some() {
-            frame.peek_link = Some((i, index));
+            frame.peek_link = Some(super::link_peek::PeekSource::Link { page: i, index });
         } else if can_modify {
             view.links.context = Some((i, index));
         }
@@ -282,7 +282,20 @@ pub(super) fn page_tool_input(ui: &mut egui::Ui, view: &mut DocView, frame: &mut
         && let Some(link) = info.links.iter().find(|l| l.page == i && l.index == index)
         && pdfcraft_engine::link_preview::link_preview(info, i, index).is_some()
     {
-        frame.hover_link = Some(super::link_peek::Pointed { page: i, index, on_screen: xf.user_rect(info, i, link.rect) });
+        frame.hover_link = Some(super::link_peek::Pointed {
+            source: super::link_peek::PeekSource::Link { page: i, index },
+            on_screen: xf.user_rect(info, i, link.rect),
+        });
+    } else if tool == QuickTool::Select
+        && view.presentation.is_none()
+        && frame.env.inferred_previews
+        && hover.is_none()
+        && link_context.is_none()
+        && let Some(p) = pointer
+    {
+        // A mention the text makes without a link, where nothing else is: read from where the
+        // pointer is, never hit-tested, so links, selection and editing keep the page as it was.
+        mention_input(view, frame, doc, i, &xf, p, ptr.any_down, resp.secondary_clicked());
     }
     PageInput {
         press,
@@ -330,6 +343,35 @@ fn claim_under(hits: &PageHits<'_>, view: &mut DocView, p: Pos2, claim: bool) ->
         }
     }
     top(under, hits.tool)
+}
+
+/// The mention the text makes without a link under the pointer (`p`, on screen), from the
+/// document's reference graph, resolved surely enough to preview: the preview's on a rest (no
+/// button `down`), and a right-click's when no text is selected (the page's menu then keeps
+/// Copy).
+#[allow(clippy::too_many_arguments)]
+fn mention_input(
+    view: &DocView,
+    frame: &mut PageFrame<'_>,
+    doc: &pdfcraft_engine::Document,
+    page: usize,
+    xf: &PageXform,
+    p: Pos2,
+    down: bool,
+    right_click: bool,
+) {
+    use pdfcraft_engine::references::{PREVIEW_CONFIDENCE, Source};
+    let Some(graph) = view.refs.graph(doc.edit_generation()) else { return };
+    let (x, y) = xf.screen_to_view(p);
+    let Some(m) = graph.mention_at(page, x, y, PREVIEW_CONFIDENCE).filter(|m| m.source == Source::Inferred) else { return };
+    let source = super::link_peek::PeekSource::Mention { page, id: m.id };
+    let Some(on_screen) = m.extent.iter().filter(|e| e.page == page).map(|e| xf.view_rect(e.rect)).reduce(|a, b| a.union(b)) else { return };
+    if !down {
+        frame.hover_link = Some(super::link_peek::Pointed { source, on_screen });
+    }
+    if right_click && view.selected_text().is_none() {
+        frame.peek_link = Some(source);
+    }
 }
 
 /// The link `owner` is, by its `/Annots` index.

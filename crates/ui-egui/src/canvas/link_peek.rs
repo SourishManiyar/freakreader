@@ -6,6 +6,13 @@
 //! stays. Another right-click closes it, as does Escape (`app/keys.rs`); a click on the preview
 //! goes there. Preferences ▸ Documents and view turns the pointer's previews off.
 //!
+//! A mention the text makes without a link ("by Lemma 2.1", "see (3.4)", "Section 3") previews the
+//! same way when the document's reference graph ([`super::ref_graph`]) resolved it with at least
+//! [`PREVIEW_CONFIDENCE`]: the window shows the named block's own extent and says "inferred" with
+//! its title. Such a mention is only read where the pointer is; it never takes the pointer, a
+//! press, the cursor or a text selection from the page. Preferences turn these previews off on
+//! their own.
+//!
 //! What is shown is the block the destination names ([`pdfcraft_engine::link_preview`]): the
 //! target page's glyphs are read first, then the block is drawn, both by a render thread of its
 //! own ([`RenderPool::companion`]) with the page view's settings, so the page view's queue,
@@ -17,7 +24,8 @@
 
 use egui::emath::GuiRounding as _;
 use egui::{Align2, Color32, CornerRadius, Pos2, Rect, Sense, Stroke, Vec2, pos2, vec2};
-use pdfcraft_engine::link_preview::{LinkPreview, RefKind, link_preview};
+use pdfcraft_engine::link_preview::{LinkPreview, RefKind, RefName, link_preview};
+use pdfcraft_engine::references::{BlockKind as RefBlockKind, PREVIEW_CONFIDENCE, ReferenceGraph, Source as RefSource};
 use pdfcraft_render::{DestView, DocInfo, LinkTarget, PageInfo, RenderPool, RenderRequest, RequestKind, Tile};
 
 use super::DocView;
@@ -52,13 +60,43 @@ pub const GLYPHS_PATIENCE: f64 = 0.5;
 /// The tag of the glyph request: a picture's tag is its scale in thousandths, never this.
 const GLYPHS_TAG: u64 = u64::MAX;
 
-/// A link to a place in this document under the pointer: its page, its index in that page's
-/// `/Annots` (both 0-based), and where it is on screen.
+/// What a preview belongs to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PeekSource {
+    /// A link annotation to a place in this document: its page and its `/Annots` index (0-based).
+    Link { page: usize, index: usize },
+    /// A mention the text makes without a link ("by Lemma 2.1"): its page and its id in the
+    /// document's reference graph ([`super::ref_graph`]).
+    Mention { page: usize, id: usize },
+}
+
+impl PeekSource {
+    /// The page it is on.
+    pub fn page(self) -> usize {
+        match self {
+            PeekSource::Link { page, .. } | PeekSource::Mention { page, .. } => page,
+        }
+    }
+}
+
+/// A link to a place in this document, or a mention of one, under the pointer, and where it is on
+/// screen.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pointed {
-    pub page: usize,
-    pub index: usize,
+    pub source: PeekSource,
     pub on_screen: Rect,
+}
+
+/// How much room the picture of an inferred mention's block leaves around it, in points.
+const BLOCK_MARGIN: f32 = 6.0;
+
+/// Where a preview's link or mention is on its page, to place the window by it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Anchor {
+    /// A link's rectangle, in user space.
+    User([f32; 4]),
+    /// A mention's box, in view space.
+    View([f32; 4]),
 }
 
 /// The pointer's previews: the link it rests on and since when, and a link whose preview was
@@ -66,13 +104,12 @@ pub struct Pointed {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LinkHover {
     resting: Option<(Pointed, f64)>,
-    dismissed: Option<(usize, usize)>,
+    dismissed: Option<PeekSource>,
 }
 
 impl LinkHover {
-    /// The preview of link `source` (page, `/Annots` index) was closed: it does not open again
-    /// while the pointer stays on the link.
-    pub fn dismiss(&mut self, source: (usize, usize)) {
+    /// The preview of `source` was closed: it does not open again while the pointer stays on it.
+    pub fn dismiss(&mut self, source: PeekSource) {
         self.resting = None;
         self.dismissed = Some(source);
     }
@@ -89,10 +126,13 @@ pub enum Trigger {
 
 /// A preview on screen: the link it belongs to, what it shows, and the picture once drawn.
 pub struct LinkPeek {
-    /// The link: its page and its index in that page's `/Annots` (0-based).
-    source: (usize, usize),
-    /// Where the link is on its page, in user space, to place the window by it.
-    link_rect: [f32; 4],
+    /// The link or the mention.
+    source: PeekSource,
+    /// Where it is on its page, to place the window by it.
+    anchor: Anchor,
+    /// For a mention the text makes without a link: the title of the block it names
+    /// (`Lemma 2.1`), which the caption gives with "inferred".
+    inferred: Option<String>,
     /// The part of the target page shown.
     preview: LinkPreview,
     /// Where following the link goes, for a click on the preview.
@@ -138,8 +178,9 @@ impl LinkPeek {
         let LinkTarget::Page(_, dest) = link.target else { return None };
         let target_page = doc.info.pages.get(preview.page)?.clone();
         Some(Self {
-            source: (page, index),
-            link_rect: link.rect,
+            source: PeekSource::Link { page, index },
+            anchor: Anchor::User(link.rect),
+            inferred: None,
             preview,
             dest,
             label: target_page.label.clone(),
@@ -158,10 +199,65 @@ impl LinkPeek {
         })
     }
 
-    /// The link the preview belongs to: its page and its index in that page's `/Annots`
-    /// (0-based).
-    pub fn source(&self) -> (usize, usize) {
+    /// The preview of the mention `id` of `graph` on `page`: a mention the text makes without a
+    /// link, resolved with at least [`PREVIEW_CONFIDENCE`]. It shows the block the mention names,
+    /// its own extent on its first page, and a click there goes to it.
+    pub(crate) fn open_mention(doc: &pdfcraft_engine::Document, graph: &ReferenceGraph, page: usize, id: usize, trigger: Trigger) -> Option<Self> {
+        let m = graph.mentions.get(id).filter(|m| m.source == RefSource::Inferred && m.confidence >= PREVIEW_CONFIDENCE && m.page() == page)?;
+        let block = graph.block(m.target?)?;
+        let target_page = doc.info.pages.get(block.page())?.clone();
+        let (w, h) = (target_page.width.max(1.0), target_page.height.max(1.0));
+        let [x0, y0, x1, y1] = block.first_rect();
+        if !([x0, y0, x1, y1].iter().all(|v| v.is_finite()) && x1 > x0 && y1 > y0) {
+            return None;
+        }
+        let area = [(x0 - BLOCK_MARGIN).max(0.0), (y0 - BLOCK_MARGIN).max(0.0), (x1 + BLOCK_MARGIN).min(w), (y1 + BLOCK_MARGIN).min(h)];
+        if area[2] <= area[0] || area[3] <= area[1] {
+            return None;
+        }
+        // A click goes to the block's top, as a link to it would.
+        let [left, top] = target_page.view_to_user(area[0], area[1]);
+        let dest = DestView::Xyz { left: Some(left), top: Some(top), zoom: None };
+        let kind = match block.kind {
+            RefBlockKind::Equation => RefKind::Equation,
+            RefBlockKind::Heading => RefKind::Section,
+            RefBlockKind::Float if block.label == "Table" => RefKind::Table,
+            RefBlockKind::Float => RefKind::Figure,
+            RefBlockKind::Statement | RefBlockKind::Proof => RefKind::TheoremLike,
+        };
+        let preview =
+            LinkPreview { page: block.page(), area, view: dest, name: None, reference: RefName { kind, number: block.number.clone() }, fitted: true };
+        let on_page = m.extent.iter().find(|e| e.page == page)?.rect;
+        Some(Self {
+            source: PeekSource::Mention { page, id },
+            anchor: Anchor::View(on_page),
+            inferred: Some(block.title()),
+            preview,
+            dest,
+            label: target_page.label.clone(),
+            target_page,
+            trigger,
+            glyphs_asked: None,
+            settled: false,
+            opened_at: None,
+            left_at: None,
+            pointer_inside: false,
+            generation: doc.edit_generation(),
+            pool: doc.renderer.companion(),
+            asked: None,
+            texture: None,
+            failed: false,
+        })
+    }
+
+    /// What the preview belongs to: a link, or a mention the text makes without one.
+    pub fn source(&self) -> PeekSource {
         self.source
+    }
+
+    /// For a mention the text makes without a link, the title of the block it names.
+    pub fn inferred(&self) -> Option<&str> {
+        self.inferred.as_deref()
     }
 
     /// The part of the document shown.
@@ -194,6 +290,9 @@ impl LinkPeek {
     /// citation's first words say what it is, on the picture itself.
     pub fn caption(&self) -> String {
         let p = self.label.as_str();
+        if let Some(t) = &self.inferred {
+            return crate::i18n::fmt(tl!("{t} · page {p} · inferred"), &[("t", t), ("p", p)]);
+        }
         let template = match (self.preview.reference.kind, self.preview.reference.number.as_deref()) {
             (_, None) => None,
             (RefKind::Equation, Some(_)) => Some(tl!("Equation {n} · page {p}")),
@@ -303,10 +402,11 @@ impl LinkPeek {
 }
 
 /// What this frame's right-click on the pages does to the preview. `found`: the link a page found
-/// under it that goes somewhere in this document (Select tool), as (page, `/Annots` index). An open
-/// preview closes, wherever the right-click is; otherwise the link's preview opens. Returns whether
-/// the right-click was the preview's: the page's menu stays shut then.
-pub(super) fn right_click(view: &mut DocView, doc: &pdfcraft_engine::Document, found: Option<(usize, usize)>) -> bool {
+/// under it that goes somewhere in this document, or the mention the text makes there without a
+/// link (Select tool). An open preview closes, wherever the right-click is; otherwise the found
+/// one's preview opens. Returns whether the right-click was the preview's: the page's menu stays
+/// shut then.
+pub(super) fn right_click(view: &mut DocView, doc: &pdfcraft_engine::Document, found: Option<PeekSource>) -> bool {
     // A right-click on the link whose preview the pointer opened keeps it open.
     if let Some(peek) = view.link_peek.as_mut().filter(|p| p.trigger == Trigger::Hover && Some(p.source) == found) {
         peek.trigger = Trigger::Click;
@@ -316,9 +416,20 @@ pub(super) fn right_click(view: &mut DocView, doc: &pdfcraft_engine::Document, f
         view.link_hover.dismiss(peek.source);
         return true;
     }
-    let Some((page, index)) = found else { return false };
-    view.link_peek = LinkPeek::open(doc, page, index, Trigger::Click);
+    let Some(found) = found else { return false };
+    view.link_peek = open(view, doc, found, Trigger::Click);
     view.link_peek.is_some()
+}
+
+/// The preview of `source`: a link's, or a mention's from the document's reference graph.
+fn open(view: &DocView, doc: &pdfcraft_engine::Document, source: PeekSource, trigger: Trigger) -> Option<LinkPeek> {
+    match source {
+        PeekSource::Link { page, index } => LinkPeek::open(doc, page, index, trigger),
+        PeekSource::Mention { page, id } => {
+            let graph = view.refs.graph(doc.edit_generation())?.clone();
+            LinkPeek::open_mention(doc, &graph, page, id, trigger)
+        }
+    }
 }
 
 /// What the pointer does to the previews this frame. `pointed`: the link to a place in this
@@ -344,13 +455,13 @@ pub(super) fn hover(
     let inside = view.link_peek.as_ref().is_some_and(|p| p.pointer_inside);
     // Over the window, a link under it is not pointed at.
     let pointed = pointed.filter(|_| !inside && allowed && !pressed);
-    if view.link_hover.dismissed.is_some_and(|d| pointed.is_none_or(|p| (p.page, p.index) != d)) {
+    if view.link_hover.dismissed.is_some_and(|d| pointed.is_none_or(|p| p.source != d)) {
         view.link_hover.dismissed = None;
     }
     let pointer_peek = view.link_peek.as_ref().is_some_and(|p| p.trigger == Trigger::Hover);
     if pointer_peek {
         let close = view.link_peek.as_mut().is_some_and(|peek| {
-            let on_link = pointed.is_some_and(|p| (p.page, p.index) == peek.source);
+            let on_link = pointed.is_some_and(|p| p.source == peek.source);
             let moved = pointed.filter(|_| on_link).zip(peek.opened_at).is_some_and(|(p, at)| p.on_screen != at);
             if !allowed || (pressed && !peek.pointer_inside) || moved {
                 return true;
@@ -374,8 +485,8 @@ pub(super) fn hover(
         view.link_hover.resting = None;
         return;
     };
-    let shown = view.link_peek.as_ref().is_some_and(|peek| peek.source == (p.page, p.index));
-    if shown || view.link_hover.dismissed == Some((p.page, p.index)) {
+    let shown = view.link_peek.as_ref().is_some_and(|peek| peek.source == p.source);
+    if shown || view.link_hover.dismissed == Some(p.source) {
         view.link_hover.resting = None;
         return;
     }
@@ -386,7 +497,7 @@ pub(super) fn hover(
     let rested = now - since;
     if rested >= HOVER_DELAY {
         view.link_hover.resting = None;
-        if let Some(mut peek) = LinkPeek::open(doc, p.page, p.index, Trigger::Hover) {
+        if let Some(mut peek) = open(view, doc, p.source, Trigger::Hover) {
             peek.opened_at = Some(p.on_screen);
             view.link_peek = Some(peek);
         }
@@ -436,9 +547,12 @@ fn place(link: Rect, size: Vec2, viewport: Rect) -> Pos2 {
 pub(super) fn show(ui: &egui::Ui, view: &mut DocView, doc: &pdfcraft_engine::Document, info: &DocInfo, modal: bool, size: u16) {
     let size = if PREVIEW_SIZES.contains(&size) { f32::from(size) / 100.0 } else { 1.0 };
     let Some(peek) = view.link_peek.as_mut() else { return };
-    let (page, _) = peek.source;
+    let page = peek.source.page();
     let xform = info.pages.get(page).and(view.screen_xforms.iter().find(|(p, _)| *p == page).map(|(_, xf)| *xf));
-    let link = xform.map(|xf| xf.user_rect(info, page, peek.link_rect));
+    let link = xform.map(|xf| match peek.anchor {
+        Anchor::User(r) => xf.user_rect(info, page, r),
+        Anchor::View(r) => xf.view_rect(r),
+    });
     let viewport = view.viewport_screen;
     let (Some(link), false, true) = (link, modal, doc.edit_generation() == peek.generation) else {
         view.link_peek = None;
@@ -524,8 +638,9 @@ mod tests {
     fn peek_of(area: [f32; 4]) -> LinkPeek {
         let pool = RenderPool::new_inline(std::sync::Arc::new(b"not a pdf".to_vec()), Default::default());
         LinkPeek {
-            source: (0, 0),
-            link_rect: [0.0; 4],
+            source: PeekSource::Link { page: 0, index: 0 },
+            anchor: Anchor::User([0.0; 4]),
+            inferred: None,
             preview: LinkPreview {
                 page: 1,
                 area,

@@ -36,6 +36,7 @@ pub(super) mod page_keys;
 pub(super) mod page_pointer;
 pub(super) mod page_router;
 mod presenter;
+pub mod ref_graph;
 pub mod scroll_speed;
 mod selection;
 pub(super) mod signature_drag;
@@ -710,6 +711,8 @@ pub struct DocView {
     /// The link the pointer rests on, before its preview opens, and the one whose preview was just
     /// closed while the pointer is still on it ([`link_peek::hover`]).
     pub(crate) link_hover: link_peek::LinkHover,
+    /// The document's reference graph, for previews of mentions with no link ([`ref_graph`]).
+    pub refs: ref_graph::RefGraphCache,
     /// Redact tool: the box being drawn, and a mark to add (page, quads) for the app to style.
     pub redact_drag: crate::redact_ui::AreaDrag,
     pub pending_redaction: Option<(usize, Vec<[f64; 8]>)>,
@@ -1168,6 +1171,7 @@ impl DocView {
             links: Default::default(),
             link_peek: None,
             link_hover: Default::default(),
+            refs: Default::default(),
             redact_drag: None,
             pending_redaction: None,
             redactions_applied: 0,
@@ -1346,6 +1350,8 @@ struct PageEnv<'a> {
     link_preview_size: u16,
     /// Preferences ▸ Show a reference preview when the pointer rests on a link.
     link_preview_hover: bool,
+    /// Preferences ▸ Preview references the text names without a link.
+    inferred_previews: bool,
     allowed: bool,
     author: &'a String,
     auto_delta: Vec2,
@@ -1477,8 +1483,9 @@ struct PageFrame<'a> {
     /// A page took this frame's right-click.
     right_clicked: bool,
     /// The link to a place in this document under this frame's right-click, with the Select tool:
-    /// (page, `/Annots` index), for its preview ([`link_peek`]).
-    peek_link: Option<(usize, usize)>,
+    /// (page, `/Annots` index), or the mention the text makes there without a link, for its
+    /// preview ([`link_peek`]).
+    peek_link: Option<link_peek::PeekSource>,
     /// The link to a place in this document under the pointer, with the Select tool and no button
     /// down, for its preview on a rest ([`link_peek::hover`]).
     hover_link: Option<link_peek::Pointed>,
@@ -2256,7 +2263,13 @@ fn draw_pages(
     // The pointer's previews: never while something is over the pages, a text field holds the
     // keys, the pages scroll or full screen shows them.
     let still = delta == Vec2::ZERO && !ui.ctx().memory(|m| m.focused().is_some());
-    let previews = env.link_preview_hover && tool == QuickTool::Select && unobstructed && !env.over_pages && !presenting && still;
+    let previews =
+        (env.link_preview_hover || env.inferred_previews) && tool == QuickTool::Select && unobstructed && !env.over_pages && !presenting && still;
+    // Each kind of preview has its own preference.
+    let hover_link = hover_link.filter(|p| match p.source {
+        link_peek::PeekSource::Link { .. } => env.link_preview_hover,
+        link_peek::PeekSource::Mention { .. } => env.inferred_previews,
+    });
     let now = ui.input(|i| i.time);
     link_peek::hover(ui.ctx(), view, doc, hover_link, previews, ptr.any_down, now);
     link_peek::show(ui, view, doc, info, modal, env.link_preview_size);
@@ -3432,10 +3445,14 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     scroll = refine_goto_point(scroll, view, &ScrollGeometry { rects: &rects, y_shift, content_w, content_h, avail, middle_gesture, hand });
     let selection_wheel = view.selection_drag && navigation_enabled && unobstructed && !single_paging && ui.rect_contains_pointer(avail);
     let prepare_tab_order = (preparing && view.prepare.show_tab_numbers).then(|| crate::forms_ui::tab_order(&form, info));
+    // The reference graph, for previews of mentions with no link: built in the background while
+    // they are wanted, dropped when the document changes.
+    view.refs.update(ui.ctx(), doc, app.inferred_previews && tool == QuickTool::Select && view.presentation.is_none());
     let env = PageEnv {
         added: &added,
         link_preview_size: app.link_preview_size,
         link_preview_hover: app.link_preview_hover,
+        inferred_previews: app.inferred_previews,
         allowed,
         animates,
         author: &author,
