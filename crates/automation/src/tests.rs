@@ -731,6 +731,46 @@ fn text_extract_html_has_one_budget_across_pages() {
     assert_eq!(capped["pages"][1]["styles_incomplete"], true);
 }
 
+#[test]
+fn text_glyph_details_returns_whole_pages_within_one_glyph_budget() {
+    let mut a = Automation::new();
+    // "Page 1" … "Page 5": six glyphs each (the space is one).
+    let id = search_document(&mut a, 5);
+    let args = json!({ "doc": id.0 });
+    let all = a.text_glyph_details(&Args(&args)).unwrap();
+    assert_eq!(all["pages"].as_array().unwrap().len(), 5);
+    assert!(all.get("next_page").is_none());
+    assert_eq!(all["pages"][4]["page"], 5);
+    assert_eq!(all["pages"][0]["glyphs"].as_array().unwrap().len(), 6, "{all}");
+    // Room for one page and one glyph over: the second page would pass the budget and is not cut to
+    // fit, the call says where to go on (a batch of pages is read, but only whole pages are kept).
+    let capped = a.text_glyph_details_within(&Args(&args), 7).unwrap();
+    assert_eq!(capped["pages"].as_array().unwrap().len(), 1);
+    assert_eq!(capped["next_page"], 2);
+    // Room for two whole pages, then the third stops it: across a batch boundary too.
+    let capped = a.text_glyph_details_within(&Args(&args), 13).unwrap();
+    assert_eq!((capped["pages"].as_array().unwrap().len(), &capped["next_page"]), (2, &json!(3)));
+    let capped = a.text_glyph_details_within(&Args(&args), 6 * 4 + 5).unwrap();
+    assert_eq!((capped["pages"].as_array().unwrap().len(), &capped["next_page"]), (4, &json!(5)));
+    // A page over the whole budget is still returned, alone: a call always makes progress.
+    let tiny = a.text_glyph_details_within(&Args(&args), 0).unwrap();
+    assert_eq!((tiny["pages"].as_array().unwrap().len(), &tiny["next_page"]), (1, &json!(2)));
+    // Following next_page reaches every page exactly once.
+    let mut seen = Vec::new();
+    let mut from = 1;
+    loop {
+        let r = a.text_glyph_details_within(&Args(&json!({ "doc": id.0, "pages": (from..=5).collect::<Vec<_>>() })), 7).unwrap();
+        seen.extend(r["pages"].as_array().unwrap().iter().map(|p| p["page"].as_u64().unwrap()));
+        match r.get("next_page") {
+            Some(next) => from = next.as_u64().unwrap(),
+            None => break,
+        }
+    }
+    assert_eq!(seen, [1, 2, 3, 4, 5]);
+    // Pages named out of range are refused, as everywhere.
+    assert!(a.text_glyph_details(&Args(&json!({ "doc": id.0, "pages": [6] }))).is_err());
+}
+
 /// Replace through the tool when a page's text can't be read for the find bar: the page is named
 /// and counted as refused, in the result, and the readable pages are still replaced.
 #[test]

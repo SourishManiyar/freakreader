@@ -2,6 +2,7 @@
 //! one blue accent; Dark Gray keeps pages white). Every custom widget reads `Tokens::get`.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use egui::epaint::text::{FallbackAlign, FontTweak, HintingTarget, SmoothHinting};
 use egui::{Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Rect, Response, Stroke, Vec2, Visuals};
@@ -185,7 +186,7 @@ pub fn hand(resp: Response) -> Response {
 }
 
 pub fn install_fonts(ctx: &egui::Context) {
-    install_fonts_for(ctx, CjkPreference::Default);
+    install_fonts_for(ctx, CjkPreference::Default, UiFont::Inter);
 }
 
 /// The interface language's claim on the CJK fallback faces.
@@ -210,10 +211,94 @@ impl CjkPreference {
 }
 
 /// Install the interface fonts with the CJK fallback order for the UI language (Chinese
-/// first for Chinese, Japanese first otherwise). Call it when the language changes; the new
-/// faces take effect next frame.
-pub fn install_fonts_for(ctx: &egui::Context, cjk: CjkPreference) {
-    ctx.set_fonts(installed_font_definitions(cjk));
+/// first for Chinese, Japanese first otherwise) and `ui_font` as the interface's face. Call it
+/// when either changes; the new faces take effect next frame.
+pub fn install_fonts_for(ctx: &egui::Context, cjk: CjkPreference, ui_font: UiFont) {
+    let mut fonts = installed_font_definitions(cjk);
+    ui_font.apply(&mut fonts);
+    ctx.set_fonts(fonts);
+}
+
+/// Preferences ▸ Appearance ▸ Interface font: the faces the interface can be drawn in. Only faces
+/// this build already ships under an allowed licence (AGENTS.md §1.2–1.4): Inter, the interface's
+/// own; Ubuntu Light and Hack, which egui bundles (`ATTRIBUTION.toml`, `epaint_default_fonts`);
+/// JetBrains Mono, the code face; and BIZ UDPGothic, from the craft-fonts build input when the
+/// build has it. A new face goes into craft-fonts first, never into this repository.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum UiFont {
+    #[default]
+    Inter,
+    Ubuntu,
+    BizUdpGothic,
+    #[serde(rename = "jetbrains-mono")]
+    JetBrainsMono,
+    Hack,
+}
+
+impl UiFont {
+    pub const ALL: [UiFont; 5] = [UiFont::Inter, UiFont::Ubuntu, UiFont::BizUdpGothic, UiFont::JetBrainsMono, UiFont::Hack];
+
+    /// The face's name, as Preferences shows it (a typeface's name, never translated).
+    pub fn label(self) -> &'static str {
+        match self {
+            UiFont::Inter => "Inter",
+            UiFont::Ubuntu => "Ubuntu Light",
+            UiFont::BizUdpGothic => "BIZ UDPGothic",
+            UiFont::JetBrainsMono => "JetBrains Mono",
+            UiFont::Hack => "Hack",
+        }
+    }
+
+    /// The faces' names in the font definitions for regular, medium and semibold text. A face with
+    /// one weight serves all three, as egui draws no synthetic bold.
+    fn faces(self) -> Option<[String; 3]> {
+        let one = |name: &str| Some([name.to_owned(), name.to_owned(), name.to_owned()]);
+        match self {
+            UiFont::Inter => Some(["Inter".into(), "Inter-Medium".into(), "Inter-SemiBold".into()]),
+            UiFont::Ubuntu => one("Ubuntu-Light"),
+            UiFont::JetBrainsMono => one("JetBrainsMono"),
+            UiFont::Hack => one("Hack"),
+            UiFont::BizUdpGothic => {
+                let faces = pdfcraft_fonts::ui_japanese_fonts();
+                let style = |s: &str| faces.iter().find(|f| f.family == "BIZ UDPGothic" && f.style == s).map(|f| f.name());
+                let regular = style("Regular")?;
+                let bold = style("Bold").unwrap_or_else(|| regular.clone());
+                Some([regular.clone(), regular, bold])
+            }
+        }
+    }
+
+    /// Whether this build has the face (BIZ UDPGothic needs craft-fonts).
+    pub fn available(self) -> bool {
+        self.faces().is_some()
+    }
+
+    /// The faces this build can offer, in [`Self::ALL`]'s order.
+    pub fn offered() -> Vec<UiFont> {
+        Self::ALL.into_iter().filter(|f| f.available()).collect()
+    }
+
+    /// Make this the interface's face in `fonts`: first in the proportional family and in the
+    /// medium and semibold ones, with Inter and the rest after it for the characters it lacks.
+    /// Monospaced text keeps JetBrains Mono. Nothing changes for Inter, or for a face `fonts`
+    /// doesn't hold.
+    pub fn apply(self, fonts: &mut FontDefinitions) {
+        if self == UiFont::Inter {
+            return;
+        }
+        let Some([regular, medium, semibold]) = self.faces() else { return };
+        if [&regular, &medium, &semibold].iter().any(|name| !fonts.font_data.contains_key(name.as_str())) {
+            return;
+        }
+        for (family, name) in
+            [(FontFamily::Proportional, regular), (FontFamily::Name("medium".into()), medium), (FontFamily::Name("semibold".into()), semibold)]
+        {
+            let stack = fonts.families.entry(family).or_default();
+            stack.retain(|n| *n != name);
+            stack.insert(0, name);
+        }
+    }
 }
 
 /// The name of the installed face [`installed_font_definitions`] may add after the embedded ones.
@@ -412,14 +497,66 @@ fn font_definitions_for_platform(prefer_hans: bool, platform: FontPolicyPlatform
     fonts
 }
 
+/// The interface type ramp: the size a widget asks for, moved onto one of a few steps.
+///
+/// Widgets name the size they were first drawn at (11, 11.5, 12.5, 13.5…). Read side by side,
+/// a dozen sizes a half point apart look like mistakes rather than hierarchy, and 13 px Inter is
+/// small at 100 % scaling. Every request goes through here so the whole interface sits on
+/// caption 12, secondary 13, body 14, subtitle 16, title 18 and heading 20, with badges below
+/// 10 points kept nearly as they are, since they fill fixed chips.
+pub fn ui_size(size: f32) -> f32 {
+    scaled(ramp(size), text_scale())
+}
+
+/// Preferences ▸ Appearance ▸ Interface text size, in percent: what it offers.
+pub const TEXT_SIZES: [u16; 5] = [90, 100, 110, 120, 130];
+
+/// The interface text size in effect, as `f32` bits (1.0 until [`set_text_scale`]). One for the
+/// whole app, as the fonts are: every widget reads it through [`ui_size`].
+static TEXT_SCALE: AtomicU32 = AtomicU32::new(0x3F80_0000);
+
+/// The interface text size in effect, as a factor.
+pub fn text_scale() -> f32 {
+    f32::from_bits(TEXT_SCALE.load(Ordering::Relaxed))
+}
+
+/// Make `percent` (one of [`TEXT_SIZES`]; anything else is 100) the interface text size. Returns
+/// whether it changed, so the caller can lay the styles out again ([`apply`]).
+pub fn set_text_scale(percent: u16) -> bool {
+    let factor = if TEXT_SIZES.contains(&percent) { f32::from(percent) / 100.0 } else { 1.0 };
+    TEXT_SCALE.swap(factor.to_bits(), Ordering::Relaxed) != factor.to_bits()
+}
+
+/// A ramp step at the interface text size `scale`, on whole half points so text stays on the
+/// pixel grid at 100 % and 200 % displays.
+fn scaled(size: f32, scale: f32) -> f32 {
+    let scale = if scale.is_finite() && scale > 0.0 { scale } else { 1.0 };
+    (size * scale * 2.0).round() / 2.0
+}
+
+/// The step of the ramp a size asked for sits on ([`ui_size`]).
+fn ramp(size: f32) -> f32 {
+    match size {
+        s if !s.is_finite() || s <= 0.0 => 14.0,
+        s if s < 10.0 => s + 0.5,
+        s if s < 12.0 => 12.0,
+        s if s < 13.0 => 13.0,
+        s if s < 14.0 => 14.0,
+        s if s < 16.0 => 16.0,
+        s if s < 18.0 => 18.0,
+        s if s <= 20.0 => 20.0,
+        s => s + 2.0,
+    }
+}
+
 pub fn regular(size: f32) -> FontId {
-    FontId::proportional(size)
+    FontId::proportional(ui_size(size))
 }
 pub fn medium(size: f32) -> FontId {
-    FontId::new(size, FontFamily::Name("medium".into()))
+    FontId::new(ui_size(size), FontFamily::Name("medium".into()))
 }
 pub fn semibold(size: f32) -> FontId {
-    FontId::new(size, FontFamily::Name("semibold".into()))
+    FontId::new(ui_size(size), FontFamily::Name("semibold".into()))
 }
 
 /// Install the palette, widget styling, text sizes and right-to-left flag for the chosen theme.
@@ -475,9 +612,11 @@ pub fn apply(ctx: &egui::Context, kind: ThemeKind) {
         // RTL languages mirror stock chrome (menus, combo boxes, scroll bars, headers).
         // Labels still get their paragraph direction explicitly from `bidi::ui_direction`.
         s.right_to_left = rtl;
-        s.spacing.item_spacing = egui::vec2(8.0, 6.0);
-        s.spacing.button_padding = egui::vec2(10.0, 5.0);
-        s.spacing.menu_margin = egui::Margin::same(6);
+        // Room to breathe across a row: wider gaps and button sides than egui's compact defaults.
+        // Rows keep their height, so dense dialogs (Print, Preferences) still fit a small window.
+        s.spacing.item_spacing = egui::vec2(10.0, 6.0);
+        s.spacing.button_padding = egui::vec2(12.0, 5.0);
+        s.spacing.menu_margin = egui::Margin::same(8);
         s.spacing.scroll.bar_width = 8.0;
         s.spacing.scroll.floating = true;
         s.spacing.scroll.floating_width = 3.0;

@@ -318,6 +318,24 @@ impl RenderPool {
         Self::with_mode(bytes, 0, config, true)
     }
 
+    /// A pool of one thread, without replacements, that renders the same document with the same
+    /// configuration (reading colours, password, installed-font fallback): for a side render, such
+    /// as a link's preview, that must look like the page and must not join this pool's queue,
+    /// which its owner replaces whole. Inline when this pool is.
+    pub fn companion(&self) -> RenderPool {
+        if self.is_inline() {
+            return Self::new_inline(self.bytes.clone(), self.config.clone());
+        }
+        Self::new(self.bytes.clone(), 1, self.config.clone()).without_replacements()
+    }
+
+    /// A watch on this pool's threads that outlives the pool: [`PoolWatch::stopped`] once the
+    /// pool is dropped and every thread it started has exited, and so has let go of the
+    /// document's bytes, its parser and its caches.
+    pub fn watch(&self) -> PoolWatch {
+        PoolWatch(Arc::downgrade(&self.shared))
+    }
+
     /// `true` when rendering happens on the caller's thread (no worker threads available).
     pub fn is_inline(&self) -> bool {
         self.inline.is_some()
@@ -385,6 +403,7 @@ impl RenderPool {
                 rgba: Pixels::default(),
                 error: Some("all render workers exceeded their time limits; close and reopen the document to try again".into()),
                 text: None,
+                glyphs: None,
                 warnings: Vec::new(),
                 millis: 0,
             })
@@ -430,7 +449,11 @@ impl RenderPool {
                     self.shared.queue.retry(req);
                 } else {
                     lock(&self.shared.stuck).insert(req.into());
-                    let what = if req.kind == RequestKind::Text { "text extraction for page" } else { "page" };
+                    let what = match req.kind {
+                        RequestKind::Text => "text extraction for page",
+                        RequestKind::Glyphs => "glyph extraction for page",
+                        RequestKind::Pixels => "page",
+                    };
                     let error = format!(
                         "{what} {} took longer than {:.0} s and was skipped; the page may be damaged or extremely complex",
                         req.page + 1,
@@ -443,6 +466,7 @@ impl RenderPool {
                         rgba: Pixels::default(),
                         error: Some(error),
                         text: None,
+                        glyphs: None,
                         warnings: Vec::new(),
                         millis: 0,
                     });
@@ -453,6 +477,18 @@ impl RenderPool {
                 }
             }
         }
+    }
+}
+
+/// See [`RenderPool::watch`]. Only the pool and its threads hold its shared state, so it is
+/// gone exactly when they all are.
+#[derive(Clone, Debug)]
+pub struct PoolWatch(std::sync::Weak<Shared>);
+
+impl PoolWatch {
+    /// Whether the pool is dropped and all its threads have exited.
+    pub fn stopped(&self) -> bool {
+        self.0.strong_count() == 0
     }
 }
 
@@ -563,6 +599,7 @@ pub(super) fn worker(
                         rgba: Pixels::default(),
                         error: Some(error),
                         text: None,
+                        glyphs: None,
                         warnings: Vec::new(),
                         millis: 0,
                     };

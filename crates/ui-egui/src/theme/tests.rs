@@ -301,3 +301,66 @@ fn text_is_readable_on_every_surface() {
         }
     }
 }
+
+/// Every interface size lands on one of the ramp's few steps, in the order it was asked for, so a
+/// label asked for at 12.5 is never drawn larger than one asked for at 13.
+#[test]
+fn interface_sizes_sit_on_the_type_ramp_in_order() {
+    let asked = [11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 15.5, 16.0, 17.0, 18.0, 20.0, 22.0];
+    let steps = [12.0, 13.0, 14.0, 16.0, 18.0, 20.0, 24.0];
+    for size in asked {
+        assert!(steps.contains(&ui_size(size)), "{size} → {} is off the ramp", ui_size(size));
+        assert!(ui_size(size) >= size, "{size} shrank to {}", ui_size(size));
+    }
+    assert!(asked.windows(2).all(|w| ui_size(w[0]) <= ui_size(w[1])));
+    // Chip badges keep nearly their size; nonsense falls back to body text.
+    assert_eq!(ui_size(9.5), 10.0);
+    assert_eq!(ui_size(f32::NAN), 14.0);
+    assert_eq!(regular(13.0).size, 14.0);
+    assert_eq!(semibold(17.0).size, 18.0);
+}
+
+/// The interface text size scales every step and keeps them on half points, in order.
+#[test]
+fn the_interface_text_size_scales_the_ramp() {
+    assert_eq!(scaled(ramp(13.0), 1.0), 14.0);
+    assert_eq!(scaled(ramp(13.0), 1.2), 17.0);
+    assert_eq!(scaled(ramp(11.0), 0.9), 11.0);
+    assert_eq!(scaled(ramp(13.0), f32::NAN), 14.0);
+    for percent in TEXT_SIZES {
+        let scale = f32::from(percent) / 100.0;
+        let steps: Vec<f32> = [11.0, 12.5, 13.0, 15.0, 17.0, 18.0].iter().map(|s| scaled(ramp(*s), scale)).collect();
+        assert!(steps.windows(2).all(|w| w[0] < w[1]), "{percent}%: {steps:?}");
+        assert!(steps.iter().all(|s| (s * 2.0).fract() == 0.0), "{percent}%: {steps:?}");
+    }
+}
+
+/// Interface font: a chosen face leads the proportional, medium and semibold stacks with Inter
+/// right behind it for what it lacks; monospaced text keeps JetBrains Mono; Inter changes nothing.
+#[test]
+fn the_interface_font_leads_every_text_stack_with_inter_behind_it() {
+    let offered = UiFont::offered();
+    for face in [UiFont::Inter, UiFont::Ubuntu, UiFont::JetBrainsMono, UiFont::Hack] {
+        assert!(offered.contains(&face), "{face:?} ships with every build");
+    }
+    assert_eq!(offered.contains(&UiFont::BizUdpGothic), !pdfcraft_fonts::ui_japanese_fonts().is_empty(), "BIZ UDPGothic needs craft-fonts");
+    let plain = font_definitions();
+    let mut same = font_definitions();
+    UiFont::Inter.apply(&mut same);
+    assert_eq!(plain.families, same.families);
+    for (face, first) in [(UiFont::Ubuntu, "Ubuntu-Light"), (UiFont::Hack, "Hack"), (UiFont::JetBrainsMono, "JetBrainsMono")] {
+        let mut fonts = font_definitions();
+        face.apply(&mut fonts);
+        for family in [FontFamily::Proportional, FontFamily::Name("medium".into()), FontFamily::Name("semibold".into())] {
+            let stack = &fonts.families[&family];
+            assert_eq!(stack[0], first, "{face:?} {family:?}");
+            assert!(stack.iter().filter(|n| *n == first).count() == 1, "{face:?} {family:?} once: {stack:?}");
+        }
+        assert_eq!(fonts.families[&FontFamily::Proportional][1], "Inter", "{face:?}: Inter next");
+        assert_eq!(fonts.families[&FontFamily::Monospace][0], "JetBrainsMono", "{face:?}: code keeps its face");
+        // Every name in every stack is a face the definitions hold.
+        for stack in fonts.families.values() {
+            assert!(stack.iter().all(|n| fonts.font_data.contains_key(n)), "{face:?}: {stack:?}");
+        }
+    }
+}

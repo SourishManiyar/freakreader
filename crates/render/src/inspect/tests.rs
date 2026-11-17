@@ -1363,6 +1363,7 @@ fn link_hit_test_rejects_points_outside_the_rect_before_scanning_quads() {
         rect: [0.0, 0.0, 10.0, 10.0],
         quads: vec![[0.0, 0.0, 50.0, 0.0, 50.0, 10.0, 0.0, 10.0]],
         target: LinkTarget::Other("URI".into()),
+        dest_name: None,
     };
     assert!(link.contains(5.0, 5.0), "inside the rect and the quadrilateral");
     assert!(link.contains(10.005, 5.0), "within the slack `link_quads` accepts");
@@ -1379,6 +1380,7 @@ fn a_link_whose_quads_have_no_area_is_active_over_its_rect() {
         rect,
         quads: crate::link_quads(&values.iter().map(|v| Some(*v)).collect::<Vec<_>>(), rect),
         target: LinkTarget::Other("URI".into()),
+        dest_name: None,
     };
     let flat = [10.0, 20.0, 60.0, 20.0, 60.0, 20.0, 10.0, 20.0];
     assert!(link(&flat).contains(100.0, 25.0), "no usable quad: the whole /Rect");

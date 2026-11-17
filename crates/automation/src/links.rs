@@ -159,6 +159,17 @@ impl Automation {
                             LinkAction::Other(_) => v["named"] = json!(true),
                             LinkAction::Uri(_) => {}
                         }
+                        // The named destination it goes through (hyperref's `equation.4.7`), as
+                        // the viewer resolved it.
+                        if let Some(name) = link.and_then(|t| t.dest_name.as_deref()) {
+                            v["named"] = json!(true);
+                            v["dest_name"] = json!(name);
+                            let reference = pdfcraft_engine::link_preview::ref_name(name);
+                            v["dest_kind"] = json!(reference.kind.as_str());
+                            if let Some(n) = reference.number {
+                                v["dest_number"] = json!(n);
+                            }
+                        }
                     }
                     (LinkAction::Page { page, zoom }, None) => {
                         v["to_page"] = json!(page + 1);
@@ -362,5 +373,173 @@ fn dest_view_value(view: DestView) -> Value {
         DestView::FitH { top } => json!({ "kind": "fit_h", "top": top }),
         DestView::FitV { left } => json!({ "kind": "fit_v", "left": left }),
         DestView::FitR { rect } => json!({ "kind": "fit_r", "rect": rect }),
+    }
+}
+
+/// Most named destinations `dest_list` returns in one call.
+const MAX_DEST_LIST_LIMIT: usize = 10_000;
+/// How many it returns when the call doesn't say.
+const DEFAULT_DEST_LIST_LIMIT: usize = 1_000;
+
+impl Automation {
+    /// `dest_list`: the document's named destinations (hyperref's `equation.4.7`, `cite.knuth`),
+    /// in page order: { count, destinations: [{ name, page, page_label, destination, kind,
+    /// number? }], next_from?, left_out, unresolved }. `from` (1-based) and `limit` page through
+    /// a long list. Does not modify the document.
+    pub(crate) fn dest_list(&self, a: &Args) -> Result<Value> {
+        let doc = self.doc(a)?;
+        let from = match a.opt_int("from")? {
+            None => 0,
+            Some(n) => usize::try_from(n).ok().and_then(|n| n.checked_sub(1)).ok_or_else(|| bad("from must be 1 or more"))?,
+        };
+        let limit = match a.opt_int("limit")? {
+            None => DEFAULT_DEST_LIST_LIMIT,
+            Some(n) => usize::try_from(n)
+                .ok()
+                .filter(|n| (1..=MAX_DEST_LIST_LIMIT).contains(n))
+                .ok_or_else(|| bad(format!("limit must be from 1 to {MAX_DEST_LIST_LIMIT}")))?,
+        };
+        let found = pdfcraft_render::named_destinations(doc.display.clone(), doc.password.as_deref())
+            .ok_or_else(|| failed("the document's named destinations could not be read"))?;
+        let total = found.list.len();
+        let items: Vec<Value> = found
+            .list
+            .iter()
+            .skip(from)
+            .take(limit)
+            .map(|d| {
+                let reference = pdfcraft_engine::link_preview::ref_name(&d.name);
+                let page = doc.info.pages.get(d.page);
+                let mut v = json!({ "name": d.name, "page": d.page + 1, "kind": reference.kind.as_str() });
+                if let Some(page) = page {
+                    v["page_label"] = json!(page.label);
+                    if let Some(position) = crate::destination(&d.view, page) {
+                        v["destination"] = position;
+                    }
+                }
+                if let Some(n) = reference.number {
+                    v["number"] = json!(n);
+                }
+                v
+            })
+            .collect();
+        let mut out = json!({ "count": total, "destinations": items, "left_out": found.left_out, "unresolved": found.unresolved });
+        if from.saturating_add(limit) < total {
+            out["next_from"] = json!(from + limit + 1);
+        }
+        Ok(out)
+    }
+
+    /// `link_preview`: what an in-document link (`page` and `index`) or a named destination
+    /// (`dest`) points at, as the viewer's reference preview shows it: a PNG of the target page's
+    /// area, then { page, label, caption, area, fitted, kind, name?, number?, warnings? }, the
+    /// page 1-based and the area in points from its top-left. With `fit` (the default) the area is
+    /// the block the destination names, read from the page's glyphs, when the page shows one.
+    /// Does not modify the document.
+    pub(crate) fn link_preview(&mut self, a: &Args) -> Result<Vec<crate::Content>> {
+        use crate::pages::{DEFAULT_DPI, MAX_DPI, rendered_content};
+        let id = self.doc(a)?.id;
+        let dpi = a.opt_num("dpi")?.unwrap_or(DEFAULT_DPI);
+        if !(1.0..=MAX_DPI).contains(&dpi) {
+            return Err(ToolError::InvalidArgs(format!("dpi must be between 1 and {MAX_DPI}")));
+        }
+        let fit = a.opt_bool("fit")?.unwrap_or(true);
+        let mut preview = match (a.opt_str("dest")?, a.get("page").is_some() || a.get("index").is_some()) {
+            (Some(_), true) => return Err(bad("pass dest, or page and index, not both")),
+            (Some(name), false) => {
+                let doc = self.doc(a)?;
+                let (page, view) = pdfcraft_render::named_destination(doc.display.clone(), doc.password.as_deref(), name)
+                    .ok_or_else(|| bad(format!("the document has no named destination {name:?} that goes to one of its pages (see dest_list)")))?;
+                pdfcraft_engine::link_preview::dest_preview(&doc.info, page, view, Some(name))
+                    .ok_or_else(|| bad(format!("the named destination {name:?} goes to page {}, which the document does not have", page + 1)))?
+            }
+            (None, _) => {
+                let page = self.page(a)?;
+                let number = a.int("index")?;
+                let index = usize::try_from(number)
+                    .ok()
+                    .and_then(|n| n.checked_sub(1))
+                    .ok_or_else(|| ToolError::InvalidArgs("index must be a positive link index from link_list".into()))?;
+                let doc = self.doc(a)?;
+                match pdfcraft_engine::link_preview::link_preview(&doc.info, page, index) {
+                    Some(preview) => preview,
+                    None => {
+                        let exists = doc.info.links.iter().any(|l| l.page == page && l.index == index);
+                        return Err(ToolError::InvalidArgs(if exists {
+                            format!(
+                                "link {number} on page {} does not go to a page of this document; only links that link_list gives a to_page have a preview",
+                                page + 1
+                            )
+                        } else {
+                            format!("page {} has no link {number} (see link_list)", page + 1)
+                        }));
+                    }
+                }
+            }
+        };
+        let page_info = self.doc(a)?.info.pages.get(preview.page).cloned().ok_or_else(|| failed("the target page is gone"))?;
+        let mut warnings = Vec::new();
+        if fit && preview.wants_glyphs() {
+            match self.renderer(id)?.glyph_details(preview.page) {
+                Ok(math) => {
+                    preview.fit(&page_info, &math);
+                }
+                Err(e) => warnings.push(format!("the target page's glyphs could not be read ({e}): the band below the destination is shown")),
+            }
+        }
+        let label = page_info.label.clone();
+        let scale = (dpi / 72.0) as f32;
+        let [x0, y0, x1, y1] = preview.area;
+        let tile = pdfcraft_render::Tile {
+            x: (x0 * scale).floor().max(0.0) as u32,
+            y: (y0 * scale).floor().max(0.0) as u32,
+            w: ((x1 - x0) * scale).ceil().max(1.0) as u32,
+            h: ((y1 - y0) * scale).ceil().max(1.0) as u32,
+        };
+        // The renderer draws at most this many pixels a side in one tile, and cuts a larger one short.
+        const MAX_TILE_SIDE: u32 = 4096;
+        if tile.w > MAX_TILE_SIDE || tile.h > MAX_TILE_SIDE {
+            return Err(ToolError::InvalidArgs(format!(
+                "at {dpi} dpi the preview would be {}×{} pixels, more than {MAX_TILE_SIDE} a side: use a lower dpi",
+                tile.w, tile.h
+            )));
+        }
+        let request = pdfcraft_render::RenderRequest { page: preview.page, tile: Some(tile), scale, ..Default::default() };
+        let out = self.renderer(id)?.render(request);
+        if let Some(e) = out.error {
+            return Err(failed(format!("page {} could not be rendered: {e}", preview.page + 1)));
+        }
+        let mut content = rendered_content(&out, preview.page)?;
+        let mut place = json!({
+            "page": preview.page + 1,
+            "label": label,
+            "caption": preview.label(&label),
+            "area": preview.area,
+            "fitted": preview.fitted,
+            "kind": preview.reference.kind.as_str(),
+        });
+        if let Some(name) = &preview.name {
+            place["name"] = json!(name);
+        }
+        if let Some(n) = &preview.reference.number {
+            place["number"] = json!(n);
+        }
+        // One JSON part: the render's warnings, when there are any, join the place.
+        match content.last_mut() {
+            Some(crate::Content::Json(v)) => {
+                if let (Some(v), Value::Object(place)) = (v.as_object_mut(), place) {
+                    v.extend(place);
+                }
+            }
+            _ => content.push(crate::Content::Json(place)),
+        }
+        if !warnings.is_empty()
+            && let Some(crate::Content::Json(v)) = content.last_mut()
+        {
+            let mut all: Vec<Value> = v.get("warnings").and_then(Value::as_array).cloned().unwrap_or_default();
+            all.extend(warnings.into_iter().map(Value::from));
+            v["warnings"] = json!(all);
+        }
+        Ok(content)
     }
 }

@@ -69,6 +69,7 @@ impl Automation {
                 self.apply(&a, edit)?
             }
             "page_render" => return self.page_render(&a),
+            "link_preview" => return self.link_preview(&a),
             "model_render" => return self.model_render(&a),
             "comment_image_preview" => return self.comment_image_preview(&a),
             "text_extract" => self.text_extract(&a)?,
@@ -76,6 +77,7 @@ impl Automation {
             "text_recover_latex" => self.text_recover_latex(&a)?,
             "page_layout" => self.page_layout(&a)?,
             "doc_sections" => self.doc_sections(&a)?,
+            "text_glyph_details" => self.text_glyph_details(&a)?,
             "text_find" => self.text_find(&a)?,
             "text_replace" => self.text_replace(&a)?,
             "page_rotate" => {
@@ -733,6 +735,7 @@ impl Automation {
             "printer_options" => self.printer_options(&a)?,
             "printer_papers" => self.printer_papers(&a)?,
             "link_list" => self.link_list(&a)?,
+            "dest_list" => self.dest_list(&a)?,
             "link_open" => self.link_open(&a)?,
             "link_add" => self.link_add(&a)?,
             "link_edit" => self.link_edit(&a)?,

@@ -461,7 +461,7 @@ fn worker_reuses_parser_and_releases_source_after_rendering() {
     let source = Arc::downgrade(&bytes);
     let pool = RenderPool::new(bytes, 1, RenderConfig::default());
     assert!(!pool.is_inline(), "the lifecycle check needs a native worker");
-    for (tag, kind) in [RequestKind::Pixels, RequestKind::Text, RequestKind::Pixels].into_iter().enumerate() {
+    for (tag, kind) in [RequestKind::Pixels, RequestKind::Text, RequestKind::Glyphs, RequestKind::Pixels].into_iter().enumerate() {
         pool.set_queue(vec![RenderRequest { page: 0, kind, scale: 1.0, tag: tag as u64, ..Default::default() }]);
         let page = pool.results.recv_timeout(std::time::Duration::from_secs(8)).expect("worker result");
         assert!(page.error.is_none(), "{:?}", page.error);
@@ -469,12 +469,13 @@ fn worker_reuses_parser_and_releases_source_after_rendering() {
         match kind {
             RequestKind::Pixels => assert_eq!((page.width, page.height), (100, 50)),
             RequestKind::Text => assert!(page.text.is_some()),
+            RequestKind::Glyphs => assert!(page.glyphs.is_some() && page.text.is_none() && page.width == 0),
         }
         assert_eq!(pool.shared.parses.load(std::sync::atomic::Ordering::Relaxed), 1, "requests reuse one parser");
     }
     assert_eq!(
         pool.stats(),
-        RenderStats { parser_builds: 1, page_interpretations: 2, render_requests: 3, tile_requests: 0, text_interpretations: 1, rasterizations: 2 }
+        RenderStats { parser_builds: 1, page_interpretations: 2, render_requests: 4, tile_requests: 0, text_interpretations: 2, rasterizations: 2 }
     );
     drop(pool);
     let until = std::time::Instant::now() + std::time::Duration::from_secs(8);
@@ -11768,4 +11769,74 @@ fn a_to_unicode_cmap_reads_its_mappings_past_a_token_it_cannot_parse() {
     // hayro-postscript's `parse_object_or_skip_does_not_read_a_failed_read_again`.)
     let unclosed = format!("{body}{}{}", "(".repeat(4096), "x".repeat(1 << 16));
     assert!(CMap::parse(unclosed.as_bytes(), |_| None).is_some_and(|c| c.lookup_bf_string(0x48).is_some()));
+}
+
+/// A companion pool renders the same document on its own thread: its request is not dropped when
+/// its parent's queue is replaced, and a tile of the page comes back at the size asked for.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_companion_pool_renders_the_same_document_apart_from_its_parent() {
+    let parent = RenderPool::new(Arc::new(ONE_PAGE.to_vec()), 1, RenderConfig::default());
+    let companion = parent.companion();
+    assert!(!companion.is_inline());
+    let tile = super::Tile { x: 10, y: 5, w: 40, h: 20 };
+    companion.set_queue(vec![RenderRequest { tag: 5, scale: 1.0, tile: Some(tile), ..Default::default() }]);
+    parent.set_queue(Vec::new());
+    let page = receive_before_deadline(&companion);
+    assert!(page.error.is_none(), "{:?}", page.error);
+    assert_eq!((page.width, page.height, page.request.tag), (40, 20, 5));
+    assert_eq!(companion.threads(), 1);
+    // An inline parent has an inline companion, which renders as it is asked.
+    let inline = RenderPool::new_inline(Arc::new(ONE_PAGE.to_vec()), RenderConfig::default()).companion();
+    assert!(inline.is_inline());
+}
+
+/// Wait until `watch` says its pool's threads have exited.
+#[cfg(not(target_arch = "wasm32"))]
+fn wait_stopped(watch: &super::PoolWatch) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    while !watch.stopped() {
+        assert!(std::time::Instant::now() < deadline, "the pool's threads never exited");
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+}
+
+/// A companion pool (the reference preview's) has a thread of its own, holding the document's
+/// bytes: once the companion is dropped, idle or in the middle of a render, its thread exits and
+/// lets go of them, while the pool it came from keeps its own.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_dropped_companion_stops_its_thread_and_lets_go_of_the_document() {
+    let bytes = Arc::new(ONE_PAGE_TWICE.to_vec());
+    let pool = RenderPool::new(bytes.clone(), 1, RenderConfig::default());
+    let base = Arc::strong_count(&bytes);
+    // Idle.
+    let companion = pool.companion();
+    assert_eq!(companion.threads(), 1);
+    assert!(Arc::strong_count(&bytes) > base, "the companion and its thread hold the bytes");
+    let watch = companion.watch();
+    assert!(!watch.stopped());
+    drop(companion);
+    wait_stopped(&watch);
+    assert_eq!(Arc::strong_count(&bytes), base, "the document's bytes are let go");
+    // In the middle of a render: held while it parses, dropped, then let go.
+    let companion = pool.companion();
+    let gate = parse_gate();
+    *lock(&companion.shared.parse_gate) = Some(gate.clone());
+    companion.set_queue(vec![RenderRequest { page: 0, scale: 1.0, tag: 1, ..Default::default() }]);
+    gate.entered.wait();
+    let watch = companion.watch();
+    drop(companion);
+    assert!(!watch.stopped(), "its thread is still parsing");
+    gate.release.wait();
+    wait_stopped(&watch);
+    assert_eq!(Arc::strong_count(&bytes), base);
+    // The pool it came from still renders.
+    pool.set_queue(vec![RenderRequest { page: 1, scale: 1.0, tag: 2, ..Default::default() }]);
+    let page = receive_before_deadline(&pool);
+    assert!(page.error.is_none(), "{:?}", page.error);
+    let watch = pool.watch();
+    drop(pool);
+    wait_stopped(&watch);
+    assert_eq!(Arc::strong_count(&bytes), 1);
 }

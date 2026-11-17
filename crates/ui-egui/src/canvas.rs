@@ -27,6 +27,7 @@ mod find;
 pub(super) mod fling;
 pub(super) mod image_pick;
 pub(super) mod latex_ui;
+pub mod link_peek;
 mod navigation;
 mod organize;
 pub(super) mod page_cursor;
@@ -704,6 +705,11 @@ pub struct DocView {
     pub content: crate::content_ui::ContentView,
     /// Edit a PDF ▸ Link tool state.
     pub links: crate::link_ui::LinkView,
+    /// The reference preview open by a link: where it goes, shown by the link ([`link_peek`]).
+    pub link_peek: Option<link_peek::LinkPeek>,
+    /// The link the pointer rests on, before its preview opens, and the one whose preview was just
+    /// closed while the pointer is still on it ([`link_peek::hover`]).
+    pub(crate) link_hover: link_peek::LinkHover,
     /// Redact tool: the box being drawn, and a mark to add (page, quads) for the app to style.
     pub redact_drag: crate::redact_ui::AreaDrag,
     pub pending_redaction: Option<(usize, Vec<[f64; 8]>)>,
@@ -1160,6 +1166,8 @@ impl DocView {
             calc_order: Default::default(),
             content: Default::default(),
             links: Default::default(),
+            link_peek: None,
+            link_hover: Default::default(),
             redact_drag: None,
             pending_redaction: None,
             redactions_applied: 0,
@@ -1334,6 +1342,10 @@ type PageRenders = (Vec<(usize, f32, u64, Option<Tile>)>, Vec<usize>);
 #[derive(Clone, Copy)]
 struct PageEnv<'a> {
     added: &'a Vec<pdfcraft_engine::Added>,
+    /// Preferences ▸ Reference preview size, in percent ([`link_peek::PREVIEW_SIZES`]).
+    link_preview_size: u16,
+    /// Preferences ▸ Show a reference preview when the pointer rests on a link.
+    link_preview_hover: bool,
     allowed: bool,
     author: &'a String,
     auto_delta: Vec2,
@@ -1375,6 +1387,8 @@ struct PageEnv<'a> {
     middle_gesture: bool,
     modal: bool,
     navigation_enabled: bool,
+    /// A dialog, the palette, a popup or a menu is over the pages ([`PdfCraftApp::over_pages`]).
+    over_pages: bool,
     paper: Color32,
     show_page_edge_shadows: bool,
     ppp: f32,
@@ -1462,6 +1476,12 @@ struct PageFrame<'a> {
     field_hover: Option<crate::forms_ui::WidgetRef>,
     /// A page took this frame's right-click.
     right_clicked: bool,
+    /// The link to a place in this document under this frame's right-click, with the Select tool:
+    /// (page, `/Annots` index), for its preview ([`link_peek`]).
+    peek_link: Option<(usize, usize)>,
+    /// The link to a place in this document under the pointer, with the Select tool and no button
+    /// down, for its preview on a rest ([`link_peek::hover`]).
+    hover_link: Option<link_peek::Pointed>,
 }
 
 impl PageFrame<'_> {
@@ -1944,6 +1964,8 @@ fn draw_pages(
         calc_hover: None,
         field_hover: None,
         right_clicked: false,
+        peek_link: None,
+        hover_link: None,
     };
     for &i in visible_pages {
         draw_page(ui, view, &mut frame, i);
@@ -1960,6 +1982,8 @@ fn draw_pages(
         field_hover,
         out: page_out,
         right_clicked,
+        peek_link,
+        hover_link,
         ..
     } = frame;
     crate::forms_ui::hover_moved(view, field_hover);
@@ -2018,7 +2042,9 @@ fn draw_pages(
         view.cursor.claim(Layer::Drag, egui::CursorIcon::None);
     }
     // The pages' one cursor, from the claim on the highest layer the tool reaches, and the tip.
-    let hover_text = pointer.filter(|_| unobstructed && !hide_pointer).zip(view.cursor.resolve(ui.ctx(), tool));
+    // A link's preview, open by the link, says where it goes: no tip over it.
+    let tip = view.cursor.resolve(ui.ctx(), tool).filter(|_| view.link_peek.is_none());
+    let hover_text = pointer.filter(|_| unobstructed && !hide_pointer).zip(tip);
     // ScrollArea ignores the wheel while any widget is dragged, so a text-selection drag
     // scrolls the page itself (#721). After the page loop, so it keeps scrolling once the
     // pointer leaves the selection's page for the gap or the next page; over the whole
@@ -2076,7 +2102,11 @@ fn draw_pages(
     let row_on_screen =
         shown_row(view, env.rects).iter().filter_map(|&i| env.rects.get(i)).map(|r| r.translate(origin.to_vec2())).reduce(Rect::union);
     let presenting = view.presentation.is_some();
-    page_context_menu(&resp, presenting || leaving_latex, |ui| {
+    // A right-click opens a link's preview or closes the one open, and then the page's menu stays
+    // shut (full screen keeps its right-click for turning back a page; leaving Copy as LaTeX is the
+    // right-click's whole effect).
+    let peeked = !presenting && !leaving_latex && resp.secondary_clicked() && link_peek::right_click(view, doc, peek_link);
+    page_context_menu(&resp, presenting || leaving_latex || peeked, |ui| {
         // Crop mode has no menu: a right-click on the picture being cropped, its box or its grips is
         // the crop's (#5835).
         if matches!(menu_for, Some(Owner::Picture { part: PicturePart::Crop(_), .. })) {
@@ -2223,6 +2253,13 @@ fn draw_pages(
         };
         default_page_context_menu(ui, page, at, perms, &mut page_action);
     });
+    // The pointer's previews: never while something is over the pages, a text field holds the
+    // keys, the pages scroll or full screen shows them.
+    let still = delta == Vec2::ZERO && !ui.ctx().memory(|m| m.focused().is_some());
+    let previews = env.link_preview_hover && tool == QuickTool::Select && unobstructed && !env.over_pages && !presenting && still;
+    let now = ui.input(|i| i.time);
+    link_peek::hover(ui.ctx(), view, doc, hover_link, previews, ptr.any_down, now);
+    link_peek::show(ui, view, doc, info, modal, env.link_preview_size);
     // Copy comments / Paste comments from the page's menu or a Comments panel card.
     let copy_comments = std::mem::take(&mut view.comments.copy_request);
     let paste_comments_at = view.comments.paste_request.take();
@@ -2997,9 +3034,10 @@ fn shown_row(view: &DocView, rects: &[Rect]) -> Vec<usize> {
 }
 
 /// The pages' context menu, except in full screen, where a right-click turns back a page instead
-/// ([`presentation_click_state`]), and when the right-click leaves Copy as LaTeX.
-fn page_context_menu(resp: &egui::Response, no_menu: bool, add: impl FnOnce(&mut egui::Ui)) {
-    if !no_menu {
+/// ([`presentation_click_state`]), when the right-click leaves Copy as LaTeX, and when it was a link
+/// preview's (`shut`).
+fn page_context_menu(resp: &egui::Response, shut: bool, add: impl FnOnce(&mut egui::Ui)) {
+    if !shut {
         resp.context_menu(add);
     }
 }
@@ -3265,6 +3303,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     // No dialog, close prompt or palette over the page: only then does page input count.
     let modal = app.modal_open();
     let unobstructed = !modal && !app.palette_open;
+    let over_pages = app.over_pages(ui.ctx());
     // A menu click can open a dialog after the frame's first look.
     app.page_keys = app.page_keys.also(app.covers_pages());
     let keys = app.page_keys;
@@ -3395,6 +3434,8 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     let prepare_tab_order = (preparing && view.prepare.show_tab_numbers).then(|| crate::forms_ui::tab_order(&form, info));
     let env = PageEnv {
         added: &added,
+        link_preview_size: app.link_preview_size,
+        link_preview_hover: app.link_preview_hover,
         allowed,
         animates,
         author: &author,
@@ -3431,6 +3472,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         middle_gesture,
         modal,
         navigation_enabled,
+        over_pages,
         paper,
         show_page_edge_shadows: app.show_page_edge_shadows,
         ppp,

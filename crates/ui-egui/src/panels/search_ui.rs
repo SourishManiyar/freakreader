@@ -2,7 +2,7 @@
 //! context, page by page; click a result to go to it. It shares the find bar's search.
 
 use egui::text::LayoutJob;
-use egui::{Color32, FontId, TextFormat};
+use egui::{Color32, TextFormat};
 
 use crate::canvas::DocView;
 use crate::theme::{self, Tokens};
@@ -74,7 +74,7 @@ pub(crate) fn panel(ui: &mut egui::Ui, t: &Tokens, view: &mut DocView, pages: us
         let after = text.text_of(range.end.min(n)..(range.end + CONTEXT).min(n));
         let flat = |s: String| s.split_whitespace().collect::<Vec<_>>().join(" ");
         let mut job = LayoutJob::default();
-        let font = FontId::new(12.5, egui::FontFamily::Proportional);
+        let font = crate::theme::regular(12.5);
         let plain = TextFormat { font_id: font.clone(), color: t.text_muted, ..Default::default() };
         job.append(&format!("…{} ", flat(before)), 0.0, plain.clone());
         job.append(

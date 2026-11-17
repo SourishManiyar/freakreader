@@ -50,6 +50,18 @@ evidence = ["crates/render/tests/it/layout_oracle.rs::the_analysis_keeps_its_sco
 notes = "Not an Acrobat feature as such (Acrobat's reading order and Reflow work from tags or its own heuristics). page_layout finds, from geometry, a page's columns (whitespace alleys; one, two or mixed, with spanning blocks), lines (baselines; scripts stay on their line), blocks and their kinds (title, abstract, headings with level and number, paragraphs, displayed equations with their numbers, floats found by their frames and table rules with their captions, footnotes, list items, running heads and footers, page numbers), the reading order, a confidence per block and diagnostics; doc_sections gives the section tree. Running heads are confirmed by repetition across pages. Measured by the layout oracle (crates/render/tests/data/layout/oracle/README.md): synthetic LaTeX papers (article and amsart, 10-12 pt, one and two columns) whose structure TeX reports through DVI specials, development and held-out papers scored apart. Partial: tuned on Computer Modern LaTeX only (no publisher classes, Word, scans, other fonts or languages); no theorem/proof blocks, bibliography entries, table cells, run-in headings or image figures (a figure is found by its frame); no desktop UI (an example draws the result on a page). text_extract, search and export are unchanged."
 
 [[feature]]
+id = "core.math-glyph-details"
+title = "Glyph-level page data for reading typeset mathematics"
+area = "A"
+tier = "P3"
+milestone = "none"
+status = "shipped"
+commands = []
+tools = ["text_glyph_details"]
+evidence = ["crates/render/tests/it/math_glyphs.rs::scripts_and_fractions_match_what_tex_typeset", "crates/render/tests/it/math_glyphs.rs::delimiters_and_radicals_match_what_tex_typeset", "crates/render/tests/it/math_glyphs.rs::symbols_and_arrays_match_what_tex_typeset", "crates/render/tests/it/math_glyphs.rs::the_richer_record_sits_beside_the_text_layer", "crates/render/src/text/math/tests.rs::a_glyph_without_unicode_is_kept_and_flagged_where_the_text_layer_drops_it", "crates/render/src/text/math/tests.rs::thin_filled_rectangles_and_straight_lines_are_rules_and_nothing_else_is", "crates/render/src/text/math/tests.rs::a_type3_glyphs_ink_is_what_its_procedure_paints", "crates/render/src/text/math/tests.rs::the_caps_stop_recording_and_say_so", "crates/render/src/text/math/tests.rs::a_panic_inside_the_interpreter_comes_back_as_an_error_and_the_renderer_goes_on", "crates/automation/tests/it/math_glyph_details.rs::a_latex_page_is_read_glyph_by_glyph", "crates/automation/tests/it/math_glyph_details.rs::a_glyph_the_text_layer_leaves_out_is_kept_and_flagged", "crates/automation/src/tests.rs::text_glyph_details_returns_whole_pages_within_one_glyph_budget"]
+notes = "Not an Acrobat feature: groundwork for recognising mathematics, which Acrobat does not do. Beside the text layer (unchanged), text_glyph_details records every glyph a page draws with its character code, font (base font as written, name without the subset prefix, program kind type1/cff/opentype/standard/type3 and size), glyph name (the font's encoding's, else a CFF charset's), Unicode if any, the size of its em, the exact bounds of its outline (of what its procedure paints, for a Type 3 glyph), its baseline segment and writing direction. A glyph with no Unicode is kept and flagged unmapped; text extraction still drops it. Rules are recorded too: thin (at most 4 pt, at least twice as long as thick) axis-aligned filled rectangles and single straight solid strokes, which is how pdfTeX draws fraction bars, radical overlines and table lines. Checked against three LaTeX pages (pdfTeX, Computer Modern) whose glyph and rule lists come from TeX's own DVI (`dvitype`), not from the PDF: same fonts, codes and positions to 0.02 pt and nothing extra. Bounded: 100,000 glyphs, 20,000 rules, 2,048 fonts and 20,000 measured Type 3 glyphs per page (the page says capped), 100,000 glyphs per call in whole pages (next_page); an interpreter panic is an error for that page. Limits: glyphs outside the crop box are left out; CMEX extensible pieces read as private-use Unicode, so key symbols by font name and code; Type 0 (CID) fonts have no glyph name (use glyph_id and text); no italic, bold or math-font flag (the font name says); a rule is judged by its shape alone, not its colour or a clip; /ActualText, exclusions and reading order are not applied. No math parser or recognition yet; no UI."
+
+[[feature]]
 id = "core.open-pdf"
 title = "Open PDF files"
 area = "A"
@@ -1230,6 +1242,52 @@ evidence = ["crates/ui-egui/tests/it/view.rs::clicking_a_link_goes_to_its_destin
 notes = "A relative URI action resolves against the catalog's /URI /Base (ISO 32000-2 Table 211) when that base is an http(s) address, then goes through the usual check and confirmation; without a base, a relative address is still refused (resolving against the document's own location is not done). A link with valid /QuadPoints is active only inside them, otherwise over /Rect (Table 176); link_list reports resolved_url and active_areas. IsMap is not supported. GoTo and URI links plus local-PDF GoToR links: source-relative or local absolute /F paths, /UF preferred in file-spec dictionaries, explicit numeric page/view destinations, and internal tabs. Absolute local GoToR targets require desktop Allow/Cancel confirmation or an explicit allow_absolute opt-in in link_open; relative links open normally. link_open honors --root. A named remote destination opens at its page and view, in the app and in link_open, looked up in the target's /Names /Dests tree or catalog /Dests (§12.3.2.4); a name the target doesn't define opens it at the default view with a warning; /NewWindow is a tab hint. A Launch action whose /F names a .pdf file (and has no /Win launch parameters) opens that PDF the same way, backslash separators read as / (#4168); URL/network file systems, GoToE, other Launch actions and other actions are not executed. Same-document destinations retain their supported /XYZ, /Fit, /FitH, /FitV and /FitR views; /FitB* is read as whole-page fit. A null /XYZ left or top keeps the reader's place, as ISO 32000-2 §12.3.2.2 says and Acrobat Reader was observed to do (synthetic fixture): the user-space point at the window's top-left stays there on the target page at the same zoom, along each axis the page overflows; CAD exports (WSCAD) write every cross-reference this way. Null /FitH top and /FitV left still go to the page edge."
 
 [[feature]]
+id = "view.link-preview"
+title = "Preview a link's destination"
+area = "B"
+tier = "P2"
+milestone = "M3"
+status = "shipped"
+commands = []
+tools = ["link_preview", "link_list"]
+evidence = [
+    "crates/engine/src/link_preview.rs::an_xyz_destination_shows_a_band_from_just_above_its_line",
+    "crates/engine/src/link_preview.rs::a_fit_rectangle_shows_itself_with_a_margin",
+    "crates/engine/src/link_preview.rs::hostile_numbers_never_leave_the_page",
+    "crates/engine/src/link_preview.rs::a_preview_is_fitted_only_where_a_block_is_found",
+    "crates/engine/src/link_preview/names.rs::hyperref_names_read_as_their_kind_and_number",
+    "crates/engine/src/link_preview/names.rs::names_with_no_printed_number_have_none",
+    "crates/engine/src/link_preview/block.rs::a_page_with_nothing_to_read_has_no_block",
+    "crates/engine/src/link_preview/block.rs::hostile_numbers_never_leave_the_page",
+    "crates/engine/src/link_preview/block.rs::two_columns_are_told_apart_by_their_gutter",
+    "crates/engine/tests/it/reference_blocks.rs::one_column_blocks_read_whole",
+    "crates/engine/tests/it/reference_blocks.rs::two_column_blocks_read_whole_within_their_column",
+    "crates/render/src/inspect/navigation.rs::a_link_keeps_the_name_it_resolves_through",
+    "crates/render/src/inspect/navigation.rs::a_hostile_name_is_followed_but_not_kept",
+    "crates/render/src/raster/tests.rs::a_companion_pool_renders_the_same_document_apart_from_its_parent",
+    "crates/render/src/raster/tests.rs::worker_reuses_parser_and_releases_source_after_rendering",
+    "crates/automation/tests/it/automation.rs::link_preview_renders_the_band_a_link_points_at",
+    "crates/automation/tests/it/reference_preview.rs::link_list_names_each_links_destination",
+    "crates/automation/tests/it/reference_preview.rs::link_preview_shows_the_block_a_destination_names",
+    "crates/automation/tests/it/reference_preview.rs::link_preview_says_what_is_wrong_with_a_name",
+    "crates/ui-egui/tests/it/link_preview.rs::a_right_click_on_a_link_previews_its_destination_and_another_closes_it",
+    "crates/ui-egui/tests/it/link_preview.rs::a_right_click_on_the_preview_or_escape_closes_it",
+    "crates/ui-egui/tests/it/link_preview.rs::a_click_on_the_preview_goes_to_the_destination",
+    "crates/ui-egui/tests/it/link_preview.rs::a_web_link_and_the_link_tool_keep_the_link_menu",
+    "crates/ui-egui/tests/it/link_preview.rs::an_edit_closes_the_preview",
+    "crates/ui-egui/tests/it/link_preview.rs::resting_the_pointer_on_a_link_previews_it_and_leaving_closes_it",
+    "crates/ui-egui/tests/it/link_preview.rs::the_pointer_can_cross_to_the_preview_and_stay_on_it",
+    "crates/ui-egui/tests/it/link_preview.rs::escape_closes_a_pointer_preview_until_the_pointer_comes_back",
+    "crates/ui-egui/tests/it/link_preview.rs::a_right_click_keeps_a_pointer_preview_open",
+    "crates/ui-egui/tests/it/link_preview.rs::no_pointer_preview_with_the_preference_off_a_web_link_scrolling_or_a_menu_open",
+    "crates/ui-egui/tests/it/link_preview.rs::a_papers_references_preview_the_block_they_name",
+    "crates/ui-egui/tests/it/link_preview.rs::a_pointer_preview_closes_as_soon_as_the_pages_scroll",
+    "crates/ui-egui/tests/it/link_preview.rs::closing_the_document_while_a_preview_reads_its_glyphs_leaves_nothing_behind",
+    "crates/ui-egui/tests/it/preferences_layout.rs::text_size_preview_size_and_font_are_offered_saved_and_checked",
+]
+notes = "Not an Acrobat feature; asked for by readers of papers with cross-references (#3194, item 4, for documents with links). With the Select tool, resting the pointer on a link to a place in this document for 0.4 s, or a right-click on it, shows that place in a small window by the link, without leaving the page. What it shows is the block the destination names, read from the target page's glyphs and rules: for a LaTeX hyperref name (equation.4.7, theorem.2.1, cite.key, section.3, figure.2, table.1, Item.5) an equation's display with every row of its align, a statement to its end with the displays in it, one bibliography entry, a heading and its first lines, a float with its caption, within the destination's column of a two-column page. Otherwise (page.N, an unnamed or unknown destination, a page with no text, rotated text) a band the width of the target page from just above the destination's position, 0.4 of the page's width tall (the destination's own rectangle, with a margin, for /FitR; the top of the page for a destination without a position). The caption names an equation, section, figure, table or item by the number in its hyperref name (Equation 4.7 · page 12), else the page; theorem-like statements share a counter, so their kind is left to their own text. Drawn at the page's zoom (Preferences ▸ Documents and view ▸ Reference preview size, 50% to 150%) on a render thread of its own with the page view's settings, which reads the page's glyphs first and gives up on them after 0.5 s. A preview the pointer opened closes 0.3 s after the pointer leaves the link and the window, when the pages scroll, zoom or are pressed, or with a dialog, menu or palette over them; a right-click keeps it. Preferences ▸ Documents and view ▸ Show a reference preview when the pointer rests on a link turns the pointer's previews off (control key link-preview-hover). Another right-click, on the pages or the window, or Escape closes it; a click on it goes there. An edit or the link's page leaving the screen closes it. Links to web addresses and other files keep their menu, and the Link tool keeps the menu for every link; full screen keeps its right-click for turning back a page. link_list reports each link's dest_name, dest_kind and dest_number; link_preview renders the same area headlessly, by link or by destination name. The blocks are tuned on the article class (one and two columns, crates/render/tests/data/hyperref) and read by geometry: other classes, multline and split displays, footnotes, floats spanning both columns, hypcap anchors and statements longer than 0.45 of the page may be cut differently. Not yet: references found from the text in documents without links (Fig. 3, Eq. (2)), previews of links to other files, and keyboard access to the preview."
+
+[[feature]]
 id = "view.annotation-hover"
 title = "Show comment text on hover"
 area = "B"
@@ -1391,11 +1449,15 @@ title = "Named destinations panel"
 area = "B"
 tier = "P2"
 milestone = "M12"
-status = "planned"
+status = "partial"
 commands = []
-tools = []
-evidence = []
-notes = ""
+tools = ["dest_list"]
+evidence = [
+    "crates/render/src/inspect/navigation.rs::named_destinations_are_listed_in_page_order_once_each",
+    "crates/render/src/inspect/navigation.rs::named_destinations_survive_cycles_missing_pages_and_floods",
+    "crates/automation/tests/it/reference_preview.rs::dest_list_lists_named_destinations_in_page_order",
+]
+notes = "Headless only: dest_list lists a document's named destinations (the /Names /Dests tree, then the PDF 1.1 catalog /Dests) in page order, top to bottom, with page, page label, position, and the kind and number a hyperref name gives; paged by from and limit. At most 100,000 names; one longer than 256 bytes is counted in left_out, one that goes to no page (a missing page, a cycle of names) in unresolved; a name two keys read as is listed once. Not yet: the panel in the app, going to a destination from it, sorting, and creating, renaming or deleting destinations."
 
 [[feature]]
 id = "view.articles-panel"
@@ -1720,6 +1782,24 @@ commands = ["view.theme.system"]
 tools = []
 evidence = ["crates/ui-egui/tests/it/theme.rs::a_fresh_install_follows_the_system_theme", "crates/ui-egui/tests/it/theme.rs::toolbar_and_view_menu_share_three_state_preferences", "crates/ui-egui/tests/it/theme.rs::saved_preferences_restore_with_legacy_light_dark_settings", "crates/ui-egui/tests/it/control.rs::theme_commands_and_options_report_preference_and_effective_colours"]
 notes = "Toolbar, Display theme and --theme system share a persisted System preference that follows OS changes without losing the selected mode; ui.state reports preference and resolved colours separately. System is the default on a fresh install (#1248), Light where the desktop says nothing; a saved choice wins."
+
+[[feature]]
+id = "view.interface-text-size"
+title = "Interface text size and font"
+area = "B"
+tier = "P2"
+milestone = "M3"
+status = "shipped"
+commands = []
+tools = []
+evidence = [
+    "crates/ui-egui/src/theme/tests.rs::interface_sizes_sit_on_the_type_ramp_in_order",
+    "crates/ui-egui/src/theme/tests.rs::the_interface_text_size_scales_the_ramp",
+    "crates/ui-egui/src/theme/tests.rs::the_interface_font_leads_every_text_stack_with_inter_behind_it",
+    "crates/ui-egui/tests/it/preferences_layout.rs::text_size_preview_size_and_font_are_view_options",
+    "crates/ui-egui/tests/it/preferences_layout.rs::text_size_preview_size_and_font_are_offered_saved_and_checked",
+]
+notes = "Interface text sits on one ramp of sizes (caption 12, secondary 13, body 14, subtitle 16, title 18, heading 20) instead of a dozen half-point sizes. Preferences ▸ Appearance ▸ Interface text size scales that text alone from 90% to 130% (Interface size, in General, zooms the whole interface). Appearance ▸ Interface font (and the ui-font view option) draws the interface in a face this build already ships under an allowed licence: Inter (default), Ubuntu Light and Hack (bundled with egui), JetBrains Mono, and BIZ UDPGothic when built with craft-fonts; Inter fills in characters a face lacks, and code keeps JetBrains Mono. Faces with one weight serve bold text too. New faces must be added to craft-fonts under an allowed licence first (AGENTS.md §1.4)."
 
 [[feature]]
 id = "view.home-view"
@@ -2359,7 +2439,7 @@ evidence = [
     "crates/ui-egui/tests/it/pdf_links.rs::removing_all_links_and_undo",
     "crates/ui-egui/tests/it/pdf_links.rs::the_link_context_menu_shows_only_for_a_right_click_on_a_link",
 ]
-notes = "removes all link annotations across the document or on specified pages (links_remove pages); a right-click on a link offers Properties, Delete and Remove all links; undoable, with a toast giving the count"
+notes = "removes all link annotations across the document or on specified pages (links_remove pages); a right-click on a link with the Link tool offers Properties, Delete and Remove all links, as does one with the Select tool on a link to a web address or another file (on a link to a place in this document it shows that place instead, view.link-preview); undoable, with a toast giving the count"
 
 [[feature]]
 id = "edit.action-goto"

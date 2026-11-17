@@ -201,7 +201,18 @@ pub struct Link {
     /// ([`crate::link_quads`]).
     pub quads: Vec<[f32; 8]>,
     pub target: LinkTarget,
+    /// The named destination (ISO 32000-2 §12.3.2.4) a [`LinkTarget::Page`] was resolved
+    /// through, read as a text string: a `/Dest` or a go-to's `/D` given as a name or a string.
+    /// LaTeX's hyperref names every cross-reference this way (`equation.4.7`, `cite.knuth`,
+    /// `theorem.2.1`), which says what the link points at. `None` for an explicit destination,
+    /// for any other target, and for a name longer than [`MAX_DEST_NAME_BYTES`] or past the
+    /// document's text allowance.
+    pub dest_name: Option<String>,
 }
+
+/// The longest destination name a [`Link`] keeps, in bytes as written. hyperref's names are a
+/// few dozen bytes; a longer one is still followed, but not kept.
+pub const MAX_DEST_NAME_BYTES: usize = 256;
 
 impl Link {
     /// Whether the user-space point `(x, y)` activates the link: inside one of its quadrilaterals,

@@ -113,6 +113,10 @@ impl PdfCraftApp {
             motion: motion::Motion::default(),
             language: i18n::AUTO.to_string(),
             ui_scale: None,
+            text_size: 100,
+            ui_font: theme::UiFont::Inter,
+            link_preview_size: 100,
+            link_preview_hover: true,
             system_text_scale: 1.0,
             ui_scale_applied: None,
             flatten_fill_sign_on_save: false,
@@ -322,6 +326,7 @@ impl PdfCraftApp {
             styled: false,
             fonts_ready: false,
             fonts_cjk: theme::CjkPreference::Default,
+            fonts_ui: theme::UiFont::Inter,
             control: None,
             bookmark_rename: None,
             bookmark_clipboard: None,
@@ -621,19 +626,23 @@ impl PdfCraftApp {
         let cjk = theme::CjkPreference::for_language(lang.code());
         if !self.styled {
             egui_extras::install_image_loaders(ctx);
-            theme::install_fonts_for(ctx, cjk);
-            self.fonts_cjk = cjk;
+            theme::install_fonts_for(ctx, cjk, self.ui_font);
+            (self.fonts_cjk, self.fonts_ui) = (cjk, self.ui_font);
             theme::apply(ctx, self.theme);
             self.styled = true;
         } else {
             self.fonts_ready = true;
-            if cjk != self.fonts_cjk {
+            if cjk != self.fonts_cjk || self.ui_font != self.fonts_ui {
                 // Same family names as before, so named fonts stay valid while the new set loads.
-                theme::install_fonts_for(ctx, cjk);
-                self.fonts_cjk = cjk;
+                theme::install_fonts_for(ctx, cjk, self.ui_font);
+                (self.fonts_cjk, self.fonts_ui) = (cjk, self.ui_font);
             }
         }
         self.sync_theme(ctx);
+        // A new interface text size lays the styles out again at it.
+        if theme::set_text_scale(self.text_size) {
+            theme::apply(ctx, self.theme);
+        }
         let native = ctx.native_pixels_per_point().unwrap_or(1.0);
         ui_scale::sync(ctx, ui_scale::zoom(self.ui_scale, self.system_text_scale, native), &mut self.ui_scale_applied);
         // Remember user work even if its tab is subsequently closed or Home is selected.

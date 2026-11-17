@@ -37,10 +37,10 @@ pub use core::{check_pages, inspect, pretty_date};
 use core::{inspect_structure, spend};
 pub use model::{
     Annotation, Attachment, AttachmentSource, DestView, Field, FieldKind, FontInfo, Layer, LayerItem, LayerOp, LayerRow, Link, LinkTarget,
-    MAX_GROUP_DEPTH, OutlineItem, PageInfo, PageTransition, Popup, Portfolio, PortfolioView, RemoteDestination, ReviewStates, TransitionStyle, Xfa,
-    fill_group_text, group_primaries, link_replies, thread_tops,
+    MAX_DEST_NAME_BYTES, MAX_GROUP_DEPTH, OutlineItem, PageInfo, PageTransition, Popup, Portfolio, PortfolioView, RemoteDestination, ReviewStates,
+    TransitionStyle, Xfa, fill_group_text, group_primaries, link_replies, thread_tops,
 };
-pub use navigation::named_destination;
+pub use navigation::{MAX_NAMED_DESTINATIONS, NamedDestination, NamedDestinations, named_destination, named_destinations};
 #[cfg(test)]
 use navigation::{OUTLINE_DEPTH, OUTLINE_WINDOW};
 #[cfg(test)]

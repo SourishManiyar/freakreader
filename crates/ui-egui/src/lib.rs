@@ -396,6 +396,17 @@ pub struct PdfCraftApp {
     pub language: String,
     /// Preferences ▸ Interface size as a factor, or `None` to follow [`Self::system_text_scale`].
     pub ui_scale: Option<f32>,
+    /// Preferences ▸ Appearance ▸ Interface text size, in percent ([`theme::TEXT_SIZES`]): the
+    /// text alone, where Interface size zooms everything.
+    pub text_size: u16,
+    /// Preferences ▸ Appearance ▸ Interface font ([`theme::UiFont`]).
+    pub ui_font: theme::UiFont,
+    /// Preferences ▸ Documents and view ▸ Reference preview size, in percent
+    /// ([`canvas::link_peek::PREVIEW_SIZES`]).
+    pub link_preview_size: u16,
+    /// Preferences ▸ Documents and view ▸ Show a reference preview when the pointer rests on a
+    /// link: on by default ([`canvas::link_peek::HOVER_DELAY`]).
+    pub link_preview_hover: bool,
     /// The desktop's text scaling (GNOME's text scaling factor), which the desktop app reads at
     /// launch. 1.0 elsewhere, so tests and screenshots don't depend on the machine.
     pub system_text_scale: f32,
@@ -791,6 +802,8 @@ pub struct PdfCraftApp {
     fonts_ready: bool,
     /// The CJK fallback order the installed fonts follow (see `theme::installed_font_definitions`).
     fonts_cjk: theme::CjkPreference,
+    /// The interface face installed with them.
+    fonts_ui: theme::UiFont,
     /// The window title last sent to the platform.
     pub window_title: String,
     /// The web page's title last set: the window title, but always with the file's name.

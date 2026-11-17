@@ -254,11 +254,17 @@ pub(super) fn page_tool_input(ui: &mut egui::Ui, view: &mut DocView, frame: &mut
     }
     let (link_owner, link_context) = (link_of(press.owner()), link_of(context));
     let on_link = tool == QuickTool::Link && can_modify && crate::link_ui::page_input(cx, press == PagePress::Free, link_owner, link_context, view);
+    // With the Select tool, a right-click on a link to a place in this document is its preview's
+    // (`link_peek`); on any other link it opens the link's menu, when the document may be changed.
+    // The Link tool keeps the menu for every link.
     if tool == QuickTool::Select
-        && can_modify
         && let Some(index) = link_context
     {
-        view.links.context = Some((i, index));
+        if view.presentation.is_none() && pdfcraft_engine::link_preview::link_preview(info, i, index).is_some() {
+            frame.peek_link = Some((i, index));
+        } else if can_modify {
+            view.links.context = Some((i, index));
+        }
     }
     // Comments, every frame: their own presses, a commenting tool's, and a click elsewhere that
     // leaves them unselected. A press nobody holds that another tool took this frame (Prepare's
@@ -267,6 +273,17 @@ pub(super) fn page_tool_input(ui: &mut egui::Ui, view: &mut DocView, frame: &mut
     let on_comment = comments::page_input(ui, resp, &pcx, press, taken, view);
     let consumed = taken || on_comment;
     let hover = pointer.and_then(|p| claim_under(&hits, view, p, frame.env.unobstructed));
+    // With the Select tool and no button down, the link to a place in this document that a press
+    // here would take: the reference preview opens on it after a rest (`link_peek::hover`).
+    if tool == QuickTool::Select
+        && !ptr.any_down
+        && view.presentation.is_none()
+        && let Some(index) = link_of(hover.as_ref().map(|h| h.owner))
+        && let Some(link) = info.links.iter().find(|l| l.page == i && l.index == index)
+        && pdfcraft_engine::link_preview::link_preview(info, i, index).is_some()
+    {
+        frame.hover_link = Some(super::link_peek::Pointed { page: i, index, on_screen: xf.user_rect(info, i, link.rect) });
+    }
     PageInput {
         press,
         text_drag: !view.router.keeps_drag(),

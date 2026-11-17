@@ -67,6 +67,20 @@ A rectangle that is not a box, a page that is not there and a document that is n
 open are errors; copy permission is required. Read-only. Bounds: 4000 glyphs and 2000 rules per region,
 nesting 32 deep. The scores against the math oracle, and what is read and what is not, are in
 `crates/render/tests/data/math/oracle/README.md`; the reader is `pdfcraft_render::text::math::layout`.
+## Glyph details for mathematics
+
+`text_glyph_details {doc, pages?}` reads pages glyph by glyph, beside the text layer (which it does
+not change): per glyph the character code, a font index (the page's `fonts` list base font, name
+without subset prefix, program kind and size), glyph id and name, Unicode (`text`, null with
+`unmapped: true` when there is none: text extraction drops such glyphs, this keeps them), the em size,
+the em box, the exact bounds of the outline (`ink`), the baseline segment and the writing direction;
+and per page the rules (thin axis-aligned filled rectangles and straight solid strokes: fraction bars,
+radical overlines, table lines). Coordinates are points from the top-left of the displayed page, in
+content order. Limits: 100,000 glyphs, 20,000 rules and 2,048 fonts per page (`capped: true`), 100,000
+glyphs per call in whole pages (`next_page`); a page that cannot be read fails the call. Symbols of
+fonts such as CMEX have private-use Unicode: key them by font name and code. Not a math parser; see
+`pdfcraft_render::text::math` for the record and `crates/render/tests/data/math` for the LaTeX test
+pages and the TeX-made ground truth they are checked against.
 
 ## Text search and cache limits
 
@@ -320,6 +334,26 @@ to that call, including each password retry; it is never remembered for other li
 The desktop UI asks Allow/Cancel before following absolute GoToR targets and displays the
 complete path. Relative links retain their existing behavior. Named destinations remain
 unapplied with a warning.
+
+## Reference previews and named destinations
+
+`link_list` reports, for a link that goes through a named destination, its `dest_name` with the
+`dest_kind` and `dest_number` its hyperref name gives (`equation.4.7` is an equation numbered
+4.7). `dest_list {doc, from?, limit?}` lists every named destination of the document in page
+order, with its page, page label, position, kind and number, at most `limit` (default 1000) per
+call. `link_preview {doc, page, index}` or `link_preview {doc, dest}` renders what the viewer's
+reference preview shows for a link or a destination: with `fit` (the default) the block the
+destination names, read from the target page's glyphs (an equation's display with every row of
+its `align`, a statement to its end, one bibliography entry, a heading and its first lines, a
+float with its caption), else the band below the destination. The result says which (`fitted`)
+and gives the window's caption (`Equation 4.7 · page 12`).
+
+The kinds come from hyperref's names: statements that share a counter (`\newtheorem{lemma}[theorem]`)
+are all `theorem.N`, so `theorem_like` cannot say Lemma or Theorem; the statement's own text does.
+A number is taken from a name only when it follows hyperref's `counter.number` pattern. A page
+the block cannot be read from (no text, a scan, rotated text) shows the band. The blocks are
+tuned on article-like LaTeX (`crates/render/tests/data/hyperref`); other classes and layouts may
+cut differently.
 
 ## Folder batches
 
