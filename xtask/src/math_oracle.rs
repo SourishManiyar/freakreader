@@ -64,7 +64,7 @@ const CATEGORIES: [&str; 19] = [
 ];
 /// Where pdfTeX must have found every font it embedded: the AMS Type 1 fonts (OFL-1.1,
 /// `crates/render/tests/data/math/OFL-AMSFonts.txt`).
-const AMS_FONT_DIR: &str = "/fonts/type1/public/amsfonts/";
+pub(crate) const AMS_FONT_DIR: &str = "/fonts/type1/public/amsfonts/";
 /// How far each equation's box reaches past TeX's, in sp (0.05 bp): pdfTeX rounds positions in the
 /// PDF to 0.001 bp, so a glyph on the edge of TeX's box can land just outside it.
 const BOX_MARGIN_SP: i64 = 3289;

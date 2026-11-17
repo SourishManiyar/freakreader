@@ -1,0 +1,589 @@
+# The synthetic papers of the statement and reference oracle (README.md). Written for this
+# repository: the prose is made up by `cargo xtask refs-oracle generate` from the seed and the layout
+# oracle's word lists (xtask/src/layout_oracle.rs). Body directives, one per line:
+#   title|author|date TEXT · maketitle · abstract N · section|subsection|section* [label=KEY] [TEXT]
+#   appendix · par N [footnote] (a new paragraph) · cont N (no paragraph break)
+#   begin ENV [label=KEY] [name=Words+Of+Name] N … end   (ENV: xtask/src/refs_oracle.rs ENVS)
+#   proof [of=KEY] [sketch] [nomark] N … end
+#   display equation|display|align|gather [label=KEY] [qedhere] · list itemize|enumerate N [paren]
+#   figure|table PLACEMENT [label=KEY] [wide] · newpage
+#   say KEY [word|abbr|bare|extra|auto] · say KEY1+KEY2 and|range · say ext KEY
+#   say missing WORD NUMBER · say noise case|this|interval|count
+# Papers whose id starts `ho_` are held out: written before the analysis, read only by their rates.
+
+[[paper]]
+id = "art11_plain"
+holdout = false
+class = "article"
+options = ["11pt"]
+geometry = "margin=1.1in"
+pagestyle = "plain"
+seed = 1101
+heads = "bold"
+numbering = "section"
+shared = true
+qed = "open"
+hyperref = false
+body = """
+title Compact perturbations of bounded operators
+author A. Writer
+date
+maketitle
+section label=sec:intro Introduction
+par 4
+say thm:main
+say sec:proofs
+par 3
+begin theorem label=thm:main name=Main+estimate 2
+display equation label=eq:main
+cont 1
+end
+par 3
+say eq:main bare
+section label=sec:prelim Preliminaries
+par 3
+begin definition label=def:adm 2
+end
+begin lemma label=lem:first 2
+end
+proof 3
+say def:adm
+end
+begin lemma label=lem:second 3
+list enumerate 3 paren
+end
+proof 2
+say lem:first
+say noise case
+end
+par 3
+say lem:first+lem:second and
+say eq:main
+display equation label=eq:sum
+cont 2
+begin remark 2
+say eq:sum bare
+end
+par 2
+say noise this
+figure t label=fig:one
+section label=sec:proofs Proofs
+par 2
+say fig:one
+proof of=thm:main 3
+say lem:second extra
+display display qedhere
+end
+begin corollary label=cor:one 2
+end
+proof 2
+say thm:main abbr
+say ext thm:main
+end
+begin example label=ex:one 3
+end
+par 3
+say cor:one
+say missing Lemma 9.7
+say ex:one
+say sec:prelim abbr
+"""
+
+[[paper]]
+id = "ams10_global"
+holdout = false
+class = "amsart"
+options = ["10pt"]
+pagestyle = "headings"
+seed = 1002
+heads = "bold"
+numbering = "global"
+shared = false
+qed = "black"
+hyperref = false
+body = """
+title Averages on dense subspaces
+author B. Reader
+maketitle
+section label=sec:one Setting
+par 4
+display equation label=eq:one
+cont 2
+say eq:one bare
+begin assumption label=as:one 2
+end
+begin proposition label=prop:one 2
+display equation label=eq:two
+cont 1
+end
+proof 3
+say as:one
+say eq:two bare
+end
+begin lemma label=lem:one 2
+end
+begin lemma label=lem:two 2
+end
+begin lemma label=lem:three 1
+end
+proof 2
+say lem:one+lem:three range
+end
+par 3
+say noise case
+say prop:one extra
+section label=sec:two Results
+par 2
+begin theorem label=thm:one 3
+list enumerate 2
+end
+proof sketch 3
+say lem:two
+say eq:one
+end
+begin claim label=cl:one 1
+end
+proof nomark 2
+say missing Theorem 14
+end
+par 3
+say cl:one
+say ext lem:two
+table h label=tab:one
+say tab:one
+appendix
+section label=sec:app Auxiliary bounds
+par 2
+begin lemma label=lem:app 2
+end
+proof 2
+say thm:one
+end
+par 2
+say lem:app
+say sec:one
+"""
+
+[[paper]]
+id = "art10_twocol"
+holdout = false
+class = "article"
+options = ["10pt", "twocolumn"]
+geometry = "margin=0.8in"
+pagestyle = "plain"
+seed = 1003
+heads = "smallcaps"
+numbering = "section"
+shared = true
+qed = "square"
+hyperref = false
+body = """
+title Spectral bounds in two columns
+author C. Author
+date
+maketitle
+section label=sec:a Background
+par 4
+begin definition label=def:a 2
+end
+begin notation 1
+end
+par 3
+say def:a
+begin proposition label=prop:a 2
+end
+proof 3
+display align
+cont 1
+end
+section label=sec:b Estimates
+par 3
+begin lemma label=lem:b name=Key+bound 2
+display equation label=eq:b
+end
+proof 2
+say prop:a
+display display qedhere
+end
+begin theorem label=thm:b 2
+end
+proof of=thm:b 3
+say lem:b
+say eq:b bare
+end
+par 3
+say lem:b abbr
+say noise interval
+say ext prop:a
+begin conjecture 2
+end
+begin observation 2
+end
+par 3
+say thm:b
+say sec:a
+figure t label=fig:a
+par 2
+say fig:a abbr
+say missing Proposition 7.1
+"""
+
+[[paper]]
+id = "art12_italic"
+holdout = false
+class = "article"
+options = ["12pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 1204
+heads = "italic"
+numbering = "global"
+shared = true
+qed = "text"
+hyperref = false
+body = """
+section label=sec:i First remarks
+par 4
+display equation label=eq:i
+cont 1
+begin theorem label=thm:i 3
+end
+proof 3
+say eq:i bare
+end
+begin lemma label=lem:i 2
+end
+proof nomark 3
+end
+par 3
+say lem:i
+say thm:i abbr
+say noise count
+begin fact label=fact:i 2
+end
+begin uremark 2
+end
+section label=sec:ii Further remarks
+par 3
+say fact:i
+begin corollary label=cor:i 2
+list itemize 2
+end
+proof of=cor:i 2
+say thm:i
+end
+par 3
+say cor:i extra
+say ext lem:i
+say missing Corollary 12
+say sec:i
+"""
+
+[[paper]]
+id = "ams11_sec"
+holdout = false
+class = "amsart"
+options = ["11pt"]
+pagestyle = "plain"
+seed = 1105
+heads = "bold"
+numbering = "section"
+shared = true
+qed = "open"
+hyperref = false
+body = """
+title Invariant measures
+author D. Writer
+maketitle
+section label=sec:x Statement of results
+par 3
+begin mainthm name=Uniqueness 3
+end
+par 2
+say sec:z
+begin theorem label=thm:x 2
+display equation label=eq:x
+cont 1
+end
+section label=sec:y Lemmas
+par 2
+begin lemma label=lem:x 2
+end
+proof 2
+display equation
+end
+begin lemma label=lem:y 2
+end
+proof 2
+say lem:x
+end
+par 3
+say lem:x+lem:y and
+say eq:x bare
+begin definition label=def:x 2
+end
+begin uremark 2
+end
+section label=sec:z Proof of the main result
+par 2
+proof of=thm:x 4
+say lem:y
+say def:x
+say eq:x
+display equation
+cont 1
+end
+par 2
+say thm:x
+say noise this
+say missing Theorem 5.4
+"""
+
+[[paper]]
+id = "art11_hyper"
+holdout = false
+class = "article"
+options = ["11pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 1106
+heads = "bold"
+numbering = "section"
+shared = false
+qed = "open"
+hyperref = true
+body = """
+section label=sec:h Setting
+par 3
+begin definition label=def:h 2
+end
+begin lemma label=lem:h 2
+display equation label=eq:h
+end
+proof 2
+say def:h
+end
+begin theorem label=thm:h 2
+end
+proof 2
+say lem:h
+say eq:h bare
+end
+section label=sec:k Consequences
+par 3
+say thm:h
+say sec:h auto
+say eq:h auto
+begin corollary label=cor:h 2
+end
+par 2
+say cor:h
+say ext thm:h
+figure t label=fig:h
+say fig:h auto
+"""
+
+[[paper]]
+id = "ho_ams12_caps"
+holdout = true
+class = "amsart"
+options = ["12pt"]
+pagestyle = "headings"
+seed = 2001
+heads = "smallcaps"
+numbering = "global"
+shared = true
+qed = "square"
+hyperref = false
+body = """
+title Held-out notes on kernels
+author E. Author
+maketitle
+section label=sec:p Kernels
+par 3
+display equation label=eq:p
+cont 1
+begin definition label=def:p 2
+end
+begin proposition label=prop:p name=Kernel+bound 2
+end
+proof 2
+say eq:p bare
+say def:p
+end
+begin lemma label=lem:p 2
+list enumerate 3 paren
+end
+proof of=lem:p 2
+say noise case
+display display qedhere
+end
+par 2
+say prop:p
+say ext prop:p
+section label=sec:q Applications
+par 2
+begin theorem label=thm:p 2
+end
+proof 3
+say lem:p extra
+say sec:p
+end
+begin example 2
+end
+par 2
+say thm:p abbr
+say missing Lemma 31
+say eq:p
+"""
+
+[[paper]]
+id = "ho_art10_italic2col"
+holdout = true
+class = "article"
+options = ["10pt", "twocolumn"]
+geometry = "margin=0.75in"
+pagestyle = "plain"
+seed = 2002
+heads = "italic"
+numbering = "section"
+shared = false
+qed = "black"
+hyperref = false
+body = """
+title Held-out bounds in two columns
+author F. Reader
+date
+maketitle
+section label=sec:r Setting
+par 3
+begin assumption label=as:r 2
+end
+begin lemma label=lem:r 2
+display equation label=eq:r
+cont 1
+end
+proof 2
+say as:r
+end
+begin lemma label=lem:s 2
+end
+proof nomark 2
+say eq:r bare
+end
+par 3
+say lem:r+lem:s range
+say noise interval
+section label=sec:t Results
+par 2
+begin theorem label=thm:r name=Two-sided+bound 2
+end
+proof of=thm:r 3
+say lem:s
+display equation
+end
+begin remark label=rem:r 2
+end
+par 3
+say rem:r
+say thm:r
+say ext lem:r
+table t label=tab:r
+say tab:r abbr
+say sec:r abbr
+"""
+
+[[paper]]
+id = "ho_art12_mixed"
+holdout = true
+class = "article"
+options = ["12pt"]
+geometry = "margin=1.2in"
+pagestyle = "plain"
+seed = 2003
+heads = "bold"
+numbering = "global"
+shared = false
+qed = "text"
+hyperref = false
+body = """
+section label=sec:u Introduction
+par 3
+say thm:u
+begin theorem label=thm:u 2
+end
+section label=sec:v Preliminary lemmas
+par 2
+begin lemma label=lem:u 2
+display equation label=eq:u
+end
+proof 2
+say noise count
+end
+begin claim 1
+end
+proof sketch 2
+end
+par 2
+say lem:u
+say eq:u bare
+appendix
+section label=sec:w Proof of the theorem
+par 2
+proof of=thm:u 3
+say lem:u abbr
+say eq:u
+end
+begin lemma label=lem:w 2
+end
+proof 2
+say thm:u
+end
+par 2
+say lem:w
+say sec:v
+say missing Lemma 8
+"""
+
+[[paper]]
+id = "ho_ams10_hyper"
+holdout = true
+class = "amsart"
+options = ["10pt"]
+pagestyle = "plain"
+seed = 2004
+heads = "bold"
+numbering = "section"
+shared = true
+qed = "open"
+hyperref = true
+body = """
+title Held-out linked notes
+author G. Writer
+maketitle
+section label=sec:l Setting
+par 3
+begin lemma label=lem:l 2
+end
+proof 2
+display equation label=eq:l
+end
+begin proposition label=prop:l 2
+end
+proof 2
+say lem:l
+say eq:l bare
+end
+section label=sec:m Results
+par 2
+begin theorem label=thm:l 2
+end
+proof of=thm:l 2
+say prop:l abbr
+end
+par 2
+say sec:l auto
+say eq:l auto
+say ext lem:l
+say thm:l
+"""

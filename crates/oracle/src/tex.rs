@@ -25,6 +25,7 @@ mod dvi;
 pub mod faces;
 pub mod layout;
 mod mutate;
+pub mod refs;
 mod score;
 mod truth;
 
