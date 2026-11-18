@@ -1,0 +1,169 @@
+\begin{thebibliography}{30}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Brannigan et~al.(2015)Brannigan, Okafor, and Prentiss]{a18}
+{\'E}lodie Brannigan, Kwame Okafor, and Ravi Prentiss.
+\newblock Remarks on twisted splines.
+\newblock \emph{Annals of Invented Mathematics}, 31\penalty0 (4):\penalty0 867--889, 2015.
+
+\bibitem[Brannigan(1988)]{b31}
+Jean-Baptiste Brannigan.
+\newblock \emph{Topics in Made-up Dynamics}.
+\newblock Paper Tiger Publishing, Eastbridge, 1988.
+
+\bibitem[Brannigan et~al.(1993)Brannigan, Yilmaz, Okafor, and {\v{S}}imek]{a19}
+Joaqu{\'\i}n Brannigan, Ingrid Yilmaz, S{\o}ren Okafor, and {\'E}lodie {\v{S}}imek.
+\newblock Remarks on discrete eigenvalues.
+\newblock \emph{Quarterly Notes in Pretend Topology}, 42\penalty0 (2):\penalty0 89--103, 1993.
+\newblock \doi{10.5555/qnipt.2011.026}.
+
+\bibitem[{\c{C}}elik et~al.(2015){\c{C}}elik, S{\o}rby, and Moreau]{a04}
+Ana-Luc{\'\i}a {\c{C}}elik, Dmitri S{\o}rby, and Kwame Moreau.
+\newblock On stable semigroups and rigid matroids.
+\newblock \emph{Proc. Synthetic Math. Soc.}, 45\penalty0 (3):\penalty0 765--795, 2015.
+\newblock \doi{10.5555/psms.2016.744}.
+
+\bibitem[Eberhardt(2024)]{b35}
+S{\o}ren Eberhardt.
+\newblock \emph{A Course in Pretend Combinatorics, Volume 5}.
+\newblock Hollow Hill Academic, Westmere, 2024.
+\newblock \doi{10.5555/book.498}.
+
+\bibitem[Ferreira(1995)]{t59}
+Amara Ferreira.
+\newblock \emph{On convex braids and weighted flows}.
+\newblock PhD thesis, Northfield Institute of Technology, 1995.
+
+\bibitem[Gr{\"u}nwald and Moreau(2026)]{p52}
+Mirela Gr{\"u}nwald and Kwame Moreau.
+\newblock On periodic cocycles and uniform measures, 2026.
+\newblock Preprint, arXiv:2707.47541.
+
+\bibitem[Haldane et~al.(2013)Haldane, Varga, Okafor, and Achterberg]{a30}
+Priya Haldane, Dmitri Varga, Folake Okafor, and Siobhan Achterberg.
+\newblock Remarks on tame tilings.
+\newblock \emph{Journal of Imaginary Analysis}, 87\penalty0 (4):\penalty0 776--821, 2013.
+
+\bibitem[Holm et~al.(2026)Holm, Dufr{\`e}ne, and {\v{S}}imek]{p48}
+Joaqu{\'\i}n Holm, Kenji Dufr{\`e}ne, and Joaqu{\'\i}n {\v{S}}imek.
+\newblock Convex martingales of {$\sigma$}-finite eigenvalues, 2026.
+\newblock URL \url{https://example.org/preprints/2701.66696}.
+\newblock Preprint, arXiv:2701.66696.
+
+\bibitem[Holm(2019)]{a22}
+Priya Holm.
+\newblock Remarks on rigid partitions.
+\newblock \emph{Journal of Imaginary Analysis}, 76\penalty0 (2):\penalty0 275--317, 2019.
+
+\bibitem[Lindqvist et~al.(2019)Lindqvist, Achterberg, and Teague]{a20}
+Ilse Lindqvist, Teodor Achterberg, and Ilse Teague.
+\newblock The resolvent problem for hyperbolic lattices.
+\newblock \emph{Lowtown Mathematical Journal}, 65:\penalty0 394--443, 2019.
+
+\bibitem[Lindqvist and Moreau(2018)]{s65}
+Ingrid Lindqvist and Teodor Moreau.
+\newblock A tame approach to quiver operators.
+\newblock \emph{Journal of Imaginary Analysis}, 69:\penalty0 748--758, 2018.
+
+\bibitem[Lindqvist and Holm(2011)]{a01}
+Tom\'as Lindqvist and Kwame Holm.
+\newblock Hyperbolic tilings, stable operators, and their spectra.
+\newblock \emph{Journal of Imaginary Analysis}, 50\penalty0 (1):\penalty0 7--25, 2011.
+
+\bibitem[Moreau(2027)]{p49}
+Ana-Luc{\'\i}a Moreau.
+\newblock Random flows of {$L^p$} manifolds, 2027.
+\newblock URL \url{https://example.org/preprints/2711.82613}.
+\newblock Preprint, arXiv:2711.82613.
+
+\bibitem[Moreau and Lindqvist(2017)]{c46}
+Teodor Moreau and Ravi Lindqvist.
+\newblock Weighted manifolds of {$\mathbb{Z}^d$} kernels.
+\newblock In Nadia Lindqvist, editor, \emph{Collected Notes on Synthetic Algebra}, pages 206--237. Synthetic Books, Northfield, 2017.
+
+\bibitem[Nakamura-Wells et~al.(2025)Nakamura-Wells, Brannigan, Abernathy, Achterberg, Moreau, Eberhardt, and Ibarra]{m67}
+Ravi Nakamura-Wells, Tom\'as Brannigan, Yusuf Abernathy, Dmitri Achterberg, {\'E}lodie Moreau, Priya Eberhardt, and Joaqu{\'\i}n Ibarra.
+\newblock Tame quivers of {$L^p$} lattices.
+\newblock \emph{Bulletin of the Fictional Geometry Society}, 87:\penalty0 75--100, 2025.
+\newblock \doi{10.5555/many.752}.
+
+\bibitem[Okafor(2020)]{s63}
+Folake Okafor.
+\newblock On twisted lattices and tame resolvents.
+\newblock \emph{Journal of Imaginary Analysis}, 68:\penalty0 78--111, 2020.
+
+\bibitem[{\O}ster et~al.(2007){\O}ster, M{\"u}ller, and Moreau]{c42}
+Ana-Luc{\'\i}a {\O}ster, Mirela M{\"u}ller, and H{\'e}l{\`e}ne Moreau.
+\newblock The flow problem for rigid martingales.
+\newblock In \emph{Proceedings of the Third Workshop on Pretend Structures}, pages 322--344, Eastbridge, 2007. Paper Tiger Publishing.
+
+\bibitem[{\O}ster et~al.(1998){\O}ster, Ndlovu, and Ibarra]{a27}
+Henrik {\O}ster, Leilani Ndlovu, and Joaqu{\'\i}n Ibarra.
+\newblock A sparse approach to operator partitions.
+\newblock \emph{Archive for Hypothetical Probability}, 37:\penalty0 307--338, 1998.
+
+\bibitem[Pellegrino(2009)]{b33}
+Priya Pellegrino.
+\newblock \emph{Foundations of Synthetic Geometry}.
+\newblock Paper Tiger Publishing, Eastbridge, 2009.
+\newblock \doi{10.5555/book.171}.
+
+\bibitem[Pellegrino(2026)]{p55}
+S{\o}ren Pellegrino.
+\newblock Remarks on nilpotent operators, 2026.
+\newblock Preprint, arXiv:2706.44417.
+
+\bibitem[Prentiss(1990)]{b36}
+Nadia Prentiss.
+\newblock \emph{Foundations of Synthetic Geometry, Volume 6}.
+\newblock Synthetic Books, Northfield, 1990.
+
+\bibitem[Prentiss et~al.(2007)Prentiss, Lindqvist, and {\O}ster]{a25}
+Nadia Prentiss, Zofia Lindqvist, and Bao {\O}ster.
+\newblock Rigid quivers, compact operators, and their spectra.
+\newblock \emph{Journal of Imaginary Analysis}, 20:\penalty0 361--418, 2007.
+\newblock \doi{10.5555/joia.1995.730}.
+
+\bibitem[Rossi et~al.(2004)Rossi, Varga, and Moreau]{a09}
+Henrik Rossi, Ana-Luc{\'\i}a Varga, and Zofia Moreau.
+\newblock A discrete approach to flow quivers.
+\newblock \emph{Annals of Invented Mathematics}, 11\penalty0 (1):\penalty0 476--514, 2004.
+\newblock \doi{10.5555/aoim.2019.487}.
+
+\bibitem[Rossi et~al.(2026)Rossi, Tanaka, and {\c{C}}elik]{p51}
+Tom\'as Rossi, Joaqu{\'\i}n Tanaka, and Kwame {\c{C}}elik.
+\newblock Weighted resolvents, hyperbolic braids, and their limits, 2026.
+\newblock URL \url{https://example.org/preprints/2710.40737}.
+\newblock Preprint, arXiv:2710.40737.
+
+\bibitem[{\v{S}}imek and Eberhardt(2015)]{a12}
+Amara {\v{S}}imek and Jean-Baptiste Eberhardt.
+\newblock Remarks on discrete matroids.
+\newblock \emph{Archive for Hypothetical Probability}, 76\penalty0 (1):\penalty0 185--207, 2015.
+
+\bibitem[{\v{S}}imek(2004)]{a10}
+Nadia {\v{S}}imek.
+\newblock A stable approach to flow splines.
+\newblock \emph{Proc. Synthetic Math. Soc.}, 40\penalty0 (4):\penalty0 554--595, 2004.
+
+\bibitem[Szab{\'o} et~al.(2004)Szab{\'o}, Prentiss, van~der Berg, Nakamura-Wells, Kowalczyk, Haldane, and Teague]{m66}
+Mirela Szab{\'o}, Leilani Prentiss, Kwame van~der Berg, Zofia Nakamura-Wells, Ravi Kowalczyk, Mirela Haldane, and Ravi Teague.
+\newblock On dyadic matroids and nilpotent cocycles.
+\newblock \emph{Lowtown Mathematical Journal}, 86:\penalty0 40--95, 2004.
+\newblock \doi{10.5555/many.744}.
+
+\bibitem[Tanaka(2026)]{p50}
+{\'E}lodie Tanaka.
+\newblock A hyperbolic approach to operator flows, 2026.
+\newblock Preprint, arXiv:2707.67447.
+
+\bibitem[Varga(2021)]{c44}
+{\'E}lodie Varga.
+\newblock A discrete approach to tiling flows.
+\newblock In \emph{Invented Methods in Analysis}, pages 323--335, Westmere, 2021. Hollow Hill Academic.
+
+\end{thebibliography}

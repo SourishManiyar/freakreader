@@ -26,6 +26,7 @@
 use super::math::MathPage;
 
 mod analyse;
+pub mod bib;
 mod document;
 pub mod refs;
 

@@ -400,10 +400,26 @@ fn hover_preview(h: &mut Harness<'static, PdfCraftApp>, name: &str) -> ([f32; 4]
     (peek.preview().area, peek.preview().fitted, caption)
 }
 
+/// Frames until the document's reference graph is built (in the background): a citation link
+/// previews its entry once it is.
+fn wait_graph(h: &mut Harness<'static, PdfCraftApp>) -> std::sync::Arc<pdfcraft_engine::references::ReferenceGraph> {
+    for _ in 0..2000 {
+        let app = h.state();
+        let generation = app.session.get(app.views[0].id).map(|d| d.edit_generation()).unwrap();
+        if let Some(g) = app.views[0].refs.graph(generation) {
+            return g.clone();
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        h.step();
+    }
+    panic!("the reference graph was not built");
+}
+
 #[test]
 fn a_papers_references_preview_the_block_they_name() {
     for name in ["onecol", "twocol"] {
         let mut h = paper_harness(name);
+        let g = wait_graph(&mut h);
         // What the engine finds for each destination, from the same page's glyphs.
         let bytes = std::sync::Arc::new(paper(name));
         let info = pdfcraft_render::inspect(bytes.clone(), None).unwrap();
@@ -411,11 +427,23 @@ fn a_papers_references_preview_the_block_they_name() {
         for (dest, caption) in [
             ("equation.2.2", "Equation 2.2 · page 1"),
             ("theorem.2.3", "Go to page 1"),
-            ("cite.alpha", if name == "onecol" { "Go to page 3" } else { "Go to page 2" }),
+            ("cite.alpha", if name == "onecol" { "[1] · page 3" } else { "[1] · page 2" }),
             ("figure.1", if name == "onecol" { "Figure 1 · page 2" } else { "Figure 1 · page 1" }),
         ] {
             let (area, fitted, shown) = hover_preview(&mut h, dest);
             let link = info.links.iter().find(|l| l.page == 0 && l.dest_name.as_deref() == Some(dest)).unwrap();
+            // A citation link shows its entry as the reference graph reads it: the entry's own
+            // extent, with a margin, captioned with its printed label.
+            if dest.starts_with("cite.") {
+                let entry = g.mention_of_link(0, link.index).and_then(|m| m.target).and_then(|t| g.block(t)).expect("the link's entry");
+                let [x0, y0, x1, y1] = entry.first_rect();
+                assert!(
+                    fitted && area[0] <= x0 && area[1] <= y0 && area[2] >= x1 && area[3] >= y1 && area[3] - area[1] < y1 - y0 + 20.0,
+                    "{name}: {area:?}"
+                );
+                assert_eq!(shown.as_str(), caption, "{name} {dest}");
+                continue;
+            }
             let mut expected = pdfcraft_engine::link_preview::link_preview(&info, 0, link.index).unwrap();
             expected.fit(&info.pages[expected.page], &renderer.glyph_details(expected.page).unwrap());
             assert!(fitted, "{name} {dest}: the block, not the band");

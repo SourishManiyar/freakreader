@@ -3169,6 +3169,7 @@ fn protecting_through_tools() {
         ("doc_sections", json!({ "doc": re })),
         ("doc_blocks", json!({ "doc": re })),
         ("doc_references", json!({ "doc": re })),
+        ("doc_bibliography", json!({ "doc": re })),
         ("text_paragraphs", json!({ "doc": re, "page": 1 })),
         ("doc_export_text", json!({ "doc": re, "path": "out.txt" })),
         ("doc_export_images", json!({ "doc": re, "folder": "pages" })),

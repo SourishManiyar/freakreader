@@ -1,0 +1,778 @@
+# The bibliography oracle's papers (README.md). Each is typeset by `cargo xtask bib-oracle generate`
+# from these directives, citing entries of library.bib:
+#
+#   section WORDS          a numbered section
+#   para N                 N sentences of made-up prose
+#   cite K...              \cite{K,...} (a group when several); `?` draws the next entry of the pool
+#   cite K at=Thm._3.1     \cite[Thm.~3.1]{K}: a locator after the label (`_` is a tie)
+#   cite K in=Lemma_2.4    "By Lemma 2.4 in [K]"
+#   citep K... / citet K / citeauthor K     natbib's (`at=` too)
+#   range K1 K2            [n1--n2] from two labels (\cite numbers); the keys between are cited
+#   hand K... form=p|t     a citation typed by hand in a list written by hand
+#   statement K1 K2        a theorem whose name cites K1 and whose body cites K2
+#   trap KIND              text that looks like a citation and is none: interval, interval2,
+#                          numinterval, class, commutator, qnumber, section, display, item
+#   bibliography           the list
+#   appendix, newpage
+#
+# Papers whose id starts `ho_` are held out: written before the analysis existed, scored by their
+# rates only (README.md, "Held-out papers").
+
+# --- Development -------------------------------------------------------------------------------
+
+[[paper]]
+id = "art10_plain"
+holdout = false
+class = "article"
+options = ["10pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 101
+style = "plain"
+natbib = ""
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 28
+body = """
+section Introduction
+para 3
+cite ?
+cite ? ?
+cite ? at=Theorem_3.1
+para 2
+cite ? in=Lemma_2.4
+trap interval
+cite a05 b31 c40
+trap section
+cite ?
+statement ? ?
+para 2
+section Results
+para 3
+cite ?
+trap commutator
+cite ? ? ?
+trap class
+cite ? at=p._12
+para 2
+cite ?
+trap display
+cite ?
+cite ? in=Section_4
+cite ?
+para 3
+cite ?
+trap qnumber
+cite ?
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "art11_alpha"
+holdout = false
+class = "article"
+options = ["11pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 102
+style = "alpha"
+natbib = ""
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 30
+body = """
+section Introduction
+para 2
+cite s61
+cite s62 s63
+cite m66
+cite ? at=Corollary_2
+para 2
+trap interval2
+cite ? ?
+cite m69
+trap item
+cite ?
+section Background
+para 3
+cite ? in=Theorem_1.2
+cite p47
+trap commutator
+cite ?
+cite ? ?
+statement ? ?
+para 2
+cite ?
+trap numinterval
+cite ?
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "ams10_amsplain"
+holdout = false
+class = "amsart"
+options = ["10pt"]
+pagestyle = "plain"
+seed = 103
+style = "amsplain"
+natbib = ""
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 0
+body = """
+section Introduction
+para 3
+cite ?
+cite ? ? ?
+cite ? at=Proposition_4.1
+trap interval
+para 2
+cite ? in=Theorem_2
+cite ?
+trap section
+cite ?
+section Main results
+para 3
+cite ?
+cite ? ?
+trap class
+statement ? ?
+cite ?
+para 2
+bibliography
+appendix
+section Proofs
+para 4
+cite ?
+para 3
+"""
+
+[[paper]]
+id = "art10_unsrt2col"
+holdout = false
+class = "article"
+options = ["10pt", "twocolumn"]
+geometry = "margin=0.75in"
+pagestyle = "plain"
+seed = 104
+style = "unsrt"
+natbib = ""
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 26
+body = """
+section Introduction
+para 2
+cite a01
+cite a02
+cite a03
+cite a04
+range a01 a04
+para 2
+cite b31
+cite b32
+cite b33
+range b31 b33
+trap interval
+cite ? ?
+cite ? at=Lemma_5
+trap display
+para 2
+section Discussion
+para 3
+cite ?
+cite ? ? ?
+trap qnumber
+cite ?
+cite ? in=Theorem_4.4
+para 2
+cite ?
+trap section
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "art12_apalike"
+holdout = false
+class = "article"
+options = ["12pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 105
+style = "apalike"
+natbib = "authoryear"
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 24
+body = """
+section Introduction
+para 2
+citet s61
+citep s62
+citep s63 s64
+citet s65
+citeauthor m69
+para 2
+citep ? ?
+citet ?
+citep ? at=Theorem_2.1
+trap interval
+citet m66
+para 2
+section Methods
+para 3
+citep ?
+citeauthor ?
+citep ? ? ?
+trap class
+statement ? ?
+citet ?
+para 2
+citep ?
+trap commutator
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "art11_plainnat"
+holdout = false
+class = "article"
+options = ["11pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 106
+style = "plainnat"
+natbib = "numbers"
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 30
+body = """
+section Introduction
+para 2
+citep ?
+citep ? ?
+citet ?
+citep ? at=Section_3
+trap interval
+para 2
+citep p48
+citep p49 p50
+citet m67
+trap section
+para 2
+section Analysis
+para 3
+citep ?
+citet ?
+citep ? ? ?
+trap class
+citep ?
+statement ? ?
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "art11_handnum"
+holdout = false
+class = "article"
+options = ["11pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 107
+style = "hand"
+natbib = ""
+hand = "numdot"
+bibsize = ""
+hyperref = false
+pool = 25
+body = """
+section Introduction
+para 3
+cite ?
+cite ? ?
+cite ? at=Lemma_3
+trap interval
+para 2
+cite ?
+cite p51
+trap commutator
+cite ? in=Theorem_1
+section Proof
+para 3
+cite ?
+cite ? ? ?
+trap section
+statement ? ?
+para 4
+cite ?
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "art10_handay"
+holdout = false
+class = "article"
+options = ["10pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 108
+style = "hand"
+natbib = ""
+hand = "authoryear"
+bibsize = ""
+hyperref = false
+pool = 22
+body = """
+section Introduction
+para 2
+hand s61 form=t
+hand s62 form=p
+hand s63 s64 form=p
+hand ? form=t
+hand m70 form=p
+trap interval
+para 2
+hand ? form=p
+hand ? ? form=p
+trap class
+section Results
+para 3
+hand ? form=t
+hand ? form=p
+trap commutator
+hand ? form=t
+para 2
+bibliography
+"""
+
+# Added after the first held-out rates (README.md, "Held-out papers"): development papers of the
+# kinds whose held-out rates were low, debugged here instead.
+
+[[paper]]
+id = "art10_alpha2col"
+holdout = false
+class = "article"
+options = ["10pt", "twocolumn"]
+geometry = "margin=0.75in"
+pagestyle = "plain"
+seed = 111
+style = "alpha"
+natbib = ""
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 0
+body = """
+section Introduction
+para 2
+cite ?
+cite s61 s62
+cite ? at=Theorem_2
+trap interval
+cite ? ?
+para 3
+cite m70
+trap commutator
+section Proofs
+para 2
+cite ? ? ?
+cite ?
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "ams12_plainnat_ay"
+holdout = false
+class = "amsart"
+options = ["12pt"]
+pagestyle = "plain"
+seed = 112
+style = "plainnat"
+natbib = "authoryear"
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 26
+body = """
+section Introduction
+para 2
+citet s62
+citep s61 s63
+citet ?
+citep ? ?
+citep ? at=Lemma_3
+trap interval
+para 2
+citet m68
+citep ?
+section Methods
+para 2
+citep ? ? ?
+citet ?
+statement ? ?
+trap class
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "art10_handbr"
+holdout = false
+class = "article"
+options = ["10pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 113
+style = "hand"
+natbib = ""
+hand = "numbracket"
+bibsize = "footnotesize"
+hyperref = false
+pool = 30
+body = """
+section Introduction
+para 2
+cite ?
+cite ? ?
+cite ? at=Lemma_2
+trap interval
+para 2
+cite ? ? ?
+cite ?
+para 2
+bibliography
+"""
+
+# --- Linked (hyperref): no DVI truth, checked against their own links ---------------------------
+
+[[paper]]
+id = "art11_hyper"
+holdout = false
+class = "article"
+options = ["11pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 109
+style = "plain"
+natbib = ""
+hand = ""
+bibsize = ""
+hyperref = true
+pool = 24
+body = """
+section Introduction
+para 2
+cite ?
+cite ? ?
+cite ? at=Theorem_2
+trap interval
+para 2
+cite ? in=Lemma_1.3
+cite ? ? ?
+trap section
+section Results
+para 2
+cite ?
+statement ? ?
+cite ?
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "art12_hypernat"
+holdout = false
+class = "article"
+options = ["12pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 110
+style = "apalike"
+natbib = "authoryear"
+hand = ""
+bibsize = ""
+hyperref = true
+pool = 20
+body = """
+section Introduction
+para 2
+citet s61
+citep s62 s63
+citep ? ?
+citet ?
+citep ? at=Theorem_2
+trap interval
+para 2
+citet m69
+citep ?
+para 2
+bibliography
+"""
+
+# --- Held out ----------------------------------------------------------------------------------
+
+[[paper]]
+id = "ho_ams12_abbrv"
+holdout = true
+class = "amsart"
+options = ["12pt"]
+pagestyle = "plain"
+seed = 201
+style = "abbrv"
+natbib = ""
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 30
+body = """
+section Introduction
+para 3
+cite ?
+cite ? ? ?
+cite ? at=Theorem_5.2
+trap interval
+para 2
+cite ? in=Proposition_3
+cite m68
+trap class
+cite ?
+section Estimates
+para 3
+cite ?
+cite ? ?
+trap section
+statement ? ?
+trap commutator
+cite ?
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "ho_art11_alpha2col"
+holdout = true
+class = "article"
+options = ["11pt", "twocolumn"]
+geometry = "margin=0.7in"
+pagestyle = "plain"
+seed = 202
+style = "alpha"
+natbib = ""
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 0
+body = """
+section Introduction
+para 2
+cite ?
+cite s64 s65
+cite ? at=Lemma_4
+trap interval
+cite ? ?
+para 2
+cite ? in=Theorem_6
+trap qnumber
+section Questions
+para 3
+cite ?
+cite ? ? ?
+trap item
+cite ?
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "ho_ams11_plainnat"
+holdout = true
+class = "amsart"
+options = ["11pt"]
+pagestyle = "plain"
+seed = 203
+style = "plainnat"
+natbib = "authoryear"
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 28
+body = """
+section Introduction
+para 2
+citet s61
+citep s62 s63
+citet ?
+citep ? ?
+citeauthor ?
+trap interval
+para 2
+citep ? at=Proposition_2
+citet m67
+trap commutator
+section Applications
+para 3
+citep ?
+citet ?
+citep ? ? ?
+statement ? ?
+trap class
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "ho_art10_amsplain"
+holdout = true
+class = "article"
+options = ["10pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 204
+style = "amsplain"
+natbib = ""
+hand = ""
+bibsize = "small"
+hyperref = false
+pool = 40
+body = """
+section Introduction
+para 3
+cite ?
+cite ? ?
+cite ? at=Theorem_1.4
+trap interval
+cite ? in=Section_2
+para 2
+cite ?
+trap section
+cite ? ? ?
+section Setting
+para 3
+cite ?
+trap display
+statement ? ?
+cite ?
+para 2
+bibliography
+appendix
+section Further remarks
+para 4
+cite ?
+para 2
+"""
+
+[[paper]]
+id = "ho_art12_handbr"
+holdout = true
+class = "article"
+options = ["12pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 205
+style = "hand"
+natbib = ""
+hand = "numbracket"
+bibsize = "footnotesize"
+hyperref = false
+pool = 24
+body = """
+section Introduction
+para 2
+cite ?
+cite ? ?
+cite ? at=Lemma_2
+trap interval
+cite ? in=Theorem_3.3
+para 2
+cite p53
+trap class
+section Proofs
+para 3
+cite ?
+cite ? ? ?
+trap commutator
+statement ? ?
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "ho_ams10_hyper"
+holdout = true
+class = "amsart"
+options = ["10pt"]
+pagestyle = "plain"
+seed = 206
+style = "alpha"
+natbib = ""
+hand = ""
+bibsize = ""
+hyperref = true
+pool = 24
+body = """
+section Introduction
+para 2
+cite ?
+cite ? ?
+cite ? at=Corollary_1
+trap interval
+para 2
+cite ? in=Theorem_2.2
+cite ? ? ?
+section Results
+para 2
+cite ?
+statement ? ?
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "ho_art12_unsrt2col"
+holdout = true
+class = "article"
+options = ["12pt", "twocolumn"]
+geometry = "margin=0.7in"
+pagestyle = "plain"
+seed = 207
+style = "unsrt"
+natbib = ""
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 34
+body = """
+section Introduction
+para 2
+cite a11
+cite a12
+cite a13
+range a11 a13
+cite ? ?
+trap interval
+para 2
+cite ? at=Proposition_1
+cite ? in=Theorem_2
+trap section
+section Results
+para 2
+cite ? ? ?
+trap commutator
+cite ?
+para 2
+bibliography
+"""

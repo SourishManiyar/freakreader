@@ -1,7 +1,9 @@
 //! A page's lines in reading order, cut into words with their glyphs and styles, and each line's
 //! end-of-proof mark.
 
-use super::{EMPTY, EndMark, EndMarkKind, FlowLine, MAX_WORDS_PER_PAGE, PageWords, Style, Word, union};
+use super::{
+    EMPTY, EndMark, EndMarkKind, FlowLine, GLYPH_BOLD, GLYPH_ITALIC, GLYPH_MATH, GLYPH_MONO, MAX_WORDS_PER_PAGE, PageWords, Style, Word, union,
+};
 use crate::text::math::MathPage;
 use crate::text::page_layout::{BlockKind, Diagnostic, Line, PageLayout};
 
@@ -23,6 +25,33 @@ pub(super) fn font_style(name: Option<&str>) -> Style {
         || n.contains("ITAL");
     let small_caps = n.starts_with("CMCSC") || n.contains("SMALLCAP") || n.ends_with("-SC") || n.contains("CAPS");
     Style { bold, italic, small_caps, math }
+}
+
+/// A glyph's [`Word::flags`] from its font's style and name.
+fn glyph_flags(style: Style, font_name: &str) -> u8 {
+    let n = font_name.to_ascii_uppercase();
+    // A subset prefix (`ABCDEF+CMTT10`) goes.
+    let n = n.rsplit('+').next().unwrap_or("");
+    let mono = n.starts_with("CMTT")
+        || n.starts_with("CMITT")
+        || n.starts_with("CMSLTT")
+        || n.contains("MONO")
+        || n.contains("COURIER")
+        || n.contains("TYPEWRITER");
+    let mut f = 0;
+    if style.math {
+        f |= GLYPH_MATH;
+    }
+    if style.italic {
+        f |= GLYPH_ITALIC;
+    }
+    if style.bold {
+        f |= GLYPH_BOLD;
+    }
+    if mono {
+        f |= GLYPH_MONO;
+    }
+    f
 }
 
 /// Ligatures spelled out, so `Definition` reads as such whatever the font drew for `fi`.
@@ -93,6 +122,7 @@ fn words_of(line: &Line, page: &MathPage, budget: &mut usize) -> Built {
         // A big operator or delimiter (CMEX) between letters is no part of the word's text: an
         // inline sum the layout drew into a number (`2∑.2.`) would hide it.
         let font_name = page.fonts.get(gd.font as usize).and_then(|f| f.name.as_deref()).unwrap_or("");
+        w.flags.push(glyph_flags(style, font_name));
         let big = font_name.get(..4).is_some_and(|p| p.eq_ignore_ascii_case("CMEX"));
         if let Some(text) = gd.text.as_deref().filter(|_| !big) {
             spell(text, &mut w.text);

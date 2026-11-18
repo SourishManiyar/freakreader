@@ -1,0 +1,34 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{pdfcraftbib}[2026/11/18 PdfCraft bibliography oracle brackets]
+\RequirePackage{pdfcraftlayout}
+\def\pdfcraft@x#1{\special{pdfcraft:layout:x:#1}}
+\newcount\pdfcraft@citeno
+\global\let\pdfcraft@bibnext\@empty
+\global\let\pdfcraft@bibopen\@empty
+\global\let\pdfcraft@headnext\@empty
+% The list's heading is the first paragraph in it; an entry is the paragraph its \bibitem opens.
+\AddToHook{para/begin}{\ifx\pdfcraft@headnext\@empty\else\pdfcraft@x{bib:head}\global\let\pdfcraft@headnext\@empty\fi
+\ifx\pdfcraft@bibnext\@empty\else\pdfcraft@x{bib:begin:\pdfcraft@bibnext}\global\let\pdfcraft@bibnext\@empty\gdef\pdfcraft@bibopen{1}\fi}
+\AddToHook{para/end}{\ifx\pdfcraft@bibopen\@empty\else\pdfcraft@x{bib:end}\global\let\pdfcraft@bibopen\@empty\fi}
+\AtBeginEnvironment{thebibliography}{\gdef\pdfcraft@headnext{1}}
+\def\pdfcraft@bibitem#1{\gdef\pdfcraft@bibnext{#1}\pdfcraft@obibitem{#1}}
+\def\pdfcraft@lbibitem[#1]#2{\gdef\pdfcraft@bibnext{#2}\pdfcraft@olbibitem[#1]{#2}}
+% \cite: the box of each key's label.
+\def\pdfcraft@citefmt#1{\global\advance\pdfcraft@citeno\@ne\pdfcraft@x{cite:begin:\the\pdfcraft@citeno:\@citeb}\pdfcraft@ofmt{#1}\pdfcraft@x{cite:end}}
+% natbib: where hyperref puts its links.
+\def\pdfcraft@nls#1{\global\advance\pdfcraft@citeno\@ne\pdfcraft@x{cite:begin:\the\pdfcraft@citeno:#1}\pdfcraft@onls{#1}}
+\def\pdfcraft@nle{\pdfcraft@onle\pdfcraft@x{cite:end}}
+\def\pdfcraft@nlb#1#2{\pdfcraft@x{cite:end}\pdfcraft@onlb{#1}{#2}\pdfcraft@x{cite:resume:\the\pdfcraft@citeno}}
+\AtBeginDocument{%
+\let\pdfcraft@obibitem\@bibitem\let\@bibitem\pdfcraft@bibitem
+\let\pdfcraft@olbibitem\@lbibitem\let\@lbibitem\pdfcraft@lbibitem
+\@ifpackageloaded{natbib}{%
+\let\pdfcraft@onls\hyper@natlinkstart\let\hyper@natlinkstart\pdfcraft@nls
+\let\pdfcraft@onle\hyper@natlinkend\let\hyper@natlinkend\pdfcraft@nle
+\let\pdfcraft@onlb\hyper@natlinkbreak\let\hyper@natlinkbreak\pdfcraft@nlb}%
+{\let\pdfcraft@ofmt\@cite@ofmt\let\@cite@ofmt\pdfcraft@citefmt}}
+\newcommand*\pdfcrafttrap[1]{\pdfcraft@x{trap:begin:#1}}
+\newcommand*\pdfcrafttrapend{\pdfcraft@x{trap:end}}
+% A citation typed by hand: its key and its text.
+\newcommand*\pdfcrafthand[2]{\global\advance\pdfcraft@citeno\@ne\pdfcraft@x{cite:begin:\the\pdfcraft@citeno:#1}#2\pdfcraft@x{cite:end}}
+\newcommand*\pdfcraftrange[2]{\nocite{#1,#2}\leavevmode[{\global\advance\pdfcraft@citeno\@ne\pdfcraft@x{cite:begin:\the\pdfcraft@citeno:#1}\hbox{\csname b@#1\endcsname}\pdfcraft@x{cite:end}--\global\advance\pdfcraft@citeno\@ne\pdfcraft@x{cite:begin:\the\pdfcraft@citeno:#2}\hbox{\csname b@#2\endcsname}\pdfcraft@x{cite:end}}]}

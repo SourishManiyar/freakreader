@@ -3,6 +3,7 @@
 use std::process::ExitCode;
 
 mod assets;
+mod bib_oracle;
 mod corpus;
 mod demo_pdf;
 mod fuzz;
@@ -71,6 +72,11 @@ const COMMANDS: &[(&str, &str, Command)] = &[
         "refs-oracle",
         "Statement and reference oracle: `generate [--check]` typesets synthetic papers with theorem, proof and mention brackets (needs TeX Live), `report`, `test` (crates/render/tests/data/refs/oracle)",
         refs_oracle::run,
+    ),
+    (
+        "bib-oracle",
+        "Bibliography and citation oracle: `generate [--check]` typesets synthetic papers with BibTeX and entry and citation brackets (needs TeX Live), `report`, `test` (crates/render/tests/data/bib/oracle)",
+        bib_oracle::run,
     ),
     (
         "math-symbols",

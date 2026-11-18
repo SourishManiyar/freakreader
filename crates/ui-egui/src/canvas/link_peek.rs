@@ -6,12 +6,16 @@
 //! stays. Another right-click closes it, as does Escape (`app/keys.rs`); a click on the preview
 //! goes there. Preferences ▸ Documents and view turns the pointer's previews off.
 //!
-//! A mention the text makes without a link ("by Lemma 2.1", "see (3.4)", "Section 3") previews the
-//! same way when the document's reference graph ([`super::ref_graph`]) resolved it with at least
-//! [`PREVIEW_CONFIDENCE`]: the window opens on the named block's own extent and says "inferred"
-//! with its title. Such a mention is only read where the pointer is; it never takes the pointer, a
-//! press, the cursor or a text selection from the page. Preferences turn these previews off on
-//! their own.
+//! A mention the text makes without a link ("by Lemma 2.1", "see (3.4)", "Section 3", a citation
+//! "[12]" or "Smith (2020)") previews the same way when the document's reference graph
+//! ([`super::ref_graph`]) resolved it with at least [`PREVIEW_CONFIDENCE`]: the window opens on the
+//! named block's own extent (a bibliography entry's, for a citation) and says "inferred" with its
+//! title (`[12]`, `Okafor 2020a`). In a group of citations (`[1, 3, 5]`) each has its own glyphs, so
+//! the one under the pointer previews. Such a mention is only read where the pointer is; it never
+//! takes the pointer, a press, the cursor or a text selection from the page. Preferences turn these
+//! previews off on their own. A citation link (`cite.KEY`) previews its entry's own extent too,
+//! captioned with the entry's printed label, once the graph knows the entry; until then, or without
+//! the graph, it shows the block found below its destination as other links do.
 //!
 //! What is shown is the block the destination names ([`pdfcraft_engine::link_preview`]): the
 //! target page's glyphs are read first, then the block is drawn, both by a render thread of its
@@ -30,7 +34,7 @@
 
 use egui::emath::GuiRounding as _;
 use egui::{Align2, Color32, CornerRadius, Pos2, Rect, Sense, Stroke, Vec2, pos2, vec2};
-use pdfcraft_engine::link_preview::{LinkPreview, RefKind, RefName, link_preview};
+use pdfcraft_engine::link_preview::{LinkPreview, RefKind, RefName, link_preview, ref_name};
 use pdfcraft_engine::references::{BlockKind as RefBlockKind, PREVIEW_CONFIDENCE, ReferenceGraph, Source as RefSource};
 use pdfcraft_render::{DestView, DocInfo, LinkTarget, PageInfo, RenderPool, RenderRequest, RequestKind, Tile};
 
@@ -150,6 +154,9 @@ pub struct LinkPeek {
     /// For a mention the text makes without a link: the title of the block it names
     /// (`Lemma 2.1`), which the caption gives with "inferred".
     inferred: Option<String>,
+    /// For a citation link whose entry the reference graph knows: the entry's title (`[12]`), which
+    /// the caption gives.
+    named: Option<String>,
     /// The part of the target page shown.
     preview: LinkPreview,
     /// Where following the link goes, for a click on the preview.
@@ -217,6 +224,7 @@ impl LinkPeek {
             source: PeekSource::Link { page, index },
             anchor: Anchor::User(link.rect),
             inferred: None,
+            named: None,
             preview,
             dest,
             label: target_page.label.clone(),
@@ -243,33 +251,69 @@ impl LinkPeek {
     pub(crate) fn open_mention(doc: &pdfcraft_engine::Document, graph: &ReferenceGraph, page: usize, id: usize, trigger: Trigger) -> Option<Self> {
         let m = graph.mentions.get(id).filter(|m| m.source == RefSource::Inferred && m.confidence >= PREVIEW_CONFIDENCE && m.page() == page)?;
         let block = graph.block(m.target?)?;
-        let target_page = doc.info.pages.get(block.page())?.clone();
-        let (w, h) = (target_page.width.max(1.0), target_page.height.max(1.0));
-        let [x0, y0, x1, y1] = block.first_rect();
-        if !([x0, y0, x1, y1].iter().all(|v| v.is_finite()) && x1 > x0 && y1 > y0) {
-            return None;
-        }
-        let area = [(x0 - BLOCK_MARGIN).max(0.0), (y0 - BLOCK_MARGIN).max(0.0), (x1 + BLOCK_MARGIN).min(w), (y1 + BLOCK_MARGIN).min(h)];
-        if area[2] <= area[0] || area[3] <= area[1] {
-            return None;
-        }
-        // A click goes to the block's top, as a link to it would.
-        let [left, top] = target_page.view_to_user(area[0], area[1]);
-        let dest = DestView::Xyz { left: Some(left), top: Some(top), zoom: None };
-        let kind = match block.kind {
-            RefBlockKind::Equation => RefKind::Equation,
-            RefBlockKind::Heading => RefKind::Section,
-            RefBlockKind::Float if block.label == "Table" => RefKind::Table,
-            RefBlockKind::Float => RefKind::Figure,
-            RefBlockKind::Statement | RefBlockKind::Proof => RefKind::TheoremLike,
-        };
-        let preview =
-            LinkPreview { page: block.page(), area, view: dest, name: None, reference: RefName { kind, number: block.number.clone() }, fitted: true };
+        let (preview, dest, target_page) = block_preview(doc, block)?;
         let on_page = m.extent.iter().find(|e| e.page == page)?.rect;
-        Some(Self {
-            source: PeekSource::Mention { page, id },
-            anchor: Anchor::View(on_page),
-            inferred: Some(block.title()),
+        Some(Self::of_block(
+            doc,
+            PeekSource::Mention { page, id },
+            Anchor::View(on_page),
+            Some(block.title()),
+            None,
+            preview,
+            dest,
+            target_page,
+            trigger,
+        ))
+    }
+
+    /// The preview of the citation link at `/Annots` index `index` on `page` as the reference graph
+    /// reads it: its entry's own extent, captioned with the entry's title (`[12]`). `None` when the
+    /// graph does not tie the link to an entry (the link's own preview is shown then).
+    pub(crate) fn open_citation_link(
+        doc: &pdfcraft_engine::Document,
+        graph: &ReferenceGraph,
+        page: usize,
+        index: usize,
+        trigger: Trigger,
+    ) -> Option<Self> {
+        let link = doc.info.links.iter().find(|l| l.page == page && l.index == index)?;
+        if !link.dest_name.as_deref().is_some_and(|n| ref_name(n).kind == RefKind::Citation) {
+            return None;
+        }
+        let LinkTarget::Page(_, link_dest) = link.target else { return None };
+        let block = graph.block(graph.mention_of_link(page, index)?.target?).filter(|b| b.kind == RefBlockKind::BibEntry)?;
+        let (preview, _, target_page) = block_preview(doc, block)?;
+        // A click goes where the link goes.
+        Some(Self::of_block(
+            doc,
+            PeekSource::Link { page, index },
+            Anchor::User(link.rect),
+            None,
+            Some(block.title()),
+            preview,
+            link_dest,
+            target_page,
+            trigger,
+        ))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn of_block(
+        doc: &pdfcraft_engine::Document,
+        source: PeekSource,
+        anchor: Anchor,
+        inferred: Option<String>,
+        named: Option<String>,
+        preview: LinkPreview,
+        dest: DestView,
+        target_page: PageInfo,
+        trigger: Trigger,
+    ) -> Self {
+        Self {
+            source,
+            anchor,
+            inferred,
+            named,
             preview,
             dest,
             label: target_page.label.clone(),
@@ -287,7 +331,7 @@ impl LinkPeek {
             failed: false,
             scrolled: false,
             column: None,
-        })
+        }
     }
 
     /// What the preview belongs to: a link, or a mention the text makes without one.
@@ -298,6 +342,11 @@ impl LinkPeek {
     /// For a mention the text makes without a link, the title of the block it names.
     pub fn inferred(&self) -> Option<&str> {
         self.inferred.as_deref()
+    }
+
+    /// For a citation link whose entry the reference graph knows, the entry's title (`[12]`).
+    pub fn named(&self) -> Option<&str> {
+        self.named.as_deref()
     }
 
     /// The part of the document shown.
@@ -332,6 +381,9 @@ impl LinkPeek {
         let p = self.label.as_str();
         if let Some(t) = &self.inferred {
             return crate::i18n::fmt(tl!("{t} · page {p} · inferred"), &[("t", t), ("p", p)]);
+        }
+        if let Some(t) = &self.named {
+            return crate::i18n::fmt(tl!("{t} · page {p}"), &[("t", t), ("p", p)]);
         }
         let template = match (self.preview.reference.kind, self.preview.reference.number.as_deref()) {
             (_, None) => None,
@@ -461,6 +513,35 @@ impl LinkPeek {
     }
 }
 
+/// What a preview of `block` shows: its own extent on its first page (with a margin), a destination
+/// at its top, and its page. `None` for a block with no box on a page of the document.
+fn block_preview(doc: &pdfcraft_engine::Document, block: &pdfcraft_engine::references::RefBlock) -> Option<(LinkPreview, DestView, PageInfo)> {
+    let target_page = doc.info.pages.get(block.page())?.clone();
+    let (w, h) = (target_page.width.max(1.0), target_page.height.max(1.0));
+    let [x0, y0, x1, y1] = block.first_rect();
+    if !([x0, y0, x1, y1].iter().all(|v| v.is_finite()) && x1 > x0 && y1 > y0) {
+        return None;
+    }
+    let area = [(x0 - BLOCK_MARGIN).max(0.0), (y0 - BLOCK_MARGIN).max(0.0), (x1 + BLOCK_MARGIN).min(w), (y1 + BLOCK_MARGIN).min(h)];
+    if area[2] <= area[0] || area[3] <= area[1] {
+        return None;
+    }
+    // A click goes to the block's top, as a link to it would.
+    let [left, top] = target_page.view_to_user(area[0], area[1]);
+    let dest = DestView::Xyz { left: Some(left), top: Some(top), zoom: None };
+    let kind = match block.kind {
+        RefBlockKind::Equation => RefKind::Equation,
+        RefBlockKind::Heading => RefKind::Section,
+        RefBlockKind::Float if block.label == "Table" => RefKind::Table,
+        RefBlockKind::Float => RefKind::Figure,
+        RefBlockKind::Statement | RefBlockKind::Proof => RefKind::TheoremLike,
+        RefBlockKind::BibEntry => RefKind::Citation,
+    };
+    let preview =
+        LinkPreview { page: block.page(), area, view: dest, name: None, reference: RefName { kind, number: block.number.clone() }, fitted: true };
+    Some((preview, dest, target_page))
+}
+
 /// What this frame's right-click on the pages does to the preview. `found`: the link a page found
 /// under it that goes somewhere in this document, or the mention the text makes there without a
 /// link (Select tool). An open preview closes, wherever the right-click is; otherwise the found
@@ -484,7 +565,12 @@ pub(super) fn right_click(view: &mut DocView, doc: &pdfcraft_engine::Document, f
 /// The preview of `source`: a link's, or a mention's from the document's reference graph.
 fn open(view: &DocView, doc: &pdfcraft_engine::Document, source: PeekSource, trigger: Trigger) -> Option<LinkPeek> {
     match source {
-        PeekSource::Link { page, index } => LinkPeek::open(doc, page, index, trigger),
+        // A citation link previews its entry when the graph knows it.
+        PeekSource::Link { page, index } => view
+            .refs
+            .graph(doc.edit_generation())
+            .and_then(|g| LinkPeek::open_citation_link(doc, g, page, index, trigger))
+            .or_else(|| LinkPeek::open(doc, page, index, trigger)),
         PeekSource::Mention { page, id } => {
             let graph = view.refs.graph(doc.edit_generation())?.clone();
             LinkPeek::open_mention(doc, &graph, page, id, trigger)
@@ -758,6 +844,7 @@ mod tests {
             source: PeekSource::Link { page: 0, index: 0 },
             anchor: Anchor::User([0.0; 4]),
             inferred: None,
+            named: None,
             preview: LinkPreview {
                 page: 1,
                 area,

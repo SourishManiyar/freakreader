@@ -1,7 +1,8 @@
 //! A document's reference graph: its referable blocks (theorem-like statements, proofs, numbered
-//! headings, numbered displays, figures and tables) and the places its text mentions them, each
-//! with where it points and why it is believed: a real link annotation ([`Source::Link`]) or the
-//! analysis of the text ([`Source::Inferred`], `pdfcraft_render::text::page_layout::refs`).
+//! headings, numbered displays, figures and tables, and the entries of its bibliography) and the
+//! places its text mentions or cites them, each with where it points and why it is believed: a real
+//! link annotation ([`Source::Link`]) or the analysis of the text ([`Source::Inferred`],
+//! `pdfcraft_render::text::page_layout::refs` and `…::bib`).
 //!
 //! Where a link and the text both say something about one mention and disagree, the link wins and
 //! a `link_disagrees` diagnostic says what the text said. A link with no mention found under it
@@ -10,8 +11,10 @@
 //! later reads the graph (a dependency graph, outline filters).
 //!
 //! Read-only. Pages are read without rasterizing them, at most [`MAX_REFERENCE_PAGES`]; past that
-//! the rest are left out and the graph says so. Work is linear in the glyphs, links and mentions.
+//! the rest are left out and the graph says so. Work is linear in the glyphs and in the links and
+//! mentions of each page.
 
+use pdfcraft_render::text::page_layout::bib::{self, Bibliography};
 use pdfcraft_render::text::page_layout::refs::{self, PageWords, References, Target};
 use pdfcraft_render::text::page_layout::{self, BlockKind as LayoutKind, Diagnostic, DocumentStructure, PageContext, PageLayout};
 use pdfcraft_render::{DestView, Link, LinkTarget, PageInfo, PageRenderer};
@@ -38,6 +41,8 @@ pub enum BlockKind {
     Heading,
     Equation,
     Float,
+    /// An entry of the bibliography.
+    BibEntry,
 }
 
 impl BlockKind {
@@ -48,11 +53,15 @@ impl BlockKind {
             BlockKind::Heading => "heading",
             BlockKind::Equation => "equation",
             BlockKind::Float => "float",
+            BlockKind::BibEntry => "bib_entry",
         }
     }
 
+    pub const ALL: [BlockKind; 6] =
+        [BlockKind::Statement, BlockKind::Proof, BlockKind::Heading, BlockKind::Equation, BlockKind::Float, BlockKind::BibEntry];
+
     pub fn from_name(s: &str) -> Option<BlockKind> {
-        [BlockKind::Statement, BlockKind::Proof, BlockKind::Heading, BlockKind::Equation, BlockKind::Float].into_iter().find(|k| k.as_str() == s)
+        BlockKind::ALL.into_iter().find(|k| k.as_str() == s)
     }
 }
 
@@ -69,7 +78,8 @@ pub struct RefBlock {
     pub id: usize,
     pub kind: BlockKind,
     /// The printed word (`Lemma`, `Main Theorem`, `Proof`), or `Section`, `Equation`, `Figure`,
-    /// `Table`.
+    /// `Table`; for a bibliography entry its printed label (`[12]`, `[BKM20]`, `12.`) or, in a list
+    /// without labels, its first author and year (`Okafor 2020a`).
     pub label: String,
     /// The number as printed (`2.1`, `(3.4)` for an equation).
     pub number: Option<String>,
@@ -97,11 +107,11 @@ impl RefBlock {
         self.extent.first().map_or([0.0; 4], |e| e.rect)
     }
 
-    /// What it is called: `Lemma 2.1`, `Equation (3.4)`, `Section 3`, `Remark`.
+    /// What it is called: `Lemma 2.1`, `Equation (3.4)`, `Section 3`, `Remark`, `[12]`.
     pub fn title(&self) -> String {
-        match &self.number {
-            Some(n) => format!("{} {n}", self.label),
-            None => self.label.clone(),
+        match (&self.number, self.kind) {
+            (_, BlockKind::BibEntry) | (None, _) => self.label.clone(),
+            (Some(n), _) => format!("{} {n}", self.label),
         }
     }
 }
@@ -128,12 +138,14 @@ impl Source {
 #[derive(Clone, Debug, PartialEq)]
 pub struct RefMention {
     pub id: usize,
-    /// `statement`, `section`, `equation`, `figure`, `table`, or `link` for a link with no mention
-    /// found under it.
+    /// `statement`, `section`, `equation`, `figure`, `table`, `citation`, or `link` for a link with
+    /// no mention found under it.
     pub kind: &'static str,
-    /// What it says (`Lemma 2.1`, `(3.4)`, `2.3`).
+    /// What it says (`Lemma 2.1`, `(3.4)`, `2.3`; a citation's label or names and year: `12`,
+    /// `BKM20`, `Smith and Jones 2020a`).
     pub text: String,
-    /// The clickable part, page by page.
+    /// The clickable part, page by page; none for a key inside a range of citations (`2` of
+    /// `[1–3]`).
     pub extent: Vec<Extent>,
     /// The block it points at (an id into [`ReferenceGraph::blocks`]).
     pub target: Option<usize>,
@@ -145,10 +157,14 @@ pub struct RefMention {
     pub unresolved: Option<&'static str>,
     /// The link annotation: its page and `/Annots` index.
     pub link: Option<(usize, usize)>,
+    /// For a citation: what follows its label in its bracket (`Thm. 3.1`).
+    pub locator: Option<String>,
+    /// For a citation: the citations of one bracket or parenthesis share it.
+    pub group: Option<usize>,
 }
 
 impl RefMention {
-    /// The page it is on.
+    /// The page it is on (0 for a citation inside a range, which has no extent).
     pub fn page(&self) -> usize {
         self.extent.first().map_or(0, |e| e.page)
     }
@@ -177,6 +193,11 @@ pub struct ReferenceGraph {
     pub pages_read: usize,
     /// More than [`MAX_REFERENCE_PAGES`] pages: the rest were not read.
     pub truncated: bool,
+    /// The bibliography as read from the text: its region, entries with their fields, and the
+    /// citations (before the links were weighed; [`ReferenceGraph::mentions`] has the outcome).
+    pub bibliography: Bibliography,
+    /// Per bibliography entry, its block's id.
+    pub entry_blocks: Vec<usize>,
     /// Per page, the mentions on it.
     by_page: HashMap<usize, Vec<usize>>,
 }
@@ -203,6 +224,16 @@ impl ReferenceGraph {
     pub fn mentions_on(&self, page: usize) -> impl Iterator<Item = &RefMention> {
         self.by_page.get(&page).into_iter().flatten().filter_map(|&i| self.mentions.get(i))
     }
+
+    /// The mention made from the link at `/Annots` index `index` on `page`, if the graph holds it.
+    pub fn mention_of_link(&self, page: usize, index: usize) -> Option<&RefMention> {
+        self.by_page.get(&page)?.iter().filter_map(|&i| self.mentions.get(i)).find(|m| m.link == Some((page, index)))
+    }
+
+    /// The bibliography entry (index into [`Bibliography::entries`]) block `id` is, if one.
+    pub fn entry_of_block(&self, id: usize) -> Option<usize> {
+        self.entry_blocks.iter().position(|&b| b == id)
+    }
 }
 
 fn layout_block(layouts: &[PageLayout], page: usize, block: usize) -> Option<&page_layout::Block> {
@@ -217,9 +248,14 @@ fn finite(r: [f32; 4]) -> bool {
     r.iter().all(|v| v.is_finite())
 }
 
+/// What [`blocks`] gives: the blocks, a map from a layout block to its block id, and per
+/// bibliography entry its block id.
+type Blocks = (Vec<RefBlock>, HashMap<(usize, usize), usize>, Vec<usize>);
+
 /// The blocks: statements and proofs first (so a statement's index is its id), then numbered
-/// headings, displays and floats. Returns them and a map from a layout block to its id.
-fn blocks(layouts: &[PageLayout], structure: &DocumentStructure, r: &References) -> (Vec<RefBlock>, HashMap<(usize, usize), usize>) {
+/// headings, displays and floats, then the bibliography's entries. Returns them, a map from a
+/// layout block to its id, and each entry's id.
+fn blocks(layouts: &[PageLayout], structure: &DocumentStructure, r: &References, bib: &Bibliography) -> Blocks {
     let mut out: Vec<RefBlock> = r
         .statements
         .iter()
@@ -291,7 +327,45 @@ fn blocks(layouts: &[PageLayout], structure: &DocumentStructure, r: &References)
             }
         }
     }
-    (out, at)
+    // The bibliography's entries, last: their own extents, one per page and column.
+    let mut entry_blocks = Vec::with_capacity(bib.entries.len());
+    for e in &bib.entries {
+        let id = out.len();
+        entry_blocks.push(id);
+        out.push(RefBlock {
+            id,
+            kind: BlockKind::BibEntry,
+            label: entry_label(e),
+            number: e.label.clone(),
+            name: e.fields.title.as_ref().map(|t| t.value.clone()),
+            extent: e.pieces.iter().filter(|p| finite(p.rect)).map(|p| Extent { page: p.page, rect: p.rect }).collect(),
+            head: None,
+            proves: None,
+            end_mark: None,
+            confidence: e.confidence,
+        });
+    }
+    (out, at, entry_blocks)
+}
+
+/// What an entry is called: its printed label (`[12]`), else its first author and year
+/// (`Okafor 2020a`, `Smith and Jones 2019`, `Kay et al. 2019`), else `Reference N`.
+pub fn entry_label(e: &bib::Entry) -> String {
+    if let Some(l) = e.printed_label() {
+        return l;
+    }
+    let year = e.fields.year.as_ref().map(|y| y.value.as_str());
+    let names = match e.fields.authors.as_slice() {
+        [] => None,
+        [a] => Some(a.family.clone()),
+        [a, b] if !e.fields.et_al => Some(format!("{} and {}", a.family, b.family)),
+        [a, ..] => Some(format!("{} et al.", a.family)),
+    };
+    match (names, year) {
+        (Some(n), Some(y)) => format!("{n} {y}"),
+        (Some(n), None) => n,
+        _ => format!("Reference {}", e.id + 1),
+    }
 }
 
 fn target_id(t: Target, at: &HashMap<(usize, usize), usize>) -> Option<usize> {
@@ -311,6 +385,7 @@ fn block_at(blocks: &[RefBlock], page: usize, y: f32, kind: RefKind) -> Option<u
         RefKind::Section => b.kind == BlockKind::Heading,
         RefKind::Figure | RefKind::Table => b.kind == BlockKind::Float,
         RefKind::TheoremLike => b.kind == BlockKind::Statement,
+        RefKind::Citation => b.kind == BlockKind::BibEntry,
         _ => false,
     };
     let holding: Vec<(&RefBlock, [f32; 4])> = blocks
@@ -332,7 +407,7 @@ fn block_at(blocks: &[RefBlock], page: usize, y: f32, kind: RefKind) -> Option<u
     };
     // A name that says what the destination is settles it: a block of another kind is no answer.
     match kind {
-        RefKind::Equation | RefKind::Section | RefKind::Figure | RefKind::Table | RefKind::TheoremLike => {
+        RefKind::Equation | RefKind::Section | RefKind::Figure | RefKind::Table | RefKind::TheoremLike | RefKind::Citation => {
             smallest(&mut holding.iter().filter(|(b, _)| want(b)))
         }
         _ => smallest(&mut holding.iter()),
@@ -362,18 +437,21 @@ fn words_under(words: &[PageWords], page: usize, rect: [f32; 4]) -> String {
 /// The graph of a document already analysed: its pages' layouts and words, section tree and
 /// references (the same pages, from the first), its links and its pages (all of them; links from
 /// pages past those analysed are left out).
+#[allow(clippy::too_many_arguments)]
 pub fn build_graph(
     layouts: &[PageLayout],
     words: &[PageWords],
     structure: &DocumentStructure,
     r: &References,
+    bib: &Bibliography,
     links: &[Link],
     pages: &[PageInfo],
 ) -> ReferenceGraph {
-    let (blocks, at) = blocks(layouts, structure, r);
+    let (blocks, at, entry_blocks) = blocks(layouts, structure, r, bib);
     let mut g = ReferenceGraph { pages_read: layouts.len(), ..Default::default() };
     let to_diag = |d: &Diagnostic| RefDiagnostic { code: d.code, message: d.message.clone(), page: None };
     g.diagnostics.extend(r.diagnostics.iter().map(to_diag));
+    g.diagnostics.extend(bib.diagnostics.iter().map(to_diag));
     let mut mentions: Vec<RefMention> = r
         .mentions
         .iter()
@@ -389,16 +467,43 @@ pub fn build_graph(
                 confidence: if target.is_some() { m.confidence } else { 0.0 },
                 unresolved: m.unresolved.map(refs::Unresolved::as_str).or(if target.is_none() { Some("missing") } else { None }),
                 link: None,
+                locator: None,
+                group: None,
             }
         })
         .collect();
+    // Citations, inferred.
+    mentions.extend(bib.citations.iter().map(|c| {
+        let target = c.target.and_then(|e| entry_blocks.get(e).copied());
+        RefMention {
+            id: 0,
+            kind: "citation",
+            text: c.text.clone(),
+            extent: c.pieces.iter().filter(|p| finite(p.rect)).map(|p| Extent { page: p.page, rect: p.rect }).collect(),
+            target,
+            source: Source::Inferred,
+            confidence: if target.is_some() { c.confidence } else { 0.0 },
+            unresolved: c.unresolved.map(bib::CiteUnresolved::as_str).or(if target.is_none() { Some("no_entry") } else { None }),
+            link: None,
+            locator: c.locator.clone(),
+            group: Some(c.group),
+        }
+    }));
+    // The mentions read from the text, by page: a link looks only at its own page's.
+    let mut read_on: HashMap<usize, Vec<usize>> = HashMap::new();
+    for (i, m) in mentions.iter().enumerate() {
+        for p in m.extent.iter().map(|e| e.page) {
+            let list = read_on.entry(p).or_default();
+            if list.last() != Some(&i) {
+                list.push(i);
+            }
+        }
+    }
     // Real links, in the pages read.
     for link in links.iter().filter(|l| l.page < layouts.len()).take(MAX_GRAPH_LINKS) {
         let LinkTarget::Page(target_page, view) = link.target else { continue };
         let reference = link.dest_name.as_deref().map(ref_name);
-        if reference.as_ref().is_some_and(|n| n.kind == RefKind::Citation) {
-            continue;
-        }
+        let cites = reference.as_ref().is_some_and(|n| n.kind == RefKind::Citation);
         let (Some(here), Some(there)) = (pages.get(link.page), pages.get(target_page)) else { continue };
         let a = here.user_to_view(link.rect[0], link.rect[1]);
         let b = here.user_to_view(link.rect[2], link.rect[3]);
@@ -415,18 +520,23 @@ pub fn build_graph(
         .map(|f| f * there.height);
         let kind = reference.as_ref().map_or(RefKind::Unknown, |n| n.kind);
         let dest = y.filter(|y| y.is_finite()).and_then(|y| block_at(&blocks, target_page, y, kind));
-        let under = mentions.iter_mut().find(|m| {
-            m.link.is_none()
-                && m.extent
-                    .iter()
-                    .any(|e| e.page == link.page && e.rect[0] < rect[2] && rect[0] < e.rect[2] && e.rect[1] < rect[3] && rect[1] < e.rect[3])
+        // A citation link takes the citation under it; another link, a mention of a block.
+        let under_at = read_on.get(&link.page).into_iter().flatten().copied().find(|&i| {
+            mentions.get(i).is_some_and(|m| {
+                m.link.is_none()
+                    && (m.kind == "citation") == cites
+                    && m.extent
+                        .iter()
+                        .any(|e| e.page == link.page && e.rect[0] < rect[2] && rect[0] < e.rect[2] && e.rect[1] < rect[3] && rect[1] < e.rect[3])
+            })
         });
+        let under = under_at.and_then(|i| mentions.get_mut(i));
         match under {
             Some(m) => {
                 if m.target != dest {
                     let name = |t: Option<usize>| t.and_then(|t| blocks.get(t)).map_or_else(|| "nothing".to_owned(), RefBlock::title);
                     g.diagnostics.push(RefDiagnostic {
-                        code: "link_disagrees",
+                        code: if m.kind == "citation" { "citation_link_disagrees" } else { "link_disagrees" },
                         message: format!(
                             "page {}: \"{}\" reads as {}, its link goes to {}; the link is taken",
                             link.page + 1,
@@ -445,7 +555,7 @@ pub fn build_graph(
             }
             None => mentions.push(RefMention {
                 id: 0,
-                kind: "link",
+                kind: if cites { "citation" } else { "link" },
                 text: words_under(words, link.page, rect),
                 extent: vec![Extent { page: link.page, rect }],
                 target: dest,
@@ -453,6 +563,8 @@ pub fn build_graph(
                 confidence: if dest.is_some() { 1.0 } else { 0.0 },
                 unresolved: if dest.is_some() { None } else { Some("no_block") },
                 link: Some((link.page, link.index)),
+                locator: None,
+                group: None,
             }),
         }
     }
@@ -464,10 +576,15 @@ pub fn build_graph(
     mentions.sort_by_key(key);
     for (i, m) in mentions.iter_mut().enumerate() {
         m.id = i;
-        g.by_page.entry(m.page()).or_default().push(i);
+        // A key inside a range has no extent and no page to be found on.
+        if !m.extent.is_empty() {
+            g.by_page.entry(m.page()).or_default().push(i);
+        }
     }
     g.blocks = blocks;
     g.mentions = mentions;
+    g.bibliography = bib.clone();
+    g.entry_blocks = entry_blocks;
     g
 }
 
@@ -516,7 +633,8 @@ pub fn reference_graph(source: ExportSource, links: &[Link], pages: &[PageInfo])
             }
         }
         let r = refs::analyse_references(&layouts, &words, &structure);
-        let mut g = build_graph(&layouts, &words, &structure, &r, links, pages);
+        let b = bib::analyse_bibliography(&layouts, &words, &structure);
+        let mut g = build_graph(&layouts, &words, &structure, &r, &b, links, pages);
         g.truncated = source.pages > n;
         if g.truncated {
             g.diagnostics.push(RefDiagnostic {
@@ -609,9 +727,12 @@ mod tests {
         };
         let stray = Link { index: 4, rect: [300.0, 50.0, 320.0, 60.0], dest_name: None, ..link.clone() };
         let cite = Link { index: 5, dest_name: Some("cite.knuth".into()), ..link.clone() };
-        let g = build_graph(&layouts, &[], &DocumentStructure::default(), &r, &[link, stray, cite], &[page()]);
+        let g = build_graph(&layouts, &[], &DocumentStructure::default(), &r, &Bibliography::default(), &[link, stray, cite], &[page()]);
         assert_eq!(g.blocks.len(), 1);
-        assert_eq!(g.mentions.len(), 2, "{:?}", g.mentions);
+        // The link, the stray link, and the citation link (to no entry: the paper has no list).
+        assert_eq!(g.mentions.len(), 3, "{:?}", g.mentions);
+        let c = g.mentions.iter().find(|m| m.link == Some((0, 5))).expect("the citation link");
+        assert_eq!((c.kind, c.target, c.unresolved), ("citation", None, Some("no_block")));
         let m = g.mentions.iter().find(|m| m.link == Some((0, 3))).expect("the mention under the link");
         assert_eq!((m.target, m.source, m.confidence, m.unresolved), (Some(0), Source::Link, 1.0, None));
         assert!(g.diagnostics.iter().any(|d| d.code == "link_disagrees"));
@@ -636,7 +757,73 @@ mod tests {
             dest_name: None,
         };
         let off = Link { page: 5, ..bad.clone() };
-        let g = build_graph(&[PageLayout::default()], &[], &DocumentStructure::default(), &r, &[bad, off], &[page()]);
+        let g = build_graph(&[PageLayout::default()], &[], &DocumentStructure::default(), &r, &Bibliography::default(), &[bad, off], &[page()]);
         assert!(g.mentions.is_empty() && g.blocks.is_empty());
+    }
+
+    fn entry(id: usize, label: &str, rect: [f32; 4]) -> bib::Entry {
+        bib::Entry {
+            id,
+            label: Some(label.into()),
+            label_style: bib::LabelStyle::Bracket,
+            lines: Vec::new(),
+            pieces: vec![refs::Piece { page: 0, glyphs: vec![100 + id as u32], rules: Vec::new(), rect }],
+            text: String::new(),
+            fields: Default::default(),
+            parsed: false,
+            confidence: 0.9,
+        }
+    }
+
+    fn citation(text: &str, target: Option<usize>, rect: [f32; 4]) -> bib::Citation {
+        bib::Citation {
+            kind: bib::CiteKind::Numeric,
+            text: text.into(),
+            locator: None,
+            pieces: vec![refs::Piece { page: 0, glyphs: vec![1], rules: Vec::new(), rect }],
+            group: 1,
+            target,
+            unresolved: None,
+            in_range: false,
+            confidence: 0.9,
+        }
+    }
+
+    #[test]
+    fn citations_point_at_entries_and_a_citation_link_wins() {
+        let b = Bibliography {
+            entries: vec![entry(0, "1", [72.0, 600.0, 540.0, 620.0]), entry(1, "2", [72.0, 630.0, 540.0, 650.0])],
+            citations: vec![
+                citation("1", Some(0), [100.0, 400.0, 110.0, 410.0]),
+                citation("2", Some(1), [200.0, 400.0, 210.0, 410.0]),
+                bib::Citation { pieces: Vec::new(), in_range: true, ..citation("3", Some(1), [0.0; 4]) },
+            ],
+            ..Default::default()
+        };
+        let layouts = vec![PageLayout::default()];
+        // The link on the second citation goes to the first entry (y 600 from the top: 192 up).
+        let link = Link {
+            page: 0,
+            index: 7,
+            rect: [200.0, 382.0, 210.0, 392.0],
+            quads: Vec::new(),
+            target: LinkTarget::Page(0, DestView::Xyz { left: None, top: Some(192.0), zoom: None }),
+            dest_name: Some("cite.smith".into()),
+        };
+        let g = build_graph(&layouts, &[], &DocumentStructure::default(), &References::default(), &b, &[link], &[page()]);
+        assert_eq!(g.blocks.iter().filter(|x| x.kind == BlockKind::BibEntry).count(), 2);
+        assert_eq!(g.entry_blocks, [0, 1]);
+        assert_eq!(g.blocks[0].title(), "[1]");
+        let first = g.mentions.iter().find(|m| m.text == "1").expect("[1]");
+        assert_eq!((first.kind, first.target, first.source), ("citation", Some(0), Source::Inferred));
+        let second = g.mentions.iter().find(|m| m.link == Some((0, 7))).expect("the linked one");
+        assert_eq!((second.target, second.source, second.confidence), (Some(0), Source::Link, 1.0));
+        assert!(g.diagnostics.iter().any(|d| d.code == "citation_link_disagrees" && d.message.contains("[2]")));
+        // A key inside a range is in the graph, on no page.
+        let inner = g.mentions.iter().find(|m| m.text == "3").expect("inside a range");
+        assert!(inner.extent.is_empty() && g.mentions_on(0).all(|m| m.id != inner.id));
+        assert_eq!(g.mention_at(0, 105.0, 405.0, PREVIEW_CONFIDENCE).map(|m| m.target), Some(Some(0)));
+        assert_eq!(g.mention_of_link(0, 7).map(|m| m.id), Some(second.id));
+        assert_eq!(g.entry_of_block(1), Some(1));
     }
 }

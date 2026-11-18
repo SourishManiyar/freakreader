@@ -1,5 +1,7 @@
-//! `doc_blocks` and `doc_references` end to end, on the reference oracle's papers (TeX-typeset with
-//! amsthm, statements and mentions known; `crates/render/tests/data/refs/oracle`).
+//! `doc_blocks`, `doc_references` and `doc_bibliography` end to end, on the reference oracle's papers
+//! (TeX-typeset with amsthm, statements and mentions known; `crates/render/tests/data/refs/oracle`)
+//! and the bibliography oracle's (BibTeX lists and citations known;
+//! `crates/render/tests/data/bib/oracle`).
 
 use pdfcraft_automation::{Automation, Content, ToolError};
 use serde_json::{Value, json};
@@ -93,7 +95,7 @@ fn bad_arguments_say_what_is_allowed() {
     let mut a = Automation::new();
     let doc = open(&mut a, "art10_traps");
     for (tool, args, says) in [
-        ("doc_blocks", json!({ "doc": doc, "kinds": ["lemma"] }), "statement, proof, heading, equation, float"),
+        ("doc_blocks", json!({ "doc": doc, "kinds": ["lemma"] }), "statement, proof, heading, equation, float, bib_entry"),
         ("doc_blocks", json!({ "doc": doc, "kinds": "statement" }), "an array of strings"),
         ("doc_references", json!({ "doc": doc, "source": "both" }), "all, link or inferred"),
         ("doc_references", json!({ "doc": doc, "min_confidence": 2 }), "from 0 to 1"),
@@ -106,4 +108,82 @@ fn bad_arguments_say_what_is_allowed() {
         }
     }
     assert!(a.call("doc_blocks", &json!({ "doc": 999 })).is_err());
+}
+
+fn open_bib(a: &mut Automation, paper: &str) -> u64 {
+    let path = format!("{}/../render/tests/data/bib/oracle/{paper}.pdf", env!("CARGO_MANIFEST_DIR"));
+    ok(a, "doc_open", json!({ "path": path }))["doc"].as_u64().unwrap()
+}
+
+#[test]
+fn the_bibliography_comes_with_its_entries_and_fields() {
+    let mut a = Automation::new();
+    let doc = open_bib(&mut a, "art11_plainnat");
+    let r = ok(&mut a, "doc_bibliography", json!({ "doc": doc, "citations": true }));
+    assert_eq!((r["found"].as_bool(), r["region"]["heading"].as_str()), (Some(true), Some("References")));
+    let entries = r["entries"].as_array().unwrap();
+    assert_eq!(entries.len(), 30);
+    let first = &entries[0];
+    assert_eq!((first["label"].as_str(), first["printed_label"].as_str(), first["label_style"].as_str()), (Some("1"), Some("[1]"), Some("bracket")));
+    assert!(first["fields"]["authors"].as_array().is_some_and(|a| !a.is_empty() && a[0]["family"].is_string()));
+    assert!(first["fields"]["year"]["value"].is_string() && first["fields"]["title"]["confidence"].as_f64().unwrap() > 0.5);
+    assert!(entries.iter().any(|e| e["fields"]["doi"]["value"].as_str().is_some_and(|d| d.starts_with("10.5555/"))), "plainnat prints DOIs");
+    assert!(entries.iter().all(|e| e["parsed"] == true && e["extent"].as_array().is_some_and(|x| !x.is_empty())));
+    // Every citation names an entry; the entries say how often they are cited.
+    let cites = r["citations"].as_array().unwrap();
+    assert_eq!(cites.len() as u64, r["citation_count"].as_u64().unwrap());
+    assert!(cites.len() >= 15 && cites.iter().all(|c| c["kind"] == "citation" && c["entry"].is_u64()));
+    let cited: u64 = entries.iter().map(|e| e["cited"].as_u64().unwrap()).sum();
+    assert_eq!(cited as usize, cites.len());
+    // One entry, and its citations.
+    let one = ok(&mut a, "doc_bibliography", json!({ "doc": doc, "entry": 0, "citations": true }));
+    assert_eq!(one["entries"].as_array().unwrap().len(), 1);
+    assert!(one["citations"].as_array().unwrap().iter().all(|c| c["entry"] == 0));
+    // An author-year list: no labels, years with their suffixes, entries called by author and year.
+    let doc = open_bib(&mut a, "art12_apalike");
+    let r = ok(&mut a, "doc_bibliography", json!({ "doc": doc }));
+    let entries = r["entries"].as_array().unwrap();
+    assert!(entries.iter().all(|e| e["label"].is_null() && e["label_style"] == "none"));
+    assert!(entries.iter().any(|e| e["fields"]["year"]["value"] == "2020a"));
+    assert!(entries.iter().any(|e| e["title"].as_str().is_some_and(|t| t.contains("Okafor 2020"))));
+}
+
+#[test]
+fn citations_come_through_doc_references() {
+    let mut a = Automation::new();
+    let doc = open_bib(&mut a, "art10_plain");
+    let r = ok(&mut a, "doc_references", json!({ "doc": doc }));
+    let cites: Vec<&Value> = r["mentions"].as_array().unwrap().iter().filter(|m| m["kind"] == "citation").collect();
+    assert!(cites.len() >= 20);
+    assert!(cites.iter().all(|c| c["source"] == "inferred" && c["target_title"].as_str().is_some_and(|t| t.starts_with('['))));
+    assert!(cites.iter().any(|c| c["locator"].as_str().is_some_and(|l| l.contains("Theorem"))));
+    // citations: false gives the mentions of blocks alone.
+    let without = ok(&mut a, "doc_references", json!({ "doc": doc, "citations": false }));
+    assert!(without["mentions"].as_array().unwrap().iter().all(|m| m["kind"] != "citation"));
+    // Entries are blocks only when asked for.
+    let blocks = ok(&mut a, "doc_blocks", json!({ "doc": doc }));
+    assert!(blocks["blocks"].as_array().unwrap().iter().all(|b| b["kind"] != "bib_entry"));
+    let entries = ok(&mut a, "doc_blocks", json!({ "doc": doc, "kinds": ["bib_entry"] }));
+    assert_eq!(entries["blocks"].as_array().unwrap().len(), 28);
+}
+
+#[test]
+fn a_paper_without_a_list_says_so() {
+    let mut a = Automation::new();
+    // The statement oracle's papers cite other works with literal brackets, and list none.
+    let doc = open(&mut a, "art10_traps");
+    let r = ok(&mut a, "doc_bibliography", json!({ "doc": doc, "citations": true }));
+    assert_eq!((r["found"].as_bool(), r["entries"].as_array().map(Vec::len)), (Some(false), Some(0)));
+    assert!(r["diagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "no_bibliography"));
+    assert!(r["citations"].as_array().unwrap().is_empty());
+    for (args, says) in [
+        (json!({ "doc": doc, "entry": -1 }), "0 or more"),
+        (json!({ "doc": doc, "entry": 3 }), "does not exist"),
+        (json!({ "doc": doc, "citations": "yes" }), "true or false"),
+    ] {
+        match a.call("doc_bibliography", &args) {
+            Err(ToolError::InvalidArgs(m)) => assert!(m.contains(says), "{args}: {m}"),
+            other => panic!("{args}: {other:?}"),
+        }
+    }
 }

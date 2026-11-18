@@ -221,7 +221,31 @@ word, never from the number: Lemma 2.1 and Theorem 2.1 may share a counter. Both
 pages (`truncated`), are read-only and need copy permission. The analysis is
 `pdfcraft_render::text::page_layout::refs`, the graph `pdfcraft_engine::references`; scores against
 TeX's own answer are in `crates/render/tests/data/refs/oracle/README.md` (`cargo xtask refs-oracle
-report`). Bibliography citations are not read yet.
+report`). Citations of the bibliography are mentions too (below); `citations: false` leaves them out,
+and `doc_blocks` lists bibliography entries only when `kinds` names `bib_entry`.
+
+## Bibliography and citations
+
+`doc_bibliography {doc, citations?, entry?}` reads a paper's reference list without help from links:
+its `region` (the heading — References, Bibliography, Literature, Works cited, numbered or not — and
+its first and last page; `found: false` with a `no_bibliography` diagnostic when nothing names a list
+and the paper does not end with one numbered `[1]`, `[2]`, `[3]` in order), and its `entries` in
+order, each with its `label` (`12`, `BKM20`; `printed_label` `[12]`), `label_style`, `extent` per page
+and column, `text`, `parsed`, `confidence`, how often it is `cited`, and its `fields` — `authors`
+(family and given names), `et_al`, `title`, `venue`, `year` (with a suffix: `2020a`), `volume`,
+`number`, `pages`, `doi`, `arxiv`, `url`, `mr`, `zbl` — each a value with a confidence, or null when
+the entry does not show it (never guessed). The fields are shaped like a BibTeX record's.
+`citations: true` adds the citations; `entry` narrows to one entry. Citations also come through
+`doc_references` (`kind: "citation"`): brackets of the list's labels (`[12]`, `[1, 3–5]`, `[BKM20]`,
+`[12, Thm. 3.1]` with the locator apart) and, for a list without labels, a name with a year
+(`Smith (2020)`, `(Smith and Jones, 2020a; Kay et al., 2019)`), each citation of a group with its own
+`extent` and a shared `group`; the keys inside a range have no extent (`page: null`). A bracket in a
+mathematics font, after `Section` or `Figure`, or whose parts are no labels of the list is no
+citation; a key with no entry, or more than one, has no `target` (`unresolved`: `no_entry`,
+`ambiguous`). A `cite.KEY` link decides where it has one (`citation_link_disagrees` when the text read
+otherwise). Read-only; copy permission is required. The analysis is
+`pdfcraft_render::text::page_layout::bib`; scores against TeX's and BibTeX's own answer are in
+`crates/render/tests/data/bib/oracle/README.md` (`cargo xtask bib-oracle report`).
 
 ## Adding a tool
 

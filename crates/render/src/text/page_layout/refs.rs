@@ -77,7 +77,19 @@ pub struct Word {
     pub rect: [f32; 4],
     /// The style most of its letters have (mathematics when most are).
     pub style: Style,
+    /// Each glyph's font style, one per glyph: [`GLYPH_MATH`], [`GLYPH_ITALIC`], [`GLYPH_BOLD`],
+    /// [`GLYPH_MONO`] or'd together.
+    pub flags: Vec<u8>,
 }
+
+/// A glyph of a mathematics font ([`Word::flags`]).
+pub const GLYPH_MATH: u8 = 1;
+/// A glyph of an italic or slanted font.
+pub const GLYPH_ITALIC: u8 = 2;
+/// A glyph of a bold font.
+pub const GLYPH_BOLD: u8 = 4;
+/// A glyph of a typewriter (monospaced) font.
+pub const GLYPH_MONO: u8 = 8;
 
 /// How a proof's end is marked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
