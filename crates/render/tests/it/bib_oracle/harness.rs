@@ -285,6 +285,8 @@ pub fn found(paper: &Paper, a: &Analysis) -> FoundBib {
                 items(paper, p.page, &p.glyphs, &mut it);
             }
         }
+        it.sort_unstable();
+        it.dedup();
         it
     });
     let entries = a
@@ -345,7 +347,9 @@ pub fn set_name(p: &Paper) -> String {
 /// The glyphs of `items` on `page` of a paper, as text (for failure reports).
 pub fn item_text(paper: &Paper, items: &[(usize, usize)]) -> String {
     let mut out = String::new();
-    for &(page, item) in items {
+    let mut items = items.to_vec();
+    items.sort_unstable();
+    for &(page, item) in &items {
         let Some(gi) = paper.glyph_item.get(page) else { continue };
         let Some(g) = gi.iter().position(|x| *x == Some(item)) else { continue };
         if let Some(t) = paper.pages.get(page).and_then(|p| p.glyphs.get(g)).and_then(|g| g.text.as_deref()) {

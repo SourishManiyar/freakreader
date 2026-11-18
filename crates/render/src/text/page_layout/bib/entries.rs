@@ -173,12 +173,20 @@ pub(super) fn split(lines: &[BibLine<'_>], diagnostics: &mut Vec<Diagnostic>) ->
         });
     }
     if capped {
-        diagnostics.push(Diagnostic { code: "entries_capped", message: format!("more than {MAX_ENTRIES} entries: the rest are left out"), block: None });
+        diagnostics.push(Diagnostic {
+            code: "entries_capped",
+            message: format!("more than {MAX_ENTRIES} entries: the rest are left out"),
+            block: None,
+        });
     }
     if style.is_some_and(|s| s != LabelStyle::None) {
         let numbers: Vec<u64> = out.iter().filter_map(|e| e.label.as_deref()?.parse().ok()).collect();
         if numbers.len() == out.len() && numbers.windows(2).any(|w| matches!(w, [a, b] if *b != a.saturating_add(1))) {
-            diagnostics.push(Diagnostic { code: "labels_out_of_order", message: "the list's numbers do not run 1, 2, 3, … in order".into(), block: None });
+            diagnostics.push(Diagnostic {
+                code: "labels_out_of_order",
+                message: "the list's numbers do not run 1, 2, 3, … in order".into(),
+                block: None,
+            });
         }
     }
     (out, members)

@@ -152,3 +152,69 @@ cargo xtask bib-oracle test                         # the oracle's tests
 Three broken analysers prove the harness discriminates (`broken_analysers_score_badly`): one that
 splits the list at every line, one that links every `[n]` it sees to entry `n`, one that resolves an
 author-year citation by its first author alone, whatever the year.
+
+## Scores
+
+Measured on 2026-11-18 with pdfTeX 1.40.25 and BibTeX 0.99d (TeX Live 2023/Debian), once the
+analysis stopped changing (the commit that adds citations). Field counts are over detected entries.
+
+| | lists | entries: boundary F1 ≥ 0.95 | labels right | fields right / **wrong** / missing / **invented** | citations recall / precision | traps read as citations | **wrong links** |
+|---|---|---|---|---|---|---|---|
+| development (11 papers, 33 pages) | 11 / 11 | 381 / 381 | 309 / 309 | 2,234 / **1** / 0 / **0** of 2,235 | 171 / 173, 171 / 171 | 0 / 34 | **0** |
+| held out (6 papers, 19 pages) | 6 / 6 | 222 / 226 | 195 / 198 (1 wrong) | 1,310 / **6** / 3 / **1** of 1,319 | 77 / 81, 77 / 77 | 0 / 19 | **0** |
+
+Per field, held out (right / truth): authors 220 / 222, title 223 / 224, venue 190 / 191, year
+223 / 224, volume 139 / 140, number 69 / 70, pages 158 / 159, DOI 23 / 23, arXiv 33 / 33 (one
+invented), URL 1 / 2, MR 29 / 29, Zbl 2 / 2. Per style, every held-out cell is 100% but the
+two-column `alpha` paper (`ho_art11_alpha2col`: 66 / 70 entries, 6 wrong fields, 9 / 12 citations),
+one `plainnat` author-year citation (15 / 16) and one field of the list by hand. The keys inside
+ranges: 3 / 3 development, 1 / 1 held out. Linked papers: `art11_hyper` 12 citation links, all with a
+citation read under them going to the same entry; `art12_hypernat` 16 / 16; `ho_ams10_hyper` 9 / 11
+read, all 9 agreeing.
+
+The one development wrong field is `Made-up` broken at its hyphen at a line's end, read `Madeup`: a
+compound's hyphen and TeX's hyphenation look the same, and the analysis drops a hyphen between two
+lower-case parts. The two development misses are `\citeauthor` (a name with no year), which the
+analysis does not read: a name alone is too often no citation.
+
+Broken analysers (development / held out): splitting at every line, boundaries 13.1% / 6.6% and
+**27 / 15 wrong links**; every `[n]` a citation, **5 / 3** trap hits, each a wrong link; resolving
+author-year citations by the first author alone, **22 / 7 wrong links**.
+
+**These numbers say the synthetic set is too easy, not that the problem is solved**: every list
+comes from BibTeX's standard styles or one of three formats written by hand, in Computer Modern, in
+two classes. The held-out set first showed two kinds of list the development set did not have
+(see Held-out papers), which is what an independent set is for; it found nothing else.
+
+## What this does not measure
+
+All of it is LaTeX in one font family, with BibTeX's base, AMS and natbib styles. Real papers use
+publisher styles (Springer, Elsevier, IEEE, AMS journals' own), biblatex (with its own label forms,
+`ibid.`, `op. cit.`, footnote citations), lists typed by hand in Word or elsewhere, superscript and
+parenthesised numeric citations (`^12`, `(12)`), name-first lists without years in the text,
+citation commands that compress (`[1–3, 5]` from `cite.sty`, natbib's `sort&compress`), other
+languages (`und`, `et`, `y` between names; `S.`, `Bd.` for pages and volumes), CJK and right-to-left
+names, scans, and bibliographies split per chapter or per section. None of those is here; a score
+here is an upper bound for them. Fields are compared only where the typeset entry shows them, so a
+style that hides the DOI cannot be wrong about it.
+
+## Design note: a real-paper set
+
+A pinned, licence-clean set of real papers would be fetched and checked like `cargo xtask corpus`,
+never committed:
+
+- **Source and licence.** Only papers whose PDF and LaTeX source are under a licence on the allowlist
+  that allows redistribution (CC-BY-4.0, CC-BY-SA-4.0, CC0-1.0), as arXiv states per paper; arXiv's
+  default licence is out. A manifest records each paper's URL, version, licence, SHA-256, and why it
+  is in the set (publisher class, citation package, bibliography style, columns, language).
+- **Fetch.** `cargo xtask bib-corpus fetch` downloads into a git-ignored directory, verifies each
+  SHA-256 and refuses any licence outside the allowlist; nothing runs on an unpinned file.
+- **Truth.** Where the source compiles with pdfTeX, free fonts and its `.bbl` (arXiv ships the
+  `.bbl`), it is compiled with this oracle's bracket package, which patches `\bibitem` and the
+  citation hooks of the kernel and natbib (biblatex and `cite.sty` need their own small patches),
+  giving the same DVI truth; fields come from the `.bib` when the source has it, else are typed by
+  one contributor and checked by a second, and scored apart. Otherwise the hyperref `cite.KEY` links
+  are the truth for citations.
+- **Held out from the start**, by a fixed rule (a hash of the id), read only by rates.
+
+Nothing is fetched by this branch.

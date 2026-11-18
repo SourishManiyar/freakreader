@@ -50,7 +50,10 @@ fn tokens(lines: &[BibLine<'_>], members: &[usize], e: &Entry) -> Vec<Tok> {
             }
             let text = composed(w);
             let flags = word_flags(w);
-            if j == skip && k > 0 && let Some(prev) = out.last_mut() {
+            if j == skip
+                && k > 0
+                && let Some(prev) = out.last_mut()
+            {
                 let pl = prev.text.as_str();
                 let id = pl.contains("://") || pl.contains("10.") && pl.contains('/') || prev.flags & GLYPH_MONO != 0 && flags & GLYPH_MONO != 0;
                 let goes_on = text.chars().next().is_some_and(|c| c.is_ascii_digit() || c.is_lowercase() || c == '/');
@@ -108,9 +111,13 @@ fn arxiv_id(t: &str) -> Option<String> {
     let new = a.len() == 4 && a.bytes().all(|c| c.is_ascii_digit()) && {
         let digits: String = b.chars().take_while(char::is_ascii_digit).collect();
         let rest = b.get(digits.len()..).unwrap_or("");
-        (4..=5).contains(&digits.len()) && (rest.is_empty() || rest.strip_prefix('v').is_some_and(|v| !v.is_empty() && v.bytes().all(|c| c.is_ascii_digit())))
+        (4..=5).contains(&digits.len())
+            && (rest.is_empty() || rest.strip_prefix('v').is_some_and(|v| !v.is_empty() && v.bytes().all(|c| c.is_ascii_digit())))
     };
-    let old = t.contains('/') && a.bytes().all(|c| c.is_ascii_lowercase() || c == b'-' || c == b'.') && b.len() == 7 && b.bytes().all(|c| c.is_ascii_digit());
+    let old = t.contains('/')
+        && a.bytes().all(|c| c.is_ascii_lowercase() || c == b'-' || c == b'.')
+        && b.len() == 7
+        && b.bytes().all(|c| c.is_ascii_digit());
     (new || old).then(|| t.to_owned())
 }
 
@@ -134,7 +141,9 @@ fn identifiers(toks: &mut [Tok], f: &mut Fields) {
             if f.doi.is_none() && lower.contains("doi.org/") {
                 f.doi = doi_in(url).and_then(|d| field(&d, 0.9));
             }
-            if f.arxiv.is_none() && let Some(abs) = lower.find("arxiv.org/abs/") {
+            if f.arxiv.is_none()
+                && let Some(abs) = lower.find("arxiv.org/abs/")
+            {
                 f.arxiv = url.get(abs + 14..).and_then(arxiv_id).and_then(|a| field(&a, 0.9));
             }
             take(toks, i);
@@ -181,7 +190,9 @@ fn identifiers(toks: &mut [Tok], f: &mut Fields) {
         }
         if f.zbl.is_none() && (t == "Zbl" || t == "Zbl." || t == "zbMATH") {
             let z = trim_end_punct(&next);
-            let ok = z.split_once('.').is_some_and(|(a, b)| (3..=4).contains(&a.len()) && b.len() == 5 && a.bytes().chain(b.bytes()).all(|c| c.is_ascii_digit()));
+            let ok = z
+                .split_once('.')
+                .is_some_and(|(a, b)| (3..=4).contains(&a.len()) && b.len() == 5 && a.bytes().chain(b.bytes()).all(|c| c.is_ascii_digit()));
             if ok {
                 f.zbl = field(z, 0.95);
                 take(toks, i);
@@ -288,8 +299,26 @@ fn authors(toks: &[Tok]) -> (Vec<Author>, bool) {
 
 /// Words that open what is not a venue's name.
 const NOT_VENUE: [&str; 20] = [
-    "in", "editor", "editors", "eds", "ed", "preprint", "phd", "ph.d", "thesis", "master's", "technical", "tech", "report", "reports", "pages", "pp",
-    "submitted", "doctoral", "dissertation", "habilitation",
+    "in",
+    "editor",
+    "editors",
+    "eds",
+    "ed",
+    "preprint",
+    "phd",
+    "ph.d",
+    "thesis",
+    "master's",
+    "technical",
+    "tech",
+    "report",
+    "reports",
+    "pages",
+    "pp",
+    "submitted",
+    "doctoral",
+    "dissertation",
+    "habilitation",
 ];
 
 /// The fields of entry `e`.
@@ -307,7 +336,10 @@ pub(super) fn parse(lines: &[BibLine<'_>], members: &[usize], e: &Entry) -> Fiel
         let lower = b.to_lowercase();
         !t.italic()
             && !t.used
-            && (b.starts_with(char::is_uppercase) || initial(&t.text) || matches!(lower.as_str(), "and" | "et" | "al" | "&") || PARTICLES.contains(&lower.as_str()))
+            && (b.starts_with(char::is_uppercase)
+                || initial(&t.text)
+                || matches!(lower.as_str(), "and" | "et" | "al" | "&")
+                || PARTICLES.contains(&lower.as_str()))
     };
     let author_year = early.is_some_and(|(i, _, _)| *i > 0 && toks.get(..*i).is_some_and(|before| before.iter().all(name_like)));
     let year = if author_year { early } else { years.iter().rfind(|(_, _, p)| *p).or(years.last()) };
@@ -329,7 +361,8 @@ pub(super) fn parse(lines: &[BibLine<'_>], members: &[usize], e: &Entry) -> Fiel
                 break;
             }
             if t.text.ends_with('.') && !initial(&t.text) && t.text.chars().filter(|c| c.is_alphabetic()).count() > 1 {
-                let next_capital = toks.get(i + 1).is_none_or(|x| x.text.starts_with(|c: char| c.is_uppercase() || !c.is_alphanumeric()) || x.italic());
+                let next_capital =
+                    toks.get(i + 1).is_none_or(|x| x.text.starts_with(|c: char| c.is_uppercase() || !c.is_alphanumeric()) || x.italic());
                 if next_capital {
                     end = Some((i + 1, i + 1));
                     break;
@@ -443,7 +476,8 @@ fn venue_from(toks: &[Tok], at: usize, title_italic: bool) -> Option<String> {
     let mut i = at;
     while let Some(t) = toks.get(i) {
         let b = t.bare().to_lowercase();
-        let number_after = i > at && b.bytes().all(|c| c.is_ascii_digit()) && toks.get(i - 1).is_some_and(|p| NOT_VENUE.contains(&p.bare().to_lowercase().as_str()));
+        let number_after =
+            i > at && b.bytes().all(|c| c.is_ascii_digit()) && toks.get(i - 1).is_some_and(|p| NOT_VENUE.contains(&p.bare().to_lowercase().as_str()));
         if NOT_VENUE.contains(&b.as_str()) || b.is_empty() || number_after {
             i += 1;
             continue;
@@ -519,18 +553,28 @@ fn numbers(toks: &[Tok], from: usize, f: &mut Fields, year_at: Option<usize>) {
         }
         let lower = t.bare().to_lowercase();
         if matches!(lower.as_str(), "no" | "nr" | "issue" | "report") && f.number.is_none() {
-            if let Some(n) = toks.get(i + 1).map(|x| trim_end_punct(&x.text).to_owned()).filter(|n| !n.is_empty() && n.len() <= 6 && n.bytes().all(|b| b.is_ascii_digit())) {
+            if let Some(n) = toks
+                .get(i + 1)
+                .map(|x| trim_end_punct(&x.text).to_owned())
+                .filter(|n| !n.is_empty() && n.len() <= 6 && n.bytes().all(|b| b.is_ascii_digit()))
+            {
                 f.number = field(&n, 0.75);
             }
             continue;
         }
         if matches!(lower.as_str(), "vol" | "volume") && f.volume.is_none() {
-            if let Some(v) = toks.get(i + 1).map(|x| trim_end_punct(&x.text).to_owned()).filter(|n| !n.is_empty() && n.len() <= 5 && n.bytes().all(|b| b.is_ascii_digit())) {
+            if let Some(v) = toks
+                .get(i + 1)
+                .map(|x| trim_end_punct(&x.text).to_owned())
+                .filter(|n| !n.is_empty() && n.len() <= 5 && n.bytes().all(|b| b.is_ascii_digit()))
+            {
                 f.volume = field(&v, 0.7);
             }
             continue;
         }
-        if f.pages.is_none() && let Some(p) = page_range(&t.text) {
+        if f.pages.is_none()
+            && let Some(p) = page_range(&t.text)
+        {
             f.pages = field(&p, 0.75);
         }
     }

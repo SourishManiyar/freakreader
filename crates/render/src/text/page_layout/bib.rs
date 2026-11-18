@@ -302,7 +302,8 @@ pub fn analyse_bibliography(layouts: &[PageLayout], words: &[PageWords], structu
             block: None,
         });
     }
-    let list: std::collections::HashSet<(super::refs::LineRef, usize)> = lines.iter().flat_map(|l| l.words.iter().map(|(r, i, _)| (*r, *i))).collect();
+    let list: std::collections::HashSet<(super::refs::LineRef, usize)> =
+        lines.iter().flat_map(|l| l.words.iter().map(|(r, i, _)| (*r, *i))).collect();
     out.citations = cites::find(words, &region, &list, &out.entries, &mut out.diagnostics);
     out.region = Some(region);
     out

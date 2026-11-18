@@ -76,9 +76,8 @@ pub(super) fn composed(word: &Word) -> String {
         let Some(span) = word.spans.get(i) else { continue };
         let mid = (span[0] + span[1]) / 2.0;
         let letter = |k: usize| piece(k).chars().next().is_some_and(char::is_alphabetic);
-        let dist = |k: usize| {
-            word.spans.get(k).map_or(f32::INFINITY, |s| if mid >= s[0] && mid <= s[1] { 0.0 } else { (mid - (s[0] + s[1]) / 2.0).abs() })
-        };
+        let dist =
+            |k: usize| word.spans.get(k).map_or(f32::INFINITY, |s| if mid >= s[0] && mid <= s[1] { 0.0 } else { (mid - (s[0] + s[1]) / 2.0).abs() });
         let prev = i.checked_sub(1).filter(|&k| letter(k));
         let next = Some(i + 1).filter(|&k| k < n && letter(k));
         let to = match (prev, next) {

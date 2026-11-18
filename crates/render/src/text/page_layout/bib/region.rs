@@ -129,7 +129,12 @@ fn bracket_number(line: &FlowLine) -> Option<u64> {
 /// The list: after its heading, to the next heading or the end; or, with no heading, a run of
 /// lines at the end of the paper that start `[1]`, `[2]`, … in order. `None` (and a diagnostic)
 /// when there is neither.
-pub(super) fn find(_layouts: &[PageLayout], words: &[PageWords], _structure: &DocumentStructure, diagnostics: &mut Vec<Diagnostic>) -> Option<Region> {
+pub(super) fn find(
+    _layouts: &[PageLayout],
+    words: &[PageWords],
+    _structure: &DocumentStructure,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<Region> {
     let order = all_lines(words);
     let mut block_lines: HashMap<(usize, usize), usize> = HashMap::new();
     for &(p, i) in &order {

@@ -84,7 +84,11 @@ impl Doc {
     }
 
     fn words(&self) -> Vec<PageWords> {
-        self.pages.iter().enumerate().map(|(page, lines)| PageWords { page, lines: lines.clone(), leading: Some(12.0), diagnostics: Vec::new() }).collect()
+        self.pages
+            .iter()
+            .enumerate()
+            .map(|(page, lines)| PageWords { page, lines: lines.clone(), leading: Some(12.0), diagnostics: Vec::new() })
+            .collect()
     }
 
     fn analyse(&self) -> Bibliography {
@@ -120,15 +124,109 @@ fn numeric_doc() -> Doc {
 }
 
 #[test]
-fn a_numbered_list_is_cut_into_its_entries() {
+fn a_numbered_list_gives_entries_fields_and_citations() {
     let b = numeric_doc().analyse();
     let region = b.region.as_ref().expect("a list");
     assert_eq!(region.title.as_deref(), Some("References"));
     assert_eq!(b.entries.len(), 2, "{:#?}", b.entries);
-    let e1 = &b.entries[0];
+    let (e1, e2) = (&b.entries[0], &b.entries[1]);
     assert_eq!((e1.label.as_deref(), e1.label_style, e1.printed_label().as_deref()), (Some("1"), LabelStyle::Bracket, Some("[1]")));
     assert_eq!(e1.lines.len(), 2, "the indented line goes on the entry");
-    assert!(e1.text.starts_with("A. Smith and B. Jones"), "{}", e1.text);
+    let f = &e1.fields;
+    assert_eq!(f.authors.iter().map(|a| a.family.as_str()).collect::<Vec<_>>(), ["Smith", "Jones"]);
+    assert_eq!(f.authors[0].given, "A.");
+    let v = |x: &Option<Field>| x.as_ref().map(|x| x.value.clone());
+    assert_eq!(v(&f.title).as_deref(), Some("On widgets"));
+    assert_eq!(v(&f.venue).as_deref(), Some("J. Wid"));
+    assert_eq!(v(&f.volume).as_deref(), Some("3"));
+    assert_eq!(v(&f.number).as_deref(), Some("2"));
+    assert_eq!(v(&f.pages).as_deref(), Some("1–20"));
+    assert_eq!(v(&f.year).as_deref(), Some("2001"));
+    assert_eq!(v(&f.doi).as_deref(), Some("10.1234/abc.5"));
+    assert_eq!(v(&f.mr).as_deref(), Some("1234567"));
+    assert!(f.arxiv.is_none() && f.url.is_none(), "nothing invented");
+    let g = &e2.fields;
+    assert_eq!(g.authors.first().map(|a| a.family.as_str()), Some("van der Kay"));
+    assert_eq!((v(&g.title).as_deref(), v(&g.venue).as_deref(), v(&g.year).as_deref()), (Some("Big book"), Some("Pub"), Some("2019")));
+    assert_eq!(v(&g.arxiv).as_deref(), Some("2101.01234"));
+    // Citations: [1]; [1, 2]; [2, Thm. 3.1]; [1–2]; [1-2]; [2] after "in"; not the math, not
+    // "Section [2]", and [7] is no entry of the list.
+    let texts: Vec<(&str, Option<usize>)> = b.citations.iter().map(|c| (c.text.as_str(), c.target)).collect();
+    assert_eq!(
+        texts,
+        [
+            ("1", Some(0)),
+            ("1", Some(0)),
+            ("2", Some(1)),
+            ("2", Some(1)),
+            ("1", Some(0)),
+            ("2", Some(1)),
+            ("1", Some(0)),
+            ("2", Some(1)),
+            ("2", Some(1))
+        ],
+        "{:#?}",
+        b.citations
+    );
+    let loc = &b.citations[3];
+    assert_eq!(loc.locator.as_deref(), Some("Thm. 3.1"));
+    assert_eq!(loc.pieces.iter().map(|p| p.glyphs.len()).sum::<usize>(), 1, "the label alone is clickable");
+    assert!(b.citations.iter().all(|c| c.confidence >= 0.7 && c.unresolved.is_none()));
+    // A group shares its number; two brackets do not.
+    assert_eq!(b.citations[1].group, b.citations[2].group);
+    assert_ne!(b.citations[0].group, b.citations[1].group);
+}
+
+#[test]
+fn an_author_year_list_resolves_by_name_and_year() {
+    let mut d = Doc::new();
+    d.text("As Smith and Jones (2020a) show, (Smith and Jones, 2020b; Kay et al., 2019) agree.");
+    d.text("In 2020 nothing is cited, nor by Smith and Jones (2020), which two entries share.");
+    d.text("Okafor (2018) has no entry, and (Okafor, 2017a,b) cites two.");
+    d.heading("Bibliography");
+    let entry = |d: &mut Doc, head: &str, title: &str, rest: &str| {
+        let mut w = roman(head);
+        w.extend(roman(title));
+        let mut tail: Vec<(&str, u8)> = rest.split(' ').map(|x| (x, I)).collect();
+        if let Some(last) = tail.last_mut() {
+            last.1 = R;
+        }
+        w.extend(tail);
+        d.line(BlockKind::Paragraph, true, 72.0, &w);
+        d.line(BlockKind::Paragraph, false, 84.0, &roman("12:1–20."));
+    };
+    entry(&mut d, "Kay, C., Lo, D., and Ma, E. (2019).", "Big things.", "J. Wid., 3");
+    entry(&mut d, "Okafor, F. (2017a).", "One.", "J. Wid., 3");
+    entry(&mut d, "Okafor, F. (2017b).", "Two.", "J. Wid., 3");
+    entry(&mut d, "Smith, A. and Jones, B. (2020a).", "On widgets.", "J. Wid., 3");
+    entry(&mut d, "Smith, A. and Jones, B. (2020b).", "On gadgets.", "J. Wid., 3");
+    let b = d.analyse();
+    assert_eq!(b.entries.len(), 5, "{:#?}", b.entries.iter().map(|e| &e.text).collect::<Vec<_>>());
+    assert!(b.entries.iter().all(|e| e.label.is_none() && e.label_style == LabelStyle::None));
+    let first = &b.entries[0].fields;
+    assert_eq!(first.authors.iter().map(|a| a.family.as_str()).collect::<Vec<_>>(), ["Kay", "Lo", "Ma"]);
+    assert_eq!(first.year.as_ref().map(|y| y.value.as_str()), Some("2019"));
+    assert_eq!(b.entries[3].fields.year.as_ref().map(|y| y.value.as_str()), Some("2020a"));
+    let got: Vec<(&str, Option<usize>)> = b.citations.iter().map(|c| (c.text.as_str(), c.target)).collect();
+    assert_eq!(
+        got,
+        [
+            ("Smith and Jones 2020a", Some(3)),
+            ("Smith and Jones 2020b", Some(4)),
+            ("Kay et al. 2019", Some(0)),
+            ("Smith and Jones 2020", None),
+            ("Okafor 2018", None),
+            ("Okafor 2017a", Some(1)),
+            ("Okafor 2017b", Some(2)),
+        ],
+        "{:#?}",
+        b.citations
+    );
+    assert_eq!(b.citations[3].unresolved, Some(CiteUnresolved::Ambiguous), "a wrong link is worse than none");
+    assert_eq!(b.citations[4].unresolved, Some(CiteUnresolved::NoEntry));
+    assert!(b.diagnostics.iter().any(|d| d.code == "citation_ambiguous") && b.diagnostics.iter().any(|d| d.code == "citation_unresolved"));
+    // `Smith and Jones` and `2020a` are clickable; `(` and `As` are not.
+    assert_eq!(b.citations[0].pieces.iter().map(|p| p.glyphs.len()).sum::<usize>(), "Smithand".len() + "Jones".len() + "2020a".len());
 }
 
 #[test]
@@ -138,8 +236,9 @@ fn no_heading_and_no_numbered_end_is_no_bibliography() {
     d.text("[1] A line that starts with a bracket.");
     d.text("More text after it, so no list ends the paper.");
     let b = d.analyse();
-    assert!(b.region.is_none() && b.entries.is_empty());
+    assert!(b.region.is_none() && b.entries.is_empty() && b.citations.is_empty());
     assert!(b.diagnostics.iter().any(|x| x.code == "no_bibliography"));
+    // A numbered list that ends the paper, with no heading, is taken, and says so.
     let mut d = Doc::new();
     d.text("We cite [2] and [3].");
     for (n, t) in [("[1]", "A. Smith, One, 2001."), ("[2]", "B. Kay, Two, 2002."), ("[3]", "C. Lo, Three, 2003.")] {
@@ -150,7 +249,8 @@ fn no_heading_and_no_numbered_end_is_no_bibliography() {
     let b = d.analyse();
     assert!(b.region.as_ref().is_some_and(|r| r.heading.is_none() && r.confidence < 0.9));
     assert!(b.diagnostics.iter().any(|x| x.code == "no_heading"));
-    assert_eq!(b.entries.len(), 3);
+    assert_eq!((b.entries.len(), b.citations.len()), (3, 2));
+    // Out of order, it is not.
     let mut d = Doc::new();
     for n in ["[1]", "[3]", "[2]"] {
         d.line(BlockKind::Paragraph, true, 72.0, &[(n, R), ("Text.", R)]);
@@ -176,12 +276,56 @@ fn a_list_goes_on_across_pages_and_stops_at_the_next_heading() {
     assert_eq!(b.entries.len(), 3, "{:#?}", b.entries.iter().map(|e| &e.text).collect::<Vec<_>>());
     let e2 = &b.entries[1];
     assert_eq!(e2.pieces.iter().map(|p| p.page).collect::<Vec<_>>(), [0, 1], "one entry over the page break");
-    assert!(e2.text.ends_with("https://example.org/a/b/c.pdf."), "a URL broken over lines stays whole: {}", e2.text);
+    assert_eq!(e2.fields.url.as_ref().map(|u| u.value.as_str()), Some("https://example.org/a/b/c.pdf"), "a URL broken over lines stays whole");
+    assert_eq!(b.citations.iter().map(|c| c.target).collect::<Vec<_>>(), [Some(2), Some(0)], "the appendix is no part of the list");
 }
 
 #[test]
-fn ten_thousand_entries_stay_linear() {
+fn hostile_lists_and_citations_give_defined_results() {
+    // A heading with nothing after it: no list.
     let mut d = Doc::new();
+    d.text("Text [1].");
+    d.heading("References");
+    let b = d.analyse();
+    assert!(b.entries.is_empty() && b.citations.is_empty());
+    // A label of 40 digits, a range to 999999999, a year of 99999, ligatures, other digits and dashes.
+    let mut d = Doc::new();
+    let long = "1".repeat(40);
+    let cite_long = format!("[{long}]");
+    d.text(&format!("Cite {cite_long} and [1-999999999] and [1—2] and [١] and [2−1]."));
+    d.heading("References");
+    let lab = format!("[{long}]");
+    d.line(BlockKind::Paragraph, true, 72.0, &[(lab.as_str(), R), ("A.", R), ("Smith,", R), ("Oﬃce", I), ("of", I), ("ﬁelds,", I), ("99999.", R)]);
+    d.line(BlockKind::Paragraph, true, 72.0, &[("[1]", R), ("\u{FFFD}\u{FFFD},", R), ("ÿ́,", R), ("2001.", R)]);
+    d.line(BlockKind::Paragraph, true, 72.0, &[("[2]", R), ("B.", R), ("Kay,", R), ("Two,", R), ("2002.", R)]);
+    let b = d.analyse();
+    assert_eq!(b.entries.len(), 3);
+    assert_eq!(b.entries[0].label.as_deref(), None, "a label longer than any label is none");
+    assert!(b.entries[0].fields.year.is_none(), "99999 is no year");
+    assert!(b.citations.iter().all(|c| c.pieces.iter().all(|p| p.rect.iter().all(|v| v.is_finite()))));
+    let huge: Vec<&Citation> = b.citations.iter().filter(|c| c.text == "999999999").collect();
+    assert_eq!(huge.len(), 1, "{:#?}", b.citations);
+    assert!(huge[0].target.is_none() && b.citations.iter().filter(|c| c.in_range).count() == 0);
+    assert!(b.diagnostics.iter().any(|x| x.code == "range_capped"));
+    // A word whose parts disagree in length, and non-finite boxes: no panic, a defined result.
+    let mut d = numeric_doc();
+    if let Some(w) = d.pages[0][0].words.get_mut(2) {
+        w.starts.truncate(1);
+        w.spans.clear();
+        w.flags.push(0xFF);
+        w.rect = [f32::NAN, f32::INFINITY, -1e30, 1e30];
+    }
+    let b = d.analyse();
+    assert_eq!(b.entries.len(), 2);
+}
+
+#[test]
+fn a_hundred_thousand_citations_and_ten_thousand_entries_stay_linear() {
+    let mut d = Doc::new();
+    for _ in 0..1_000 {
+        let line: Vec<(&str, u8)> = (0..100).map(|_| ("[1]", R)).collect();
+        d.line(BlockKind::Paragraph, true, 72.0, &line);
+    }
     d.heading("References");
     for n in 1..=10_000 {
         let label = format!("[{n}]");
@@ -190,6 +334,9 @@ fn ten_thousand_entries_stay_linear() {
     }
     let started = Instant::now();
     let b = d.analyse();
+    let took = started.elapsed();
     assert_eq!(b.entries.len(), 10_000);
-    assert!(started.elapsed().as_secs_f64() < 20.0);
+    assert_eq!(b.citations.len(), 100_000);
+    assert!(b.citations.iter().all(|c| c.target == Some(0)));
+    assert!(took.as_secs_f64() < 20.0, "{took:?}");
 }
