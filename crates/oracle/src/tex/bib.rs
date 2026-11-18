@@ -508,7 +508,7 @@ impl BibTruth {
     /// Q  doc  style  mode  hyperref        a paper
     /// N  doc  key  order  label            an entry
     /// F  doc  key  field  value            a field of an entry (authors: family names joined by |)
-    /// C  doc  id  serial  key  form        a citation (id c1, c2, …; serial - inside a range)
+    /// C  doc  id  serial  key  form        a citation (id c0, c1, … within the document; serial - inside a range)
     /// P  doc  id  kind                     a trap
     /// I  doc  id  page  ranges             items of an entry (id `e:KEY`), citation, trap, or the heading (`head`)
     /// ```
@@ -536,8 +536,12 @@ impl BibTruth {
             }
             items(&mut s, &e.doc, &format!("e:{}", e.spec.key), &e.items);
         }
-        for (i, c) in self.cites.iter().enumerate() {
-            let id = format!("c{i}");
+        // Ids count within each document, so adding a paper changes no other paper's rows.
+        let mut per_doc: HashMap<&str, usize> = HashMap::new();
+        for c in &self.cites {
+            let n = per_doc.entry(c.doc.as_str()).or_default();
+            let id = format!("c{n}");
+            *n += 1;
             let serial = c.spec.serial.map(|n| n.to_string());
             let _ = writeln!(s, "C\t{}\t{id}\t{}\t{}\t{}", c.doc, dash(serial.as_deref()), c.spec.key, c.spec.form);
             items(&mut s, &c.doc, &id, &c.items);

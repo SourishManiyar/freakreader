@@ -3829,6 +3829,28 @@ usage = "Bibliography-oracle tests and report (crates/render/tests/it/bib_oracle
 sha256 = "322fe5d4e5d746994cc31c7eba402fbf64e90b8c326cfffb782aa7c5575d356f"
 
 [[asset]]
+path = "crates/render/tests/data/bib/oracle/ams12_plainnat_ay.pdf"
+title = "Bibliography oracle: synthetic paper ams12_plainnat_ay (made-up mathematics citing an invented bibliography, typeset to test reference-list and citation detection)"
+author = "PdfCraft contributors (typeset from ams12_plainnat_ay.tex with pdfTeX and BibTeX); embedded Computer Modern and AMS symbol Type 1 subsets by the American Mathematical Society"
+source = "Contributor-original LaTeX source (crates/render/tests/data/bib/oracle/ams12_plainnat_ay.tex, generated from crates/render/tests/data/bib/oracle/papers.toml and the invented crates/render/tests/data/bib/oracle/library.bib by `cargo xtask bib-oracle generate`, prose from the seeded word lists in xtask/src/layout_oracle.rs), compiled with TeX Live 2023 (pdfTeX 1.40.25, BibTeX 0.99d with the styles that ship with it); the embedded font subsets come from the TeX Live amsfonts package 3.04 (https://ctan.org/pkg/amsfonts)"
+licence = "(MIT OR Apache-2.0) AND OFL-1.1"
+licence_file = "crates/render/tests/data/math/OFL-AMSFonts.txt"
+kind = "document"
+usage = "Bibliography-oracle tests and report (crates/render/tests/it/bib_oracle.rs, crates/render/examples/bib_oracle.rs) and the bibliography tools' tests: pages whose reference entries, fields and citations are known from the DVI and the .bib file"
+sha256 = "9d1282ebe32901e453beb0ec7dea4e089e61d1383bcaf9f89f0357e1f867d232"
+
+[[asset]]
+path = "crates/render/tests/data/bib/oracle/art10_alpha2col.pdf"
+title = "Bibliography oracle: synthetic paper art10_alpha2col (made-up mathematics citing an invented bibliography, typeset to test reference-list and citation detection)"
+author = "PdfCraft contributors (typeset from art10_alpha2col.tex with pdfTeX and BibTeX); embedded Computer Modern and AMS symbol Type 1 subsets by the American Mathematical Society"
+source = "Contributor-original LaTeX source (crates/render/tests/data/bib/oracle/art10_alpha2col.tex, generated from crates/render/tests/data/bib/oracle/papers.toml and the invented crates/render/tests/data/bib/oracle/library.bib by `cargo xtask bib-oracle generate`, prose from the seeded word lists in xtask/src/layout_oracle.rs), compiled with TeX Live 2023 (pdfTeX 1.40.25, BibTeX 0.99d with the styles that ship with it); the embedded font subsets come from the TeX Live amsfonts package 3.04 (https://ctan.org/pkg/amsfonts)"
+licence = "(MIT OR Apache-2.0) AND OFL-1.1"
+licence_file = "crates/render/tests/data/math/OFL-AMSFonts.txt"
+kind = "document"
+usage = "Bibliography-oracle tests and report (crates/render/tests/it/bib_oracle.rs, crates/render/examples/bib_oracle.rs) and the bibliography tools' tests: pages whose reference entries, fields and citations are known from the DVI and the .bib file"
+sha256 = "9d65e820e83eeccc3937912af785a242d7ac45b93a40a2fb697deaa22cc0aa7e"
+
+[[asset]]
 path = "crates/render/tests/data/bib/oracle/art10_handay.pdf"
 title = "Bibliography oracle: synthetic paper art10_handay (made-up mathematics citing an invented bibliography, typeset to test reference-list and citation detection)"
 author = "PdfCraft contributors (typeset from art10_handay.tex with pdfTeX and BibTeX); embedded Computer Modern and AMS symbol Type 1 subsets by the American Mathematical Society"
@@ -3838,6 +3860,17 @@ licence_file = "crates/render/tests/data/math/OFL-AMSFonts.txt"
 kind = "document"
 usage = "Bibliography-oracle tests and report (crates/render/tests/it/bib_oracle.rs, crates/render/examples/bib_oracle.rs) and the bibliography tools' tests: pages whose reference entries, fields and citations are known from the DVI and the .bib file"
 sha256 = "0307ee4b109904f55141dde6654637b3f5f7787ec8224c7f907ccfd8083ba2ae"
+
+[[asset]]
+path = "crates/render/tests/data/bib/oracle/art10_handbr.pdf"
+title = "Bibliography oracle: synthetic paper art10_handbr (made-up mathematics citing an invented bibliography, typeset to test reference-list and citation detection)"
+author = "PdfCraft contributors (typeset from art10_handbr.tex with pdfTeX and BibTeX); embedded Computer Modern and AMS symbol Type 1 subsets by the American Mathematical Society"
+source = "Contributor-original LaTeX source (crates/render/tests/data/bib/oracle/art10_handbr.tex, generated from crates/render/tests/data/bib/oracle/papers.toml and the invented crates/render/tests/data/bib/oracle/library.bib by `cargo xtask bib-oracle generate`, prose from the seeded word lists in xtask/src/layout_oracle.rs), compiled with TeX Live 2023 (pdfTeX 1.40.25, BibTeX 0.99d with the styles that ship with it); the embedded font subsets come from the TeX Live amsfonts package 3.04 (https://ctan.org/pkg/amsfonts)"
+licence = "(MIT OR Apache-2.0) AND OFL-1.1"
+licence_file = "crates/render/tests/data/math/OFL-AMSFonts.txt"
+kind = "document"
+usage = "Bibliography-oracle tests and report (crates/render/tests/it/bib_oracle.rs, crates/render/examples/bib_oracle.rs) and the bibliography tools' tests: pages whose reference entries, fields and citations are known from the DVI and the .bib file"
+sha256 = "bc71ad783a78ecc3253f600cba32cc5e19ccb215d8112b15921ebcb7c659e706"
 
 [[asset]]
 path = "crates/render/tests/data/bib/oracle/art10_plain.pdf"
@@ -3994,6 +4027,17 @@ usage = "Bibliography-oracle tests and report (crates/render/tests/it/bib_oracle
 sha256 = "988e78e8d7fca216c6bd74c5bfa7591613c90c8778d64f8c04920fb3ee6a5e7c"
 
 [[asset]]
+path = "crates/render/tests/data/bib/oracle/ho_art12_unsrt2col.pdf"
+title = "Bibliography oracle: synthetic paper ho_art12_unsrt2col (made-up mathematics citing an invented bibliography, typeset to test reference-list and citation detection)"
+author = "PdfCraft contributors (typeset from ho_art12_unsrt2col.tex with pdfTeX and BibTeX); embedded Computer Modern and AMS symbol Type 1 subsets by the American Mathematical Society"
+source = "Contributor-original LaTeX source (crates/render/tests/data/bib/oracle/ho_art12_unsrt2col.tex, generated from crates/render/tests/data/bib/oracle/papers.toml and the invented crates/render/tests/data/bib/oracle/library.bib by `cargo xtask bib-oracle generate`, prose from the seeded word lists in xtask/src/layout_oracle.rs), compiled with TeX Live 2023 (pdfTeX 1.40.25, BibTeX 0.99d with the styles that ship with it); the embedded font subsets come from the TeX Live amsfonts package 3.04 (https://ctan.org/pkg/amsfonts)"
+licence = "(MIT OR Apache-2.0) AND OFL-1.1"
+licence_file = "crates/render/tests/data/math/OFL-AMSFonts.txt"
+kind = "document"
+usage = "Bibliography-oracle tests and report (crates/render/tests/it/bib_oracle.rs, crates/render/examples/bib_oracle.rs) and the bibliography tools' tests: pages whose reference entries, fields and citations are known from the DVI and the .bib file"
+sha256 = "e5c89154d002bf499271e08e987780a9e71b4a88323029dc38ce12e11d8468cd"
+
+[[asset]]
 path = "crates/render/tests/data/bib/oracle/truth.tsv"
 title = "Bibliography-oracle truth: the layout truth of each paper, and its reference entries (key, printed label, fields as printed), citations (glyphs and the entry each names) and look-alike traps"
 author = "PdfCraft contributors"
@@ -4002,7 +4046,7 @@ licence = "MIT OR Apache-2.0"
 licence_file = "LICENSE-MIT"
 kind = "data"
 usage = "Expected entries, fields and citations for the bibliography-oracle tests and report (crates/render/tests/it/bib_oracle.rs)"
-sha256 = "8b98423dc46c88d8f52485e1ab75b1a56bcce30e23719dfd799eed7ee31bce9f"
+sha256 = "d79527158572b7b804b4820f475afd4b20632587ef24a903045694e428f1c109"
 
 [[asset]]
 path = "crates/render/tests/data/bib/oracle/library.bib"

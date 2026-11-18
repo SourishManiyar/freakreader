@@ -74,7 +74,7 @@ URL, MR and Zbl number without spaces and a `doi:`, `arXiv:`, `MR`, `Zbl` prefix
 
 ## The papers
 
-Thirteen papers with DVI truth and three linked papers. Five of those with DVI truth and one linked
+Seventeen papers with DVI truth and three linked papers. Six of those with DVI truth and one linked
 paper are held out.
 
 | paper | set | class | size | columns | list | citations | features |
@@ -87,6 +87,9 @@ paper are held out.
 | `art11_plainnat` | dev | article | 11pt | 1 | plainnat (natbib, numbers) | numeric | DOIs, URLs, `\citet` |
 | `art11_handnum` | dev | article | 11pt | 1 | by hand, `1.` labels | numeric | DOIs, arXiv ids, URLs, MR and Zbl numbers |
 | `art10_handay` | dev | article | 10pt | 1 | by hand, no labels, no hanging indent, gaps | author-year, typed by hand | `Okafor (2020a)`, `(Okafor, 2020b)` |
+| `art10_alpha2col` | dev (added) | article | 10pt | 2 | alpha | alpha | all 70 entries over columns and pages |
+| `ams12_plainnat_ay` | dev (added) | amsart | 12pt | 1 | plainnat (natbib) | author-year | natbib in amsart's square brackets, `2020a,c` |
+| `art10_handbr` | dev (added) | article | 10pt | 1 | by hand, `[1]` labels, `\footnotesize` | numeric | a page number under the list |
 | `art11_hyper` | linked | article | 11pt | 1 | plain | numeric | hyperref |
 | `art12_hypernat` | linked | article | 12pt | 1 | apalike (natbib) | author-year | hyperref |
 | `ho_ams12_abbrv` | held out | amsart | 12pt | 1 | abbrv | numeric | |
@@ -95,6 +98,7 @@ paper are held out.
 | `ho_art10_amsplain` | held out | article | 10pt | 1 | amsplain, `\small` | numeric | appendix after the list |
 | `ho_art12_handbr` | held out | article | 12pt | 1 | by hand, `[1]` labels, `\footnotesize` | numeric | |
 | `ho_ams10_hyper` | linked, held out | amsart | 10pt | 1 | alpha | alpha | hyperref |
+| `ho_art12_unsrt2col` | held out (added) | article | 12pt | 2 | unsrt | numeric | a range; written with the added development papers |
 
 ### Held-out papers
 
@@ -104,6 +108,17 @@ was scored: `holdout.lock` holds the SHA-256 of each paper's source, PDF and tru
 `--freeze` only adds papers. While the analysis was written, only their rates per kind were read
 (`cargo xtask bib-oracle report`), never a single failure (`--failures` lists development papers
 only). To change a held-out paper, move it to development under a new id and write a new one.
+
+The first held-out rates (read once the analysis passed the development papers) were low for two
+kinds the development set did not have: a two-column `alpha` list (half the entries split wrong, two
+wrong links) and natbib's author-year citations in `amsart` (one of sixteen found). Their failures
+were not read. Three development papers of those kinds were added instead (`art10_alpha2col`,
+`ams12_plainnat_ay`, `art10_handbr`, marked "added" above) and the analysis was debugged on them;
+`ho_art12_unsrt2col` was written at the same time, before those changes, so that a third of the
+papers stay held out. Adding papers showed that citation ids in `truth.tsv` were numbered across the
+whole file, so a new paper renumbered every later paper's rows; they are now numbered within each
+paper. That one change rewrote the truth-row fingerprints in `holdout.lock`; the source and PDF
+fingerprints of every held-out paper are unchanged (the lock's history shows it).
 
 ## Scoring
 

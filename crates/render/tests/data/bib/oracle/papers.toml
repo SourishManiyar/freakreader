@@ -358,6 +358,105 @@ para 2
 bibliography
 """
 
+# Added after the first held-out rates (README.md, "Held-out papers"): development papers of the
+# kinds whose held-out rates were low, debugged here instead.
+
+[[paper]]
+id = "art10_alpha2col"
+holdout = false
+class = "article"
+options = ["10pt", "twocolumn"]
+geometry = "margin=0.75in"
+pagestyle = "plain"
+seed = 111
+style = "alpha"
+natbib = ""
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 0
+body = """
+section Introduction
+para 2
+cite ?
+cite s61 s62
+cite ? at=Theorem_2
+trap interval
+cite ? ?
+para 3
+cite m70
+trap commutator
+section Proofs
+para 2
+cite ? ? ?
+cite ?
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "ams12_plainnat_ay"
+holdout = false
+class = "amsart"
+options = ["12pt"]
+pagestyle = "plain"
+seed = 112
+style = "plainnat"
+natbib = "authoryear"
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 26
+body = """
+section Introduction
+para 2
+citet s62
+citep s61 s63
+citet ?
+citep ? ?
+citep ? at=Lemma_3
+trap interval
+para 2
+citet m68
+citep ?
+section Methods
+para 2
+citep ? ? ?
+citet ?
+statement ? ?
+trap class
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "art10_handbr"
+holdout = false
+class = "article"
+options = ["10pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 113
+style = "hand"
+natbib = ""
+hand = "numbracket"
+bibsize = "footnotesize"
+hyperref = false
+pool = 30
+body = """
+section Introduction
+para 2
+cite ?
+cite ? ?
+cite ? at=Lemma_2
+trap interval
+para 2
+cite ? ? ?
+cite ?
+para 2
+bibliography
+"""
+
 # --- Linked (hyperref): no DVI truth, checked against their own links ---------------------------
 
 [[paper]]
@@ -638,6 +737,42 @@ section Results
 para 2
 cite ?
 statement ? ?
+para 2
+bibliography
+"""
+
+[[paper]]
+id = "ho_art12_unsrt2col"
+holdout = true
+class = "article"
+options = ["12pt", "twocolumn"]
+geometry = "margin=0.7in"
+pagestyle = "plain"
+seed = 207
+style = "unsrt"
+natbib = ""
+hand = ""
+bibsize = ""
+hyperref = false
+pool = 34
+body = """
+section Introduction
+para 2
+cite a11
+cite a12
+cite a13
+range a11 a13
+cite ? ?
+trap interval
+para 2
+cite ? at=Proposition_1
+cite ? in=Theorem_2
+trap section
+section Results
+para 2
+cite ? ? ?
+trap commutator
+cite ?
 para 2
 bibliography
 """
