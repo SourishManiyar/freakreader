@@ -79,6 +79,7 @@ impl Automation {
             "doc_sections" => self.doc_sections(&a)?,
             "doc_blocks" => self.doc_blocks(&a)?,
             "doc_references" => self.doc_references(&a)?,
+            "doc_bibliography" => self.doc_bibliography(&a)?,
             "text_glyph_details" => self.text_glyph_details(&a)?,
             "text_find" => self.text_find(&a)?,
             "text_replace" => self.text_replace(&a)?,
