@@ -140,7 +140,39 @@ next statement.
 
 ## Scores
 
-To be measured once the second held-out set is committed and frozen.
+Measured on 2026-11-18 with pdfTeX 1.40.25 (TeX Live 2023/Debian), once, at commit `8c28d8b65`,
+the commit that froze the second held-out set. The analysis has not changed since.
+
+| | statements and proofs found | word, number, name | extent F1 ≥ 0.9 | proofs: proves right | end marks found / falsely | mentions recall / precision | resolved right or none | **wrong links** |
+|---|---|---|---|---|---|---|---|---|
+| development (9 papers) | 86 / 86 | 100% | 86 / 86 | 33 / 33 | 25 / 25, 0 / 8 | 113 / 113, 113 / 113 | 113 / 113 (98 targets, 15 none) | **0** |
+| held out (5 papers, 12 pages) | 52 / 52 | 100% | 52 / 52 | 16 / 16 | 15 / 15, 0 / 1 | 61 / 61, 61 / 61 | 60 / 61 (51 targets, 9 none, 1 missed) | **0** |
+
+The one held-out miss: `Section 1.1` in `ho_ams11_italic` names an amsart subsection, whose heading
+is run into its paragraph; the analysis does not take a run-in subsection heading for a target, so
+the mention resolves to nothing (a missed link, not a wrong one). No development paper has an amsart
+subsection. Per head style, class and layout and numbering, every held-out cell is 100% except the
+ones holding that mention (italic, amsart one-column, section numbering).
+
+Linked papers: `art11_hyper` 9 links to blocks, `ams10_hyper` 8, `ho_art10_hyper` 7; every one has
+an inferred mention under it. Disagreements, each taken by the link with a diagnostic: one per
+paper is a mention of another work set with `\ref` (`Theorem 1.1 of [Tanaka]`); the second in
+`ho_art10_hyper` is an `\autoref` to a lemma that shares the theorem counter, which hyperref prints
+as `Theorem 2`. There is no Theorem 2, so the text reads it as nothing. That case made
+`inferred_mentions_go_where_the_links_go` fail, since it expected only another work's mention there;
+after the scores were read, that test was widened to accept a missing target as well. It is the only
+change made after scoring, and neither the analysis nor a score changed. The independent hyperref
+papers (`../../hyperref`): 16 links each, the text read under 14, no disagreement.
+
+Broken analysers (wrong links, development / held out): trusting the number 15 / 15; every `(n)` a
+link 12 / **0**; never-ending proofs leave links alone but drop extents to 79.1% / 88.5%. The
+second held-out set has no `(n)` that is not an equation number, so it cannot tell the every-tag
+analyser from the real one; only development papers test that.
+
+**These numbers say the synthetic set is too easy, not that the problem is solved.** Every paper
+comes from one generator with short regular sentences and amsthm's own layouts. A held-out set from
+the same generator finds only what the generator can express (here, run-in subsections); the
+independent papers found three faults that this set scored as perfect. See below.
 
 ## What this does not measure
 

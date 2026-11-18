@@ -154,7 +154,16 @@ fn inferred_mentions_go_where_the_links_go() {
                     (page == target).then(|| a.layouts[page].blocks[block].rect)
                 }
                 None => {
-                    assert_eq!(m.unresolved, Some(Unresolved::External), "{}: {} {} has no target", p.info.doc, m.word, m.number);
+                    // Another work's (`Theorem 1.1 of [Tanaka]` set with `\ref`), or a name the
+                    // document gets wrong: hyperref's `\autoref` calls a lemma on the theorem counter
+                    // `Theorem 2`, and there is no Theorem 2. Either way the text links nowhere.
+                    assert!(
+                        matches!(m.unresolved, Some(Unresolved::External | Unresolved::Missing)),
+                        "{}: {} {} has no target",
+                        p.info.doc,
+                        m.word,
+                        m.number
+                    );
                     continue;
                 }
             };
