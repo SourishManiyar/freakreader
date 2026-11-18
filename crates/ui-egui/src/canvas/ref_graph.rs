@@ -2,9 +2,11 @@
 //! mentions its statements, equations, sections and floats, so the reference preview
 //! ([`super::link_peek`]) can open on a mention that has no link annotation.
 //!
+//! The graph also ties citation links to their bibliography entries, which their previews show.
+//!
 //! The graph is built off the UI thread, once per edit generation of the document, and only while
-//! inferred previews are wanted (Preferences); it is dropped when the document changes and built
-//! again for the new state. Nothing waits for it: until it is there, inferred mentions show no
+//! previews are wanted (Preferences); it is dropped when the document changes and built again for
+//! the new state. Nothing waits for it: until it is there, inferred mentions show no
 //! preview. On the web build there are no threads, and no graph is built.
 
 use std::sync::Arc;

@@ -3445,9 +3445,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     scroll = refine_goto_point(scroll, view, &ScrollGeometry { rects: &rects, y_shift, content_w, content_h, avail, middle_gesture, hand });
     let selection_wheel = view.selection_drag && navigation_enabled && unobstructed && !single_paging && ui.rect_contains_pointer(avail);
     let prepare_tab_order = (preparing && view.prepare.show_tab_numbers).then(|| crate::forms_ui::tab_order(&form, info));
-    // The reference graph, for previews of mentions with no link: built in the background while
-    // they are wanted, dropped when the document changes.
-    view.refs.update(ui.ctx(), doc, app.inferred_previews && tool == QuickTool::Select && view.presentation.is_none());
+    // The reference graph, for previews of mentions with no link and of citation links (their
+    // entries): built in the background while either is wanted, dropped when the document changes.
+    let wanted = (app.inferred_previews || app.link_preview_hover) && tool == QuickTool::Select && view.presentation.is_none();
+    view.refs.update(ui.ctx(), doc, wanted);
     let env = PageEnv {
         added: &added,
         link_preview_size: app.link_preview_size,
