@@ -36,7 +36,9 @@
 mod cites;
 mod entries;
 mod fields;
+mod lines;
 mod region;
+mod text;
 
 #[cfg(test)]
 mod tests;
@@ -285,9 +287,11 @@ pub struct Bibliography {
 pub fn analyse_bibliography(layouts: &[PageLayout], words: &[PageWords], structure: &DocumentStructure) -> Bibliography {
     let mut out = Bibliography::default();
     let Some(region) = region::find(layouts, words, structure, &mut out.diagnostics) else { return out };
-    out.entries = entries::split(words, &region, &mut out.diagnostics);
-    for e in &mut out.entries {
-        e.fields = fields::parse(words, e);
+    let lines = lines::build(words, &region);
+    let (entries, members) = entries::split(&lines, &mut out.diagnostics);
+    out.entries = entries;
+    for (e, m) in out.entries.iter_mut().zip(&members) {
+        e.fields = fields::parse(&lines, m, e);
         e.parsed = !e.fields.authors.is_empty() || e.fields.title.is_some() || e.fields.year.is_some();
     }
     let unparsed = out.entries.iter().filter(|e| !e.parsed).count();
@@ -298,7 +302,13 @@ pub fn analyse_bibliography(layouts: &[PageLayout], words: &[PageWords], structu
             block: None,
         });
     }
-    out.citations = cites::find(words, &region, &out.entries, &mut out.diagnostics);
+    let list: std::collections::HashSet<(super::refs::LineRef, usize)> = lines.iter().flat_map(|l| l.words.iter().map(|(r, i, _)| (*r, *i))).collect();
+    out.citations = cites::find(words, &region, &list, &out.entries, &mut out.diagnostics);
     out.region = Some(region);
     out
+}
+
+/// Whether `w` (lower case) is a particle of a family name (`van`, `der`, `de`).
+fn fields_particle(w: &str) -> bool {
+    fields::PARTICLES.contains(&w)
 }
