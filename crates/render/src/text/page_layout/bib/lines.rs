@@ -84,9 +84,6 @@ pub(super) fn build<'a>(words: &'a [PageWords], region: &Region) -> Vec<BibLine<
         }
         let mut spans: Vec<[f32; 2]> = items.iter().map(|((_, _, w), _, _)| [w.rect[0], w.rect[2]]).collect();
         let split = gutter(&mut spans);
-        if std::env::var_os("PDFCRAFT_BIB_DEBUG").is_some() {
-            eprintln!("page {page}: {} words, gutter {split:?}", spans.len());
-        }
         let sides: Vec<Vec<(ListWord<'a>, f32, f32)>> = match split {
             Some(g) => {
                 let (left, right): (Vec<_>, Vec<_>) = items.into_iter().partition(|((_, _, w), _, _)| (w.rect[0] + w.rect[2]) / 2.0 < g);

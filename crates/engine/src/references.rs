@@ -11,7 +11,8 @@
 //! later reads the graph (a dependency graph, outline filters).
 //!
 //! Read-only. Pages are read without rasterizing them, at most [`MAX_REFERENCE_PAGES`]; past that
-//! the rest are left out and the graph says so. Work is linear in the glyphs, links and mentions.
+//! the rest are left out and the graph says so. Work is linear in the glyphs and in the links and
+//! mentions of each page.
 
 use pdfcraft_render::text::page_layout::bib::{self, Bibliography};
 use pdfcraft_render::text::page_layout::refs::{self, PageWords, References, Target};
@@ -488,6 +489,16 @@ pub fn build_graph(
             group: Some(c.group),
         }
     }));
+    // The mentions read from the text, by page: a link looks only at its own page's.
+    let mut read_on: HashMap<usize, Vec<usize>> = HashMap::new();
+    for (i, m) in mentions.iter().enumerate() {
+        for p in m.extent.iter().map(|e| e.page) {
+            let list = read_on.entry(p).or_default();
+            if list.last() != Some(&i) {
+                list.push(i);
+            }
+        }
+    }
     // Real links, in the pages read.
     for link in links.iter().filter(|l| l.page < layouts.len()).take(MAX_GRAPH_LINKS) {
         let LinkTarget::Page(target_page, view) = link.target else { continue };
@@ -510,13 +521,16 @@ pub fn build_graph(
         let kind = reference.as_ref().map_or(RefKind::Unknown, |n| n.kind);
         let dest = y.filter(|y| y.is_finite()).and_then(|y| block_at(&blocks, target_page, y, kind));
         // A citation link takes the citation under it; another link, a mention of a block.
-        let under = mentions.iter_mut().find(|m| {
-            m.link.is_none()
-                && (m.kind == "citation") == cites
-                && m.extent
-                    .iter()
-                    .any(|e| e.page == link.page && e.rect[0] < rect[2] && rect[0] < e.rect[2] && e.rect[1] < rect[3] && rect[1] < e.rect[3])
+        let under_at = read_on.get(&link.page).into_iter().flatten().copied().find(|&i| {
+            mentions.get(i).is_some_and(|m| {
+                m.link.is_none()
+                    && (m.kind == "citation") == cites
+                    && m.extent
+                        .iter()
+                        .any(|e| e.page == link.page && e.rect[0] < rect[2] && rect[0] < e.rect[2] && e.rect[1] < rect[3] && rect[1] < e.rect[3])
+            })
         });
+        let under = under_at.and_then(|i| mentions.get_mut(i));
         match under {
             Some(m) => {
                 if m.target != dest {
