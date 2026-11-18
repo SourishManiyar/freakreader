@@ -89,6 +89,13 @@ fn picture(h: &Harness<'static, PdfCraftApp>) -> Option<egui::Rect> {
     h.query_by_role_and_label(Role::Image, "Go to page 2").map(|n| n.rect())
 }
 
+/// A point on the part of the picture the window shows: just under its caption. (The picture is
+/// the target page's whole height; the window shows part of it.)
+fn in_window(h: &Harness<'static, PdfCraftApp>) -> Pos2 {
+    let caption = h.get_by_role_and_label(Role::Label, "Go to page 2").rect();
+    egui::pos2(caption.center().x, caption.bottom() + 30.0)
+}
+
 #[test]
 fn a_right_click_on_a_link_previews_its_destination_and_another_closes_it() {
     let mut h = harness();
@@ -102,11 +109,19 @@ fn a_right_click_on_a_link_previews_its_destination_and_another_closes_it() {
     assert!(h.query_by_label("Remove all links").is_none() && h.query_by_label("Select Tool").is_none(), "no menu");
     wait_drawn(&mut h);
     let shown = picture(&h).expect("the preview is on screen");
-    // Below the link, under the window's caption.
-    assert!(shown.top() > link.y && shown.top() - link.y < 70.0, "below the link: {shown:?}, link at {link:?}");
-    // At the page's zoom: the band is as wide as the page on screen, its text the size of the page's.
-    let page_width = h.state().views[0].page_screen_rect(0).unwrap().width();
-    assert!((shown.width() - page_width).abs() < 1.0, "{shown:?} vs a page {page_width} wide");
+    let caption = h.query_by_role_and_label(Role::Label, "Go to page 2").expect("the caption").rect();
+    // The window is below the link, its caption first.
+    assert!(caption.top() > link.y && caption.top() - link.y < 40.0, "below the link: {caption:?}, link at {link:?}");
+    // At the page's zoom: the picture is as wide as the page on screen, its text the size of the
+    // page's, and as tall as the whole page, which the window scrolls.
+    let page = h.state().views[0].page_screen_rect(0).unwrap();
+    assert!((shown.width() - page.width()).abs() < 1.0 && (shown.height() - page.height()).abs() < 2.0, "{shown:?} vs a page {page:?}");
+    // It opens at the band: the band's top is the top of what the window shows, just under the
+    // caption (its gap and the window's item spacing), and the page above it is scrolled away.
+    let zoom = page.width() / 612.0;
+    let band_top = shown.top() + 278.0 * zoom;
+    let gap = band_top - caption.bottom();
+    assert!(shown.top() < caption.top() && (4.0..16.0).contains(&gap), "the band at {band_top}, the caption ends at {}", caption.bottom());
     // The page stays where it was.
     assert_eq!(h.state().views[0].current, 0);
     // Another right-click, anywhere on the pages, closes it, and opens no menu.
@@ -263,8 +278,8 @@ fn the_pointer_can_cross_to_the_preview_and_stay_on_it() {
     let link = the_link(&h);
     rest_on(&mut h, link, HOVER_DELAY * 1.5);
     wait_drawn(&mut h);
-    let shown = picture(&h).expect("on screen");
-    rest_on(&mut h, shown.center(), HOVER_GRACE * 3.0);
+    let inside = in_window(&h);
+    rest_on(&mut h, inside, HOVER_GRACE * 3.0);
     assert_eq!(peek_trigger(&h), Some(Trigger::Hover), "on the window it stays");
     // A click on it goes there, as on a right-click's.
     h.get_by_role_and_label(Role::Image, "Go to page 2").click();
@@ -440,4 +455,47 @@ fn a_pointer_preview_closes_as_soon_as_the_pages_scroll() {
     h.run_steps(2);
     // At once, not after the pointer's grace.
     assert_eq!(peek_trigger(&h), None, "the pages scrolled");
+}
+
+#[test]
+fn the_wheel_over_the_preview_scrolls_it_and_leaves_the_pages_and_the_preview_alone() {
+    let mut h = harness();
+    let link = the_link(&h);
+    rest_on(&mut h, link, HOVER_DELAY * 1.5);
+    wait_drawn(&mut h);
+    let page = h.state().views[0].page_screen_rect(0).unwrap();
+    let before = picture(&h).expect("on screen");
+    let inside = in_window(&h);
+    rest_on(&mut h, inside, HOVER_GRACE * 2.0);
+    for _ in 0..3 {
+        h.event(egui::Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Point,
+            delta: egui::vec2(0.0, -60.0),
+            modifiers: Default::default(),
+            phase: egui::TouchPhase::Move,
+            source: egui::MouseWheelSource::Unknown,
+        });
+        h.run_steps(2);
+    }
+    h.run_steps(frames(0.5));
+    // The pointer's preview is still open, its picture moved up under the window (further down
+    // page 2 is in view), and the pages under it did not move.
+    assert_eq!(peek_trigger(&h), Some(Trigger::Hover), "scrolling the window keeps it");
+    let after = picture(&h).expect("on screen");
+    assert!(after.top() < before.top() - 20.0, "the window scrolled: {before:?} then {after:?}");
+    assert_eq!(h.state().views[0].page_screen_rect(0).unwrap(), page, "the pages stayed");
+    // And it scrolls back up, above where it opened: the whole page is there.
+    for _ in 0..12 {
+        h.event(egui::Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Point,
+            delta: egui::vec2(0.0, 120.0),
+            modifiers: Default::default(),
+            phase: egui::TouchPhase::Move,
+            source: egui::MouseWheelSource::Unknown,
+        });
+        h.run_steps(2);
+    }
+    h.run_steps(frames(0.5));
+    let top = picture(&h).expect("on screen");
+    assert!(top.top() > before.top() + 20.0, "above where it opened: {before:?} then {top:?}");
 }
