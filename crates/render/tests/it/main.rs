@@ -1,5 +1,6 @@
 //! The crate's integration tests, linked into one test binary.
 
+mod bib_oracle;
 mod cid_cff_unusable_font_dict;
 mod cid_fallback_query;
 mod euro_width;

@@ -21,6 +21,7 @@
 //! TeX runs without shell escape, with `openin_any`/`openout_any` paranoid, and under a time limit;
 //! a candidate TeX cannot typeset is [`Verdict::Failed`] with the end of TeX's log, not a panic.
 
+pub mod bib;
 mod dvi;
 pub mod faces;
 pub mod layout;
@@ -422,6 +423,21 @@ impl Tex {
             Ok(())
         } else {
             Err(TexError::Failed { what: format!("{what} failed ({status})"), log_tail: log_tail(&dir.join(format!("{stem}.log"))) })
+        }
+    }
+
+    /// Runs BibTeX (`bibtex`, found by [`crate::bibtex`]) on `dir/stem.aux`, writing `stem.bbl`.
+    /// BibTeX's warnings (an empty field) are no failure; an error is, with the end of its log.
+    pub fn bibtex(&self, bibtex: &Oracle, dir: &Path, stem: &str) -> Result<(), TexError> {
+        let mut c = bibtex.command();
+        c.current_dir(dir).arg(stem).envs(TEX_ENV).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+        let what = format!("bibtex {stem}");
+        let status = run(c, RUN_TIMEOUT, &what)?;
+        // BibTeX exits 1 after warnings, 2 after errors.
+        if status.code().is_some_and(|c| c <= 1) {
+            Ok(())
+        } else {
+            Err(TexError::Failed { what: format!("{what} failed ({status})"), log_tail: log_tail(&dir.join(format!("{stem}.blg"))) })
         }
     }
 

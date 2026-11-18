@@ -91,7 +91,7 @@ impl Absent {
             "qpdf" => "apt install qpdf / brew install qpdf",
             "pdftoppm" | "pdftotext" => "apt install poppler-utils / brew install poppler",
             // amsmath, amssymb, geometry and the AMS Type 1 fonts come with these TeX Live sets.
-            "pdflatex" | "dvitype" => "apt install texlive-latex-base / brew install --cask mactex-no-gui",
+            "pdflatex" | "dvitype" | "bibtex" => "apt install texlive-latex-base / brew install --cask mactex-no-gui",
             // fontspec, unicode-math and the OpenType math fonts of the math oracle's faces.
             "lualatex" | "xelatex" => "apt install texlive-luatex texlive-xetex texlive-fonts-extra / brew install --cask mactex-no-gui",
             _ => "install it and put it on PATH",
@@ -177,6 +177,12 @@ pub fn xelatex() -> Result<Oracle, Absent> {
 /// TeX's `dvitype`: lists every glyph, rule and `\special` of a DVI file with its exact position.
 pub fn dvitype() -> Result<Oracle, Absent> {
     find("dvitype", "--version")
+}
+
+/// BibTeX: makes a paper's reference list from its `.bib` file and a style, for the bibliography
+/// oracle (`tex::bib`).
+pub fn bibtex() -> Result<Oracle, Absent> {
+    find("bibtex", "--version")
 }
 
 /// Binds an oracle, or returns from the calling test after saying on stderr why it was skipped.

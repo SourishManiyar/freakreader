@@ -1,0 +1,124 @@
+\newcommand{\etalchar}[1]{$^{#1}$}
+\begin{thebibliography}{SPvdB{\etalchar{+}}04}
+
+\bibitem[BOP15]{a18}
+{\'E}lodie Brannigan, Kwame Okafor, and Ravi Prentiss.
+\newblock Remarks on twisted splines.
+\newblock {\em Annals of Invented Mathematics}, 31(4):867--889, 2015.
+
+\bibitem[BYO{\v{S}}93]{a19}
+Joaqu{\'\i}n Brannigan, Ingrid Yilmaz, S{\o}ren Okafor, and {\'E}lodie {\v{S}}imek.
+\newblock Remarks on discrete eigenvalues.
+\newblock {\em Quarterly Notes in Pretend Topology}, 42(2):89--103, 1993.
+
+\bibitem[{\c{C}}el25]{a23}
+Amara {\c{C}}elik.
+\newblock On uniform operators and singular lattices.
+\newblock {\em Quarterly Notes in Pretend Topology}, 46(3):526--572, 2025.
+
+\bibitem[CR26]{p47}
+Ingrid Castellano and Folake Rossi.
+\newblock The manifold problem for singular cocycles, 2026.
+\newblock Preprint, arXiv:2707.35531.
+
+\bibitem[Fer00]{a26}
+Ravi Ferreira.
+\newblock A tame approach to measure resolvents.
+\newblock {\em Transactions on Made-up Algebra}, 29(5):665--697, 2000.
+
+\bibitem[Gr{\"u}74]{b37}
+Folake Gr{\"u}nwald.
+\newblock {\em A Course in Pretend Combinatorics, Volume 7}.
+\newblock Imaginary Press, Lowtown, 1974.
+
+\bibitem[HL79]{a29}
+Wren Haldane and Folake Lindqvist.
+\newblock A smooth approach to spline splines.
+\newblock {\em Quarterly Notes in Pretend Topology}, 81:72--123, 1979.
+
+\bibitem[HVOA13]{a30}
+Priya Haldane, Dmitri Varga, Folake Okafor, and Siobhan Achterberg.
+\newblock Remarks on tame tilings.
+\newblock {\em Journal of Imaginary Analysis}, 87(4):776--821, 2013.
+
+\bibitem[IG{\v{S}}98]{c40}
+Kwame Ibarra, Leilani Gr{\"u}nwald, and Teodor {\v{S}}imek.
+\newblock Remarks on stable braids.
+\newblock In Yusuf Varga, editor, {\em Invented Methods in Analysis}, pages 397--424. Paper Tiger Publishing, Eastbridge, 1998.
+
+\bibitem[LH11]{a01}
+Tom\'as Lindqvist and Kwame Holm.
+\newblock Hyperbolic tilings, stable operators, and their spectra.
+\newblock {\em Journal of Imaginary Analysis}, 50(1):7--25, 2011.
+
+\bibitem[LM18]{s65}
+Ingrid Lindqvist and Teodor Moreau.
+\newblock A tame approach to quiver operators.
+\newblock {\em Journal of Imaginary Analysis}, 69:748--758, 2018.
+
+\bibitem[ML17]{c46}
+Teodor Moreau and Ravi Lindqvist.
+\newblock Weighted manifolds of {$\mathbb{Z}^d$} kernels.
+\newblock In Nadia Lindqvist, editor, {\em Collected Notes on Synthetic Algebra}, pages 206--237. Synthetic Books, Northfield, 2017.
+
+\bibitem[M{\O}H25]{a16}
+{\'E}lodie M{\"u}ller, {\'E}lodie {\O}ster, and Mateus Haldane.
+\newblock Remarks on hyperbolic categorys.
+\newblock {\em Proc. Synthetic Math. Soc.}, 38(3):706--733, 2025.
+
+\bibitem[MPHD84]{a28}
+Kwame Moreau, S{\o}ren Pellegrino, Folake Haldane, and Dmitri Dufr{\`e}ne.
+\newblock Remarks on singular operators.
+\newblock {\em Quarterly Notes in Pretend Topology}, 48(3):816--864, 1984.
+
+\bibitem[{\O}MM07]{c42}
+Ana-Luc{\'\i}a {\O}ster, Mirela M{\"u}ller, and H{\'e}l{\`e}ne Moreau.
+\newblock The flow problem for rigid martingales.
+\newblock In {\em Proceedings of the Third Workshop on Pretend Structures}, pages 322--344, Eastbridge, 2007. Paper Tiger Publishing.
+
+\bibitem[{\O}NI98]{a27}
+Henrik {\O}ster, Leilani Ndlovu, and Joaqu{\'\i}n Ibarra.
+\newblock A sparse approach to operator partitions.
+\newblock {\em Archive for Hypothetical Probability}, 37:307--338, 1998.
+
+\bibitem[Ros21]{a14}
+Ingrid Rossi.
+\newblock Bounded lattices, hyperbolic quivers, and their limits.
+\newblock {\em Transactions on Made-up Algebra}, 5:889--933, 2021.
+
+\bibitem[RVM04]{a09}
+Henrik Rossi, Ana-Luc{\'\i}a Varga, and Zofia Moreau.
+\newblock A discrete approach to flow quivers.
+\newblock {\em Annals of Invented Mathematics}, 11(1):476--514, 2004.
+
+\bibitem[{\v{S}}E15]{a12}
+Amara {\v{S}}imek and Jean-Baptiste Eberhardt.
+\newblock Remarks on discrete matroids.
+\newblock {\em Archive for Hypothetical Probability}, 76(1):185--207, 2015.
+
+\bibitem[{\v{S}}im04]{a10}
+Nadia {\v{S}}imek.
+\newblock A stable approach to flow splines.
+\newblock {\em Proc. Synthetic Math. Soc.}, 40(4):554--595, 2004.
+
+\bibitem[SPvdB{\etalchar{+}}04]{m66}
+Mirela Szab{\'o}, Leilani Prentiss, Kwame van~der Berg, Zofia Nakamura-Wells, Ravi Kowalczyk, Mirela Haldane, and Ravi Teague.
+\newblock On dyadic matroids and nilpotent cocycles.
+\newblock {\em Lowtown Mathematical Journal}, 86:40--95, 2004.
+
+\bibitem[Tan26]{p50}
+{\'E}lodie Tanaka.
+\newblock A hyperbolic approach to operator flows, 2026.
+\newblock Preprint, arXiv:2707.67447.
+
+\bibitem[vdB10]{a06}
+Priya van~der Berg.
+\newblock The matroid problem for uniform tilings.
+\newblock {\em Bulletin of the Fictional Geometry Society}, 70:232--244, 2010.
+
+\bibitem[YISvdB12]{a05}
+Ana-Luc{\'\i}a Yilmaz, Amara Ibarra, Ana-Luc{\'\i}a Szab{\'o}, and Ilse van~der Berg.
+\newblock On rigid measures and convex semigroups.
+\newblock {\em Lowtown Mathematical Journal}, 37:261--313, 2012.
+
+\end{thebibliography}
