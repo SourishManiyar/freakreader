@@ -67,10 +67,8 @@ glyphs within 0.2 pt (both came out byte-identical). The hyperref papers of the 
 
 ## The papers
 
-Nine papers with DVI truth (22 pages: development 15, held out 7), three held out; two linked papers,
-one held out. The held-out
-papers were written, with the generator, before any detection code existed, and are read only by
-their rates.
+Fourteen papers with DVI truth and three linked papers. Five of those with DVI truth and one linked
+paper are held out (see Held-out papers below).
 
 | paper | set | class | size | columns | heads | numbering | shared counter | end mark | features |
 |---|---|---|---|---|---|---|---|---|---|
@@ -80,11 +78,31 @@ their rates.
 | `art12_italic` | dev | article | 12pt | 1 | italic (body upright) | global | yes | QED | Fact, unnumbered Remark, a proof without a mark |
 | `ams11_sec` | dev | amsart | 11pt | 1 | bold | section | yes | box | unnumbered Main Theorem, proofs with displays |
 | `art10_traps` | dev | article | 10pt | 1 | bold | global | no | none | Lemma 1, Theorem 1, Proposition 1, Corollary 1 all exist; lists labelled (1), (2); `The case (1)`; proofs without marks followed by text (added after the analysis, as a development paper) |
-| `ho_ams12_caps` | holdout | amsart | 12pt | 1 | small caps | global | yes | □ | list with (1) labels inside a lemma, `\qedhere` |
-| `ho_art10_italic2col` | holdout | article | 10pt | 2 | italic | section | no | ■ | named theorem, range mention, table |
-| `ho_art12_mixed` | holdout | article | 12pt | 1 | bold | global | no | QED | forward mention, appendix proof of an earlier theorem, `Proof (sketch)` |
+| `ams12_caps` | dev | amsart | 12pt | 1 | small caps | global | yes | □ | list with (1) labels inside a lemma, `\qedhere` (first held-out set) |
+| `art10_italic2col` | dev | article | 10pt | 2 | italic | section | no | ■ | named theorem, range mention, table (first held-out set) |
+| `art12_mixed` | dev | article | 12pt | 1 | bold | global | no | QED | forward mention, appendix proof of an earlier theorem, `Proof (sketch)` (first held-out set) |
 | `art11_hyper` | linked | article | 11pt | 1 | bold | section | no | box | `\autoref` |
-| `ho_ams10_hyper` | linked, held out | amsart | 10pt | 1 | bold | section | yes | box | `\autoref` |
+| `ams10_hyper` | linked | amsart | 10pt | 1 | bold | section | yes | box | `\autoref` (first held-out set) |
+| `ho_ams11_italic` | held out | amsart | 11pt | 1 | italic | section | no | ■ | Notation, named Conjecture, Fact, a subsection mention, appendix lemma, a proof without a mark |
+| `ho_art11_caps2col` | held out | article | 11pt | 2 | small caps | global | yes | QED | abstract, three lemmas in a row and a range, named theorem, table, Observation |
+| `ho_art10_dense` | held out | article | 10pt | 1 | bold | section | no | □ | nine short statements, one-line proofs, two definitions cited together, footnotes |
+| `ho_ams12_bold` | held out | amsart | 12pt | 1 | bold | global | no | box | unnumbered Main Theorem and Theorem, `Proof (sketch)` ending in `\qedhere`, list in a proposition, figure |
+| `ho_art12_caps` | held out | article | 12pt | 1 | small caps | section | yes | ■ | Assumption, a Claim with its own proof, `Proof of Theorem` after other proofs, appendix with Fact and Lemma |
+| `ho_art10_hyper` | linked, held out | article | 10pt | 1 | italic | global | yes | □ | `\autoref` to a lemma and a section, a `\ref` to another work's theorem |
+
+### Held-out papers
+
+The first held-out set (`ams12_caps`, `art10_italic2col`, `art12_mixed`, `ams10_hyper`, then with an
+`ho_` prefix) was read during development: the generator changed after it was written and the
+analysis was changed after its first rates. It is development data now.
+
+The second set (the `ho_` papers above) was written on 2026-11-18, after the analysis was finished,
+and frozen before it was scored: `holdout.lock` holds the SHA-256 of each paper's source, PDF and
+truth rows, and `cargo xtask refs-oracle generate` (with or without `--check`) fails if any of them
+would change. `--freeze` only adds papers. Its scores were read once, in the commit after the one
+that froze it, and the analysis has not changed since. To change a held-out paper, move it to
+development under a new id and write a new one; a guard can be edited, so the rule is that the
+change shows in review.
 
 ## Scoring
 
@@ -111,6 +129,7 @@ cargo xtask refs-oracle report --analyser all                   # with the delib
 cargo xtask refs-oracle report --dev                            # development papers alone (while changing the code)
 cargo xtask refs-oracle report --failures                       # the development papers' statements and mentions, one by one
 cargo xtask refs-oracle generate --check                        # regenerate (needs TeX Live), require identical bytes
+cargo xtask refs-oracle generate --freeze                       # add new held-out papers to holdout.lock
 cargo xtask refs-oracle test                                    # the oracle's tests
 ```
 
@@ -121,36 +140,7 @@ next statement.
 
 ## Scores
 
-Measured on 2026-11-17 on branch `feat/theorem-blocks` with pdfTeX 1.40.25 (TeX Live 2023/Debian).
-The held-out papers were written before the analysis and read only through these rates. The code was
-changed after their first rates (all at 100% already) for faults the independent hyperref papers
-showed; the rates did not move.
-
-| | statements and proofs found | word, number, name | extent F1 ≥ 0.9 | proofs: proves right | end marks found / falsely | mentions recall / precision | resolved right or none | **wrong links** |
-|---|---|---|---|---|---|---|---|---|
-| development (6 papers, 15 pages) | 62 / 62 | 100% | 62 / 62 | 23 / 23 | 16 / 16, 0 / 7 | 82 / 82, 82 / 82 | 82 / 82 (71 targets, 11 none) | **0** |
-| held out (3 papers, 7 pages) | 24 / 24 | 100% | 24 / 24 | 10 / 10 | 9 / 9, 0 / 1 | 31 / 31, 31 / 31 | 31 / 31 (27 targets, 4 none) | **0** |
-
-Per statement word, target kind, head style (bold, italic, small caps), class and column layout
-(amsart, article one- and two-column) and numbering (section, global): 100% in every cell, dev and
-held out alike (`cargo xtask refs-oracle report` lists them). Mentions that rightly resolve to
-nothing: dev 11 (another work's, or a block that is not there), held out 4.
-
-Linked papers: of the 9 (dev) and 8 (held out) links to blocks, every one has an inferred mention
-under it, and all but one per paper agree on the target; the one is a mention of another work set
-with `\ref` (`Theorem 1.1 of [Tanaka]`), which hyperref links and the text reads as external, so the
-graph takes the link and says so. The independent hyperref papers (`../../hyperref`, one and two
-columns): 16 links each, the text read under 14 (the other two are equation numbers after `is`,
-which is not taken for a citing word), no disagreement.
-
-Broken analysers (wrong links, development / held out): trusting the number 11 / 4; every `(n)` a
-link 10 / 2; never-ending proofs leave links alone but drop extents to 77.4% / 83.3% (proofs: 5 and
-1 no longer detected).
-
-**These numbers say the synthetic set is too easy, not that the problem is solved.** Every paper
-comes from one generator with short regular sentences and amsthm's own layouts; the three faults the
-independent papers found in an analysis that scored 100% here show how little a perfect score on
-this set proves. See below.
+To be measured once the second held-out set is committed and frozen.
 
 ## What this does not measure
 

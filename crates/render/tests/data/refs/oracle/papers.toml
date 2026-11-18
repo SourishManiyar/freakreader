@@ -9,7 +9,7 @@
 #   figure|table PLACEMENT [label=KEY] [wide] · newpage
 #   say KEY [word|abbr|bare|extra|auto] · say KEY1+KEY2 and|range · say ext KEY
 #   say missing WORD NUMBER · say noise case|this|interval|count
-# Papers whose id starts `ho_` are held out: written before the analysis, read only by their rates.
+# Papers whose id starts `ho_` are held out: frozen in holdout.lock before they are scored (README.md).
 
 [[paper]]
 id = "art11_plain"
@@ -457,8 +457,8 @@ say noise interval
 """
 
 [[paper]]
-id = "ho_ams12_caps"
-holdout = true
+id = "ams12_caps"
+holdout = false
 class = "amsart"
 options = ["12pt"]
 pagestyle = "headings"
@@ -511,8 +511,8 @@ say eq:p
 """
 
 [[paper]]
-id = "ho_art10_italic2col"
-holdout = true
+id = "art10_italic2col"
+holdout = false
 class = "article"
 options = ["10pt", "twocolumn"]
 geometry = "margin=0.75in"
@@ -567,8 +567,8 @@ say sec:r abbr
 """
 
 [[paper]]
-id = "ho_art12_mixed"
-holdout = true
+id = "art12_mixed"
+holdout = false
 class = "article"
 options = ["12pt"]
 geometry = "margin=1.2in"
@@ -619,8 +619,8 @@ say missing Lemma 8
 """
 
 [[paper]]
-id = "ho_ams10_hyper"
-holdout = true
+id = "ams10_hyper"
+holdout = false
 class = "amsart"
 options = ["10pt"]
 pagestyle = "plain"
@@ -659,4 +659,377 @@ say sec:l auto
 say eq:l auto
 say ext lem:l
 say thm:l
+"""
+
+# The second held-out set, written 2026-11-18 after the first was read and moved to dev. Frozen in
+# holdout.lock before it was scored; scored once (README.md).
+
+[[paper]]
+id = "ho_ams11_italic"
+holdout = true
+class = "amsart"
+options = ["11pt"]
+pagestyle = "headings"
+seed = 3001
+heads = "italic"
+numbering = "section"
+shared = false
+qed = "black"
+hyperref = false
+body = """
+title Spectral gaps of weighted shifts
+author G. Writer
+maketitle
+section label=sec:a Background
+par 3
+begin notation label=not:a 1
+end
+begin conjecture label=conj:a name=Gap+conjecture 2
+end
+par 2
+say conj:a
+subsection label=sec:a2 Weights
+par 2
+begin fact label=fact:a 2
+end
+begin lemma label=lem:a 2
+display equation label=eq:a
+end
+proof 3
+say fact:a
+say not:a
+end
+par 2
+say eq:a bare
+say noise interval
+section label=sec:b The estimate
+par 2
+begin theorem label=thm:a 3
+list enumerate 2 paren
+end
+proof 3
+say lem:a
+say conj:a abbr
+display align
+cont 1
+end
+begin corollary label=cor:a 2
+end
+par 2
+say thm:a extra
+say sec:a2
+say ext lem:a
+appendix
+section label=sec:c Auxiliary bounds
+par 2
+begin lemma label=lem:c 2
+end
+proof nomark 2
+say eq:a
+end
+par 2
+say lem:c
+say cor:a
+say missing Corollary 7.4
+"""
+
+[[paper]]
+id = "ho_art11_caps2col"
+holdout = true
+class = "article"
+options = ["11pt", "twocolumn"]
+geometry = "margin=0.7in"
+pagestyle = "plain"
+seed = 3002
+heads = "smallcaps"
+numbering = "global"
+shared = true
+qed = "text"
+hyperref = false
+body = """
+title Random walks on finite groups
+author H. Reader
+date
+maketitle
+abstract 3
+section label=sec:d Walks
+par 3
+begin definition label=def:d 2
+end
+begin proposition label=prop:d 2
+end
+proof 2
+say def:d
+end
+begin lemma label=lem:d1 1
+end
+begin lemma label=lem:d2 2
+end
+begin lemma label=lem:d3 1
+end
+par 2
+say lem:d1+lem:d3 range
+say noise count
+display equation label=eq:d
+cont 1
+section label=sec:e Mixing
+par 2
+begin theorem label=thm:e name=Cutoff 2
+end
+proof 4
+say lem:d2
+say prop:d abbr
+say eq:d bare
+end
+table t label=tab:e
+par 2
+say tab:e
+begin remark 2
+say thm:e
+end
+begin observation label=obs:e 2
+end
+par 2
+say obs:e
+say ext thm:e
+say missing Proposition 12
+"""
+
+[[paper]]
+id = "ho_art10_dense"
+holdout = true
+class = "article"
+options = ["10pt"]
+geometry = "margin=1.3in"
+pagestyle = "plain"
+seed = 3003
+heads = "bold"
+numbering = "section"
+shared = false
+qed = "square"
+hyperref = false
+body = """
+title Short notes on convex cones
+author I. Author
+date
+maketitle
+section label=sec:f Cones
+par 2 footnote
+begin definition label=def:f1 1
+end
+begin definition label=def:f2 1
+end
+begin lemma label=lem:f1 1
+end
+proof 1
+say def:f1
+end
+begin lemma label=lem:f2 1
+end
+proof 1
+say def:f2
+end
+begin lemma label=lem:f3 1
+end
+proof 2
+say lem:f1+lem:f2 and
+end
+begin proposition label=prop:f 2
+end
+proof of=prop:f 2
+say lem:f3
+say noise case
+end
+par 2
+say def:f1+def:f2 and
+section label=sec:g Duality
+par 2
+display equation label=eq:g1
+cont 1
+display equation label=eq:g2
+cont 1 footnote
+begin theorem label=thm:g 2
+end
+proof 3
+say eq:g1
+say eq:g2 bare
+say prop:f
+end
+begin example label=ex:g 2
+end
+begin corollary label=cor:g 1
+end
+par 2
+say ex:g
+say cor:g abbr
+say sec:f
+say missing Theorem 4.9
+"""
+
+[[paper]]
+id = "ho_ams12_bold"
+holdout = true
+class = "amsart"
+options = ["12pt"]
+pagestyle = "plain"
+seed = 3004
+heads = "bold"
+numbering = "global"
+shared = false
+qed = "open"
+hyperref = false
+body = """
+title Integrals of oscillating kernels
+author J. Reader
+maketitle
+section* Overview
+par 3
+begin mainthm name=Decay 2
+end
+par 2
+section label=sec:h Phases
+par 3
+begin notation label=not:h 2
+end
+begin lemma label=lem:h 2
+display equation label=eq:h
+end
+proof sketch 3
+say not:h
+display display qedhere
+end
+begin utheorem 2
+end
+par 2
+say lem:h
+say eq:h bare
+section label=sec:i Amplitudes
+par 2
+begin proposition label=prop:i 2
+list itemize 2
+end
+proof 3
+say lem:h extra
+say noise this
+end
+begin observation label=obs:i 2
+end
+figure t label=fig:i
+par 2
+say fig:i
+say obs:i
+say prop:i
+say ext prop:i
+say missing Lemma 22
+"""
+
+[[paper]]
+id = "ho_art12_caps"
+holdout = true
+class = "article"
+options = ["12pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 3005
+heads = "smallcaps"
+numbering = "section"
+shared = true
+qed = "black"
+hyperref = false
+body = """
+title Curvature of level sets
+author K. Writer
+date
+maketitle
+section label=sec:j Level sets
+par 3
+begin assumption label=as:j 2
+end
+begin theorem label=thm:j 2
+end
+par 2
+say thm:j
+say as:j abbr
+section label=sec:k Proof of the theorem
+par 2
+begin lemma label=lem:k 2
+end
+proof 3
+say as:j
+end
+begin claim label=cl:k 1
+end
+proof 2
+say lem:k
+end
+proof of=thm:j 3
+say cl:k
+say lem:k extra
+end
+par 2
+say sec:j
+say noise case
+appendix
+section label=sec:l Technical facts
+par 2
+begin fact label=fact:l 2
+end
+begin lemma label=lem:l 2
+display equation label=eq:l
+end
+proof 2
+say fact:l
+end
+par 2
+say eq:l bare
+say lem:l
+say ext lem:l
+say missing Section 9
+"""
+
+[[paper]]
+id = "ho_art10_hyper"
+holdout = true
+class = "article"
+options = ["10pt"]
+geometry = "margin=1in"
+pagestyle = "plain"
+seed = 3006
+heads = "italic"
+numbering = "global"
+shared = true
+qed = "square"
+hyperref = true
+body = """
+title Linked notes on measure transport
+author L. Reader
+date
+maketitle
+section label=sec:m Transport
+par 3
+begin definition label=def:m 2
+end
+begin lemma label=lem:m 2
+display equation label=eq:m
+end
+proof 2
+say def:m
+end
+begin theorem label=thm:m 2
+end
+proof 3
+say lem:m auto
+say eq:m
+end
+section label=sec:n Costs
+par 2
+begin proposition label=prop:n 2
+end
+proof 2
+say thm:m abbr
+say sec:m auto
+end
+par 2
+say prop:n
+say ext thm:m
 """
