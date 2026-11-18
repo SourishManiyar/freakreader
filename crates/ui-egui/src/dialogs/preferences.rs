@@ -844,20 +844,6 @@ fn card_documents_and_view(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens,
     ui.add_space(6.0);
 
     ui.horizontal(|ui| {
-        use pdfcraft_engine::math_recover::Wrapper;
-        ctx.label_primary(ui, tl!("Copy as LaTeX wraps the formula in"), t);
-        ctx.pill_choice(ui, t, &mut app.latex_wrapper, &[(Wrapper::None, tl!("Nothing")), (Wrapper::Inline, "$…$"), (Wrapper::Display, "\\[…\\]")]);
-    });
-    ctx.label_secondary(
-        ui,
-        tl!(
-            "Copy as LaTeX (Edit menu) puts the formula's LaTeX on the clipboard as plain text; wrapped, it pastes as inline or display mathematics."
-        ),
-        t,
-    );
-    ui.add_space(6.0);
-
-    ui.horizontal(|ui| {
         ctx.label_primary(ui, tl!("Units"), t);
         ctx.pill_choice(
             ui,

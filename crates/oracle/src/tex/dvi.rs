@@ -5,7 +5,7 @@
 //! are read the same way: `h` and `v` in scaled points (sp) from the DVI origin, `v` down, a glyph
 //! at its reference point on the baseline and a rule at its bottom-left corner. On top of that,
 //! `\special{pdfcraft:eq:ID:begin}` and `…:end` bracket an equation and `pdfcraft:tag:begin`/`end`
-//! bracket an equation number (see [`super::preamble`]); the brackets come out in the order TeX
+//! bracket an equation number; the brackets come out in the order TeX
 //! shipped the material, so membership comes from TeX itself, not from where things landed.
 //!
 //! Document structure (the layout oracle, [`super::layout`]) is bracketed by specials of its own,

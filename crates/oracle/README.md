@@ -39,7 +39,7 @@ match pdfcraft_oracle::pdftotext() {
 | `qpdf()` | qpdf | `--check` structural validation; the independent owner-password oracle |
 | `pdftoppm()` | Poppler | page pixels, for comparing against our own raster output |
 | `pdftotext()` | Poppler | text extraction (`cargo xtask text-oracle` scores word F1 and reading order against it) |
-| `pdflatex()`, `dvitype()` | TeX Live | typesetting LaTeX and listing what it set: the math oracle (`tex`) |
+| `pdflatex()`, `dvitype()` | TeX Live | typesetting LaTeX and listing what it set: the layout, reference and bibliography oracles (`tex`) |
 
 Each returns `Result<Oracle, Absent>`. `Oracle::command()` hands back a fresh `Command`;
 `Absent` renders as an actionable sentence naming the install command.
@@ -125,12 +125,3 @@ purely because `pdftotext` happens to make it in one place and not the other.
 - Two renderers sometimes round the same page box to different pixel sizes, and those files are
   counted as unmeasurable rather than compared.
 
-## Typeset mathematics (`tex`)
-
-The truth and the check for LaTeX recovery (`crates/render/tests/data/math/oracle/README.md`).
-`tex::typeset_equal` typesets a candidate where an equation was and compares the glyphs and rules
-TeX sets, as `dvitype` lists them, up to a translation; `tex::edit_distance` is the TeX-free signal.
-TeX runs without shell escape, with paranoid `openin_any`/`openout_any` and a time limit; a
-candidate it cannot set is `Verdict::Failed` with the end of its log. The TeX-backed tests are
-`#[ignore]`d in the plain run (CI requires every oracle and does not install TeX Live) and run with
-`cargo xtask math-oracle test`.

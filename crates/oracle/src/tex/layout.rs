@@ -2,14 +2,14 @@
 //! paragraph, a heading, a display, a footnote, the running head…), of what kind, and in which
 //! order TeX shipped them.
 //!
-//! The method is the math oracle's ([`super`]): the document is compiled to DVI with the
+//! The method is [`super`]'s: the document is compiled to DVI with the
 //! structure bracketed by `\special`s, and `dvitype` lists every glyph and rule with the brackets in
 //! shipping order. The brackets come from [`package`], a LaTeX package that hooks paragraphs
 //! (`para/begin`, `para/end`), `\@startsection` (headings and their level), `\@maketitle`, the
 //! `abstract` environment, `\@footnotetext`, `\footnoterule` and the header and footer of
 //! `\@outputpage`. Floats, captions and lists are bracketed in the source by `\pdfcraftopen`,
-//! `\pdfcraftclose` and `\pdfcraftenv`, and display equations by the math oracle's own
-//! `\pdfcraftbegin`/`\pdfcraftend` and its equation-number patch. With `specials` false the package
+//! `\pdfcraftclose` and `\pdfcraftenv`, and display equations by
+//! `\pdfcraftbegin`/`\pdfcraftend` and an equation-number patch. With `specials` false the package
 //! only defines those source macros as nothing: the generator compiles the PDF both ways and
 //! requires identical bytes, which proves neither the specials nor the patches moved anything.
 //!

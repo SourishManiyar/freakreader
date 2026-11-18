@@ -3164,7 +3164,6 @@ fn protecting_through_tools() {
         ("text_extract", json!({ "doc": re })),
         ("text_extract", json!({ "doc": re, "format": "html" })),
         ("text_word_count", json!({ "doc": re })),
-        ("text_recover_latex", json!({ "doc": re, "page": 1, "rect": [0, 0, 100, 100] })),
         ("page_layout", json!({ "doc": re })),
         ("doc_sections", json!({ "doc": re })),
         ("doc_blocks", json!({ "doc": re })),

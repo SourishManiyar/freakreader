@@ -12,12 +12,11 @@ mod layers;
 mod layout_oracle;
 mod license_check;
 mod macos_integration;
-mod math_oracle;
-mod math_symbols;
 mod netcheck;
 mod parity;
 mod refs_oracle;
 mod screenshots;
+mod tex_oracle;
 mod version;
 mod web;
 
@@ -59,11 +58,6 @@ const COMMANDS: &[(&str, &str, Command)] = &[
         gates::render_oracle,
     ),
     (
-        "math-oracle",
-        "Equation-level oracle for LaTeX recovery: `generate [--check]` (needs TeX Live), `report`, `test` (crates/render/tests/data/math/oracle)",
-        math_oracle::run,
-    ),
-    (
         "layout-oracle",
         "Page-layout oracle: `generate [--check]` typesets synthetic papers with block brackets (needs TeX Live), `report`, `test` (crates/render/tests/data/layout/oracle)",
         layout_oracle::run,
@@ -77,11 +71,6 @@ const COMMANDS: &[(&str, &str, Command)] = &[
         "bib-oracle",
         "Bibliography and citation oracle: `generate [--check]` typesets synthetic papers with BibTeX and entry and citation brackets (needs TeX Live), `report`, `test` (crates/render/tests/data/bib/oracle)",
         bib_oracle::run,
-    ),
-    (
-        "math-symbols",
-        "The math symbol table (crates/render/src/text/math/symbols): `generate [--check]` typesets the command list with TeX (needs TeX Live)",
-        math_symbols::run,
     ),
     ("screenshots", "Regenerate the README screenshots in docs/images/ and their ATTRIBUTION entries", screenshots::run),
     ("models", "Fetch the OCR models (ATTRIBUTION.toml kind = \"model\") into assets/models/, verified by SHA-256", assets::models),

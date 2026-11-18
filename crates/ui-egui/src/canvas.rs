@@ -26,7 +26,6 @@ pub(super) mod crop;
 mod find;
 pub(super) mod fling;
 pub(super) mod image_pick;
-pub(super) mod latex_ui;
 pub mod link_peek;
 mod navigation;
 mod organize;
@@ -752,14 +751,10 @@ pub struct DocView {
     /// Marquee Zoom / Snapshot: the rectangle being dragged (page, start), and a finished one.
     pub marquee: Option<(usize, Pos2)>,
     pub marquee_done: Option<crate::zoom_snap::Marquee>,
-    /// Copy as LaTeX: a right-click asked to leave the tool, as Escape does.
-    pub(crate) latex_leave: bool,
     /// Snapshot: the area just copied (page, view-space rect), kept with a small menu under it
     /// (Print area…, Save as image…), and what was chosen there.
     pub area_pick: Option<(usize, [f32; 4])>,
     pub area_choice: Option<crate::zoom_snap::AreaChoice>,
-    /// Copy as LaTeX: the area being read (page, view-space rect), outlined until its answer comes.
-    pub(crate) latex_pending: Option<(usize, [f32; 4])>,
     /// Fill & Sign text being typed.
     pub fill_text: Option<crate::fill_sign::TypeBox>,
     /// A queued Fill & Sign signature: select it after its edit succeeds, then leave placement.
@@ -1003,7 +998,6 @@ impl DocView {
     pub(crate) fn cancel_pointer_gestures(&mut self) {
         self.marquee = None;
         self.marquee_done = None;
-        self.latex_leave = false;
         self.comments.gesture = None;
         self.links.drag = None;
         self.sign.drag = None;
@@ -1187,8 +1181,6 @@ impl DocView {
             pages_focus_id: None,
             marquee: None,
             marquee_done: None,
-            latex_leave: false,
-            latex_pending: None,
             area_pick: None,
             area_choice: None,
             fill_text: None,
@@ -1223,8 +1215,6 @@ impl DocView {
         // deleted or moved it would outline, print and save a different page.
         self.area_pick = None;
         self.area_choice = None;
-        // The formula being read is of the document as it was: its outline would mark another page.
-        self.latex_pending = None;
         self.goto = None;
         self.goto_point = None;
         self.zoom_anchor = None;
@@ -1994,12 +1984,6 @@ fn draw_pages(
         ..
     } = frame;
     crate::forms_ui::hover_moved(view, field_hover);
-    // Copy as LaTeX: a right-click anywhere on the document leaves the tool, as Escape does, and opens
-    // no menu; a rectangle being dragged keeps it.
-    let leaving_latex = tool == QuickTool::CopyAsLatex && resp.secondary_clicked() && view.marquee.is_none();
-    if leaving_latex {
-        view.latex_leave = true;
-    }
     // A right-click no page took deselects the comment, so the page's menu opens, not the comment's,
     // and with Edit text the picture (one on a page went to that page, `page_input`).
     if resp.secondary_clicked() && !right_clicked {
@@ -2110,10 +2094,9 @@ fn draw_pages(
         shown_row(view, env.rects).iter().filter_map(|&i| env.rects.get(i)).map(|r| r.translate(origin.to_vec2())).reduce(Rect::union);
     let presenting = view.presentation.is_some();
     // A right-click opens a link's preview or closes the one open, and then the page's menu stays
-    // shut (full screen keeps its right-click for turning back a page). One that leaves Copy as LaTeX
-    // does only that.
-    let peeked = !presenting && !leaving_latex && resp.secondary_clicked() && link_peek::right_click(view, doc, peek_link);
-    page_context_menu(&resp, presenting || peeked || leaving_latex, |ui| {
+    // shut (full screen keeps its right-click for turning back a page).
+    let peeked = !presenting && resp.secondary_clicked() && link_peek::right_click(view, doc, peek_link);
+    page_context_menu(&resp, presenting || peeked, |ui| {
         // Crop mode has no menu: a right-click on the picture being cropped, its box or its grips is
         // the crop's (#5835).
         if matches!(menu_for, Some(Owner::Picture { part: PicturePart::Crop(_), .. })) {
@@ -2985,11 +2968,6 @@ fn finish_sign_requests(app: &mut PdfCraftApp, index: usize, mut tool: QuickTool
     if let Some(done) = app.views[index].marquee_done.take() {
         app.finish_marquee(index, done);
     }
-    // A right-click leaves Copy as LaTeX (and stops a formula still being read), back to selecting.
-    if std::mem::take(&mut app.views[index].latex_leave) && tool == QuickTool::CopyAsLatex {
-        app.cancel_latex_copy();
-        tool = QuickTool::Select;
-    }
     // The copied area and its menu belong to Snapshot: another tool puts them away. The tool is
     // the app's, not the tab's, so every tab's area goes, not only the one on screen.
     if tool != QuickTool::Snapshot {
@@ -3047,8 +3025,7 @@ fn shown_row(view: &DocView, rects: &[Rect]) -> Vec<usize> {
 }
 
 /// The pages' context menu, except in full screen, where a right-click turns back a page instead
-/// ([`presentation_click_state`]), or when the right-click was a link preview's or left Copy as LaTeX
-/// (`shut`).
+/// ([`presentation_click_state`]), or when the right-click was a link preview's (`shut`).
 fn page_context_menu(resp: &egui::Response, shut: bool, add: impl FnOnce(&mut egui::Ui)) {
     if !shut {
         resp.context_menu(add);
@@ -3184,8 +3161,7 @@ fn tool_selects_text(tool: QuickTool, preparing: bool) -> bool {
         | QuickTool::Link
         | QuickTool::SignArea { .. }
         | QuickTool::MarqueeZoom
-        | QuickTool::Snapshot
-        | QuickTool::CopyAsLatex => false,
+        | QuickTool::Snapshot => false,
     }
 }
 

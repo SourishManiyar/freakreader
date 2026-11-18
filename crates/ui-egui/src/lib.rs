@@ -108,7 +108,6 @@ use canvas::autoscroll;
 use canvas::crop;
 use canvas::fling;
 use canvas::image_pick;
-use canvas::latex_ui;
 use canvas::page_cursor;
 use canvas::page_keys;
 use canvas::page_pointer;
@@ -561,12 +560,6 @@ pub struct PdfCraftApp {
     pub password_prompt: Option<PasswordPrompt>,
     /// Copy of a whole document's text (#2639) whose pages are being read off the UI thread.
     document_copy: Option<DocumentCopy>,
-    /// Copy as LaTeX: the formula being read off the UI thread (`canvas/latex_ui.rs`).
-    latex_copy: Option<latex_ui::LatexCopy>,
-    /// Copy as LaTeX: the glyphs of the page read last, for its next rectangle.
-    latex_glyphs: Option<latex_ui::PageGlyphs>,
-    /// Copy as LaTeX: what the LaTeX is wrapped in on the clipboard (Preferences; none by default).
-    pub latex_wrapper: pdfcraft_engine::math_recover::Wrapper,
     pub unlock_prompt: Option<UnlockPrompt>,
     pub full_screen: bool,
     /// Files delivered asynchronously (web drag-and-drop, web file picker).

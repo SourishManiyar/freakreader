@@ -17,7 +17,7 @@
 
 use crate::gates::root;
 use crate::layout_oracle::{ADJ, ALIGNS, EQUATIONS, MATH, NOUN, PACKAGE as LAYOUT_PACKAGE, Rng, TITLE_WORDS, sentence, sentences};
-use crate::math_oracle::{AMS_FONT_DIR, cargo};
+use crate::tex_oracle::{AMS_FONT_DIR, cargo};
 use anyhow::{Context, bail};
 use pdfcraft_oracle::tex::layout::{self, LayoutTruth, PaperInfo};
 use pdfcraft_oracle::tex::refs::{self, Anchor, MentionSpec, RefsPaper, RefsTruth, StatementSpec, TargetKind, TargetSpec};

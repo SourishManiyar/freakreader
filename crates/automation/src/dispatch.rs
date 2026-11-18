@@ -74,7 +74,6 @@ impl Automation {
             "comment_image_preview" => return self.comment_image_preview(&a),
             "text_extract" => self.text_extract(&a)?,
             "text_word_count" => self.text_word_count(&a)?,
-            "text_recover_latex" => self.text_recover_latex(&a)?,
             "text_glyph_details" => self.text_glyph_details(&a)?,
             "page_layout" => self.page_layout(&a)?,
             "doc_sections" => self.doc_sections(&a)?,

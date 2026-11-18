@@ -14,7 +14,7 @@
 //! that place them moved nothing; every embedded font must be an AMS Type 1 font (OFL-1.1).
 
 use crate::gates::root;
-use crate::math_oracle::{build_with, cargo};
+use crate::tex_oracle::{build_with, cargo};
 use anyhow::{Context, bail};
 use pdfcraft_oracle::tex::layout::{self, Kind, LayoutTruth, PaperInfo};
 use pdfcraft_oracle::tex::{Tex, WorkDir};

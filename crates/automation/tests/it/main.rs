@@ -16,7 +16,6 @@ mod form_bulk;
 mod hostile_args;
 mod list_selection;
 mod math_glyph_details;
-mod math_recover;
 mod model_3d;
 mod model_render;
 mod office;

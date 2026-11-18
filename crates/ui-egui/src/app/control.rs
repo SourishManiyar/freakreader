@@ -331,7 +331,6 @@ impl PdfCraftApp {
                     "marquee-zoom" => QuickTool::MarqueeZoom,
                     "snapshot" => QuickTool::Snapshot,
                     "column-select" => QuickTool::ColumnSelect,
-                    "copy-as-latex" => QuickTool::CopyAsLatex,
                     "certify" => QuickTool::SignArea { certify: true },
                     custom if custom.starts_with("custom-stamp-") => {
                         let i: usize = custom[13..].parse().map_err(|_| format!("bad stamp {custom}"))?;
@@ -377,11 +376,6 @@ impl PdfCraftApp {
                     "false" => false,
                     _ => return Err("hide-empty-highlight-hover must be true or false".into()),
                 };
-            }
-            // `--latex-wrapper inline`: what Copy as LaTeX wraps the LaTeX in on the clipboard.
-            ("latex-wrapper", _) => {
-                self.latex_wrapper = pdfcraft_engine::math_recover::Wrapper::from_name(value)
-                    .ok_or("latex-wrapper must be none, inline ($…$) or display (\\[…\\])")?;
             }
             ("text-links", _) => {
                 self.text_links = match value {

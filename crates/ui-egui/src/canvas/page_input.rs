@@ -468,11 +468,9 @@ fn tool_input(
     if matches!(tool, QuickTool::SignArea { .. }) {
         crate::sign_ui::page_input(cx, free, view);
     }
-    if matches!(tool, QuickTool::MarqueeZoom | QuickTool::Snapshot | QuickTool::CopyAsLatex) {
+    if matches!(tool, QuickTool::MarqueeZoom | QuickTool::Snapshot) {
         crate::zoom_snap::page_input(ui, resp, &xf, ptr, i, free, view);
     }
-    // A formula being read stays outlined, with a spinner, whatever the tool now is.
-    crate::latex_ui::page_input(ui, &xf, ptr, i, view);
     if tool == QuickTool::EnhanceCamera {
         crate::camera_ui::page_input(resp, &xf, ptr, i, view, can_modify, press);
     }

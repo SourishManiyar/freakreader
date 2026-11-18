@@ -597,10 +597,6 @@ impl PdfCraftApp {
                 self.quick_tool = crate::QuickTool::Snapshot;
                 self.notify_tr("Drag a rectangle around the area to copy");
             }
-            "edit.copy_as_latex" => {
-                self.quick_tool = crate::QuickTool::CopyAsLatex;
-                self.notify_tr("Drag a rectangle around a formula to copy its LaTeX. Esc to finish.");
-            }
             "edit.copy" => {
                 if let (Some(i), Some(ctx)) = (active, self.ctx.clone()) {
                     return Some(self.copy_selected_text(i, &ctx));
