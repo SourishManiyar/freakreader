@@ -27,6 +27,7 @@ use super::math::MathPage;
 
 mod analyse;
 mod document;
+pub mod refs;
 
 pub use document::{DocumentStructure, SectionNode, analyse_document};
 

@@ -1,0 +1,28 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{pdfcraftrefs}[2026/11/17 PdfCraft reference oracle brackets]
+\RequirePackage{pdfcraftlayout}
+\def\pdfcraft@x#1{\special{pdfcraft:layout:x:#1}}
+\global\let\pdfcraft@thmnext\@empty
+\global\let\pdfcraft@leave\@empty
+\global\let\pdfcraft@marknext\@empty
+% A statement ends where the next paragraph or display begins.
+\def\pdfcraft@flush{\ifx\pdfcraft@leave\@empty\else\pdfcraft@x{thm:end}\global\let\pdfcraft@leave\@empty\fi}
+\AddToHook{para/begin}{\pdfcraft@flush
+\ifx\pdfcraft@marknext\@empty\else\pdfcraft@x{target:\pdfcraft@marknext}\global\let\pdfcraft@marknext\@empty\fi
+\ifx\pdfcraft@thmnext\@empty\else\pdfcraft@x{thm:begin:\pdfcraft@thmnext:\@currentlabel}\global\let\pdfcraft@thmnext\@empty\fi}
+\newcommand*\pdfcraftthm[1]{\gdef\pdfcraft@thmnext{#1}}
+\newcommand*\pdfcraftthmend{\gdef\pdfcraft@leave{1}}
+\newcommand*\pdfcraftmark[1]{\gdef\pdfcraft@marknext{#1}}
+\newcommand*\pdfcraftmarkhere[1]{\pdfcraft@x{target:#1}}
+\newcommand*\pdfcraftref[1]{\pdfcraft@x{ref:begin:#1}}
+\newcommand*\pdfcraftrefend{\pdfcraft@x{ref:end}}
+\newcommand*\pdfcraftextra{\pdfcraft@x{extra:begin}}
+\newcommand*\pdfcraftextraend{\pdfcraft@x{extra:end}}
+\renewcommand*\pdfcraftbegin[1]{\pdfcraft@flush\special{pdfcraft:eq:#1:begin}}
+% An empty paragraph after a display is dropped by TeX unless something is in it.
+\RemoveFromHook{para/end}[pdfcraftlayout]
+\AddToHook{para/end}{\ifnum\lastnodetype=-1 \else\pdfcraft@s{par:end:\the\currentgrouplevel}\fi}
+% \eqref's number is a mention, not an equation's tag: amsmath's own \eqref with \maketag@@@ as it was.
+\expandafter\let\expandafter\pdfcraft@eqref\csname eqref \endcsname
+\def\pdfcraft@plaintag#1{\hbox{\m@th\normalfont#1}}
+\DeclareRobustCommand{\eqref}[1]{{\let\maketag@@@\pdfcraft@plaintag\pdfcraft@eqref{#1}}}

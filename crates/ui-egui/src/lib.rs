@@ -409,6 +409,10 @@ pub struct PdfCraftApp {
     /// Preferences ▸ Documents and view ▸ Show a reference preview when the pointer rests on a
     /// link: on by default ([`canvas::link_peek::HOVER_DELAY`]).
     pub link_preview_hover: bool,
+    /// Preferences ▸ Documents and view ▸ Preview references the text names without a link
+    /// ("by Lemma 2.1"), from the document's reference graph: on by default
+    /// ([`canvas::ref_graph`], [`canvas::link_peek`]).
+    pub inferred_previews: bool,
     /// The desktop's text scaling (GNOME's text scaling factor), which the desktop app reads at
     /// launch. 1.0 elsewhere, so tests and screenshots don't depend on the machine.
     pub system_text_scale: f32,

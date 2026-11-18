@@ -6,7 +6,7 @@ use egui::Pos2;
 use egui::accesskit::Role;
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
-use pdfcraft_ui_egui::canvas::link_peek::{HOVER_DELAY, HOVER_GRACE, Trigger};
+use pdfcraft_ui_egui::canvas::link_peek::{HOVER_DELAY, HOVER_GRACE, PeekSource, Trigger};
 use pdfcraft_ui_egui::{PdfCraftApp, QuickTool};
 
 /// Two letter pages. Page 1 has a link to page 2 at `/XYZ 72 500` (object 6) and a web link
@@ -95,7 +95,7 @@ fn a_right_click_on_a_link_previews_its_destination_and_another_closes_it() {
     let link = the_link(&h);
     right_click(&mut h, link);
     let peek = h.state().views[0].link_peek.as_ref().expect("the right-click opened the preview");
-    assert_eq!((peek.source(), peek.preview().page), ((0, 0), 1));
+    assert_eq!((peek.source(), peek.preview().page), (PeekSource::Link { page: 0, index: 0 }, 1));
     // The band starts 14 points above the destination's line, 292 points down page 2.
     assert!((peek.preview().area[1] - 278.0).abs() < 0.01, "{:?}", peek.preview());
     // The right-click was the preview's: neither the link's menu nor the page's opened.
@@ -377,7 +377,7 @@ fn hover_preview(h: &mut Harness<'static, PdfCraftApp>, name: &str) -> ([f32; 4]
     rest_on(h, away, HOVER_GRACE * 2.0);
     rest_on(h, at, HOVER_DELAY * 1.5);
     let peek = h.state().views[0].link_peek.as_ref().unwrap_or_else(|| panic!("{name}: the pointer's rest opened its preview"));
-    assert_eq!(peek.source(), (0, index));
+    assert_eq!(peek.source(), PeekSource::Link { page: 0, index });
     wait_drawn(h);
     let peek = h.state().views[0].link_peek.as_ref().expect("still open");
     let caption = peek.caption();

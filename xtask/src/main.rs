@@ -15,6 +15,7 @@ mod math_oracle;
 mod math_symbols;
 mod netcheck;
 mod parity;
+mod refs_oracle;
 mod screenshots;
 mod version;
 mod web;
@@ -65,6 +66,11 @@ const COMMANDS: &[(&str, &str, Command)] = &[
         "layout-oracle",
         "Page-layout oracle: `generate [--check]` typesets synthetic papers with block brackets (needs TeX Live), `report`, `test` (crates/render/tests/data/layout/oracle)",
         layout_oracle::run,
+    ),
+    (
+        "refs-oracle",
+        "Statement and reference oracle: `generate [--check]` typesets synthetic papers with theorem, proof and mention brackets (needs TeX Live), `report`, `test` (crates/render/tests/data/refs/oracle)",
+        refs_oracle::run,
     ),
     (
         "math-symbols",

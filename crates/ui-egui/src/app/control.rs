@@ -225,6 +225,14 @@ impl PdfCraftApp {
                     _ => return Err("link-preview-hover must be on or off".into()),
                 };
             }
+            // Documents and view ▸ Preview references the text names without a link.
+            ("inferred-previews", _) => {
+                self.inferred_previews = match value {
+                    "on" => true,
+                    "off" => false,
+                    _ => return Err("inferred-previews must be on or off".into()),
+                };
+            }
             ("always-default-view", _) => {
                 self.always_default_view = match value {
                     "on" => true,

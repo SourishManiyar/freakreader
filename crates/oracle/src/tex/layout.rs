@@ -351,6 +351,11 @@ fn current(stack: &[Frame]) -> Option<usize> {
 }
 
 fn apply(stack: &mut Vec<Frame>, text: &str, kinds: &mut Vec<Kind>, new_key: &mut impl FnMut(Kind, &mut Vec<Kind>) -> usize) -> Result<(), TexError> {
+    // The reference oracle's brackets (`x:…`, see [`super::refs`]) mark statements and mentions
+    // inside the blocks; they own nothing here.
+    if text.starts_with("x:") {
+        return Ok(());
+    }
     let parts: Vec<&str> = text.split(':').collect();
     match parts[..] {
         ["par", "begin", kind, level] => {

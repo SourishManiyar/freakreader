@@ -883,6 +883,8 @@ fn card_documents_and_view(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens,
     ui.add_space(6.0);
     ctx.checkbox(ui, &mut app.link_preview_hover, tl!("Show a reference preview when the pointer rests on a link"), t);
     ui.add_space(6.0);
+    ctx.checkbox(ui, &mut app.inferred_previews, tl!("Also preview references the text names without a link (inferred)"), t);
+    ui.add_space(6.0);
     scrolling(ui, app, t, ctx);
 }
 

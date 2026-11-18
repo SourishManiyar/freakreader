@@ -51,6 +51,7 @@ mod folders;
 mod fonts;
 mod forms;
 mod identity;
+mod inferred_preview;
 mod javascript;
 mod layer_actions;
 mod link_preview;

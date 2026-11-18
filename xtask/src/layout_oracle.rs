@@ -25,7 +25,7 @@ use std::path::{Path, PathBuf};
 
 /// The paper list and the generated files, relative to the repository root.
 pub const DATA_DIR: &str = "crates/render/tests/data/layout/oracle";
-const PACKAGE: &str = "pdfcraftlayout.sty";
+pub(crate) const PACKAGE: &str = "pdfcraftlayout.sty";
 /// Most pages one paper may have.
 const MAX_PAGES: usize = 12;
 
@@ -63,10 +63,10 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 }
 
 /// xorshift64*, so every run writes the same papers.
-struct Rng(u64);
+pub(crate) struct Rng(u64);
 
 impl Rng {
-    fn new(seed: u64) -> Rng {
+    pub(crate) fn new(seed: u64) -> Rng {
         Rng(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1)
     }
     fn next(&mut self) -> u64 {
@@ -77,19 +77,19 @@ impl Rng {
         self.0 = x;
         x.wrapping_mul(0x2545_F491_4F6C_DD1D)
     }
-    fn below(&mut self, n: usize) -> usize {
+    pub(crate) fn below(&mut self, n: usize) -> usize {
         if n == 0 { 0 } else { (self.next() % n as u64) as usize }
     }
-    fn pick<'a>(&mut self, list: &[&'a str]) -> &'a str {
+    pub(crate) fn pick<'a>(&mut self, list: &[&'a str]) -> &'a str {
         list.get(self.below(list.len())).copied().unwrap_or("")
     }
-    fn chance(&mut self, percent: usize) -> bool {
+    pub(crate) fn chance(&mut self, percent: usize) -> bool {
         self.below(100) < percent
     }
 }
 
 // Word lists for the made-up prose: plain mathematical English, written for this repository.
-const ADJ: [&str; 24] = [
+pub(crate) const ADJ: [&str; 24] = [
     "bounded",
     "compact",
     "separable",
@@ -115,7 +115,7 @@ const ADJ: [&str; 24] = [
     "reduced",
     "natural",
 ];
-const NOUN: [&str; 24] = [
+pub(crate) const NOUN: [&str; 24] = [
     "operator",
     "space",
     "sequence",
@@ -173,7 +173,7 @@ const OPENER: [&str; 14] = [
     "As before",
     "By symmetry",
 ];
-const MATH: [&str; 24] = [
+pub(crate) const MATH: [&str; 24] = [
     "$T$",
     "$f$",
     "$x_n$",
@@ -199,10 +199,10 @@ const MATH: [&str; 24] = [
     "$p < q$",
     "$\\langle x, y \\rangle$",
 ];
-const TITLE_WORDS: [&str; 12] =
+pub(crate) const TITLE_WORDS: [&str; 12] =
     ["Remarks", "Bounds", "Estimates", "Notes", "Results", "Questions", "Methods", "Examples", "Limits", "Properties", "Spectra", "Averages"];
 
-fn sentence(rng: &mut Rng) -> String {
+pub(crate) fn sentence(rng: &mut Rng) -> String {
     let mut s = String::new();
     if rng.chance(35) {
         let _ = write!(s, "{}, ", rng.pick(&OPENER));
@@ -232,12 +232,12 @@ fn sentence(rng: &mut Rng) -> String {
     }
 }
 
-fn sentences(rng: &mut Rng, n: usize) -> String {
+pub(crate) fn sentences(rng: &mut Rng, n: usize) -> String {
     (0..n).map(|_| sentence(rng)).collect::<Vec<_>>().join(" ")
 }
 
 /// Displays of our own, by kind.
-const EQUATIONS: [&str; 8] = [
+pub(crate) const EQUATIONS: [&str; 8] = [
     "\\sum_{n=1}^{\\infty} \\frac{s_n(T)^{2}}{n} \\le C \\|T\\|_{2}^{2}",
     "\\int_{0}^{1} |f(t)|^{2} \\, dt = \\lim_{k \\to \\infty} \\frac{1}{k} \\sum_{j=1}^{k} a_j",
     "u(x) = \\frac{1}{2\\pi} \\int_{\\mathbb{R}} \\hat{u}(\\xi) e^{i x \\xi} \\, d\\xi",
@@ -247,7 +247,7 @@ const EQUATIONS: [&str; 8] = [
     "\\det(I - zT) = \\prod_{n \\ge 1} (1 - z \\lambda_n)",
     "E_n = \\max_{1 \\le j \\le n} |x_j - y_j|",
 ];
-const ALIGNS: [&str; 3] = [
+pub(crate) const ALIGNS: [&str; 3] = [
     "a_n &= \\sum_{k=0}^{n} \\binom{n}{k} b_k \\\\ b_n &= \\frac{1}{n+1} \\sum_{k=0}^{n} a_k",
     "\\|u\\|_{1} &\\le \\|u\\|_{2} \\\\ &\\le C \\|\\nabla u\\|_{2}",
     "f(x) &= x^{2} + 1 \\\\ g(x) &= \\frac{f(x)}{1 + x^{2}} \\\\ h(x) &= f(g(x))",
