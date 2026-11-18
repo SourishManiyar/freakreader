@@ -8,8 +8,8 @@
 //!
 //! A mention the text makes without a link ("by Lemma 2.1", "see (3.4)", "Section 3") previews the
 //! same way when the document's reference graph ([`super::ref_graph`]) resolved it with at least
-//! [`PREVIEW_CONFIDENCE`]: the window shows the named block's own extent and says "inferred" with
-//! its title. Such a mention is only read where the pointer is; it never takes the pointer, a
+//! [`PREVIEW_CONFIDENCE`]: the window opens on the named block's own extent and says "inferred"
+//! with its title. Such a mention is only read where the pointer is; it never takes the pointer, a
 //! press, the cursor or a text selection from the page. Preferences turn these previews off on
 //! their own.
 //!
@@ -21,6 +21,12 @@
 //! the destination shows). The preview closes when the document changes (its pages may be
 //! gone), when a dialog comes over the pages, and when its link's page leaves the screen; the
 //! pointer's also while the pages scroll, zoom or are dragged.
+//!
+//! The window looks onto the whole height of the target page ([`Layout`]): it opens at the block,
+//! at least [`MIN_SHOWN_SHARE`] of the page tall (a heading or a caption alone says little), and
+//! the wheel over it scrolls it, so a figure under its caption or the lines after a heading are a
+//! turn of the wheel away. The pages under the window take no wheel while the pointer is on it
+//! (it is a layer above them).
 
 use egui::emath::GuiRounding as _;
 use egui::{Align2, Color32, CornerRadius, Pos2, Rect, Sense, Stroke, Vec2, pos2, vec2};
@@ -57,8 +63,19 @@ pub const HOVER_GRACE: f64 = 0.3;
 /// How long the window waits for the target page's glyphs before it shows the band below the
 /// destination instead, in seconds.
 pub const GLYPHS_PATIENCE: f64 = 0.5;
-/// The tag of the glyph request: a picture's tag is its scale in thousandths, never this.
+/// The tag of the glyph request: a picture's tag is its scale and its top, never this.
 const GLYPHS_TAG: u64 = u64::MAX;
+/// The least height the window shows of the target page, as a share of the page's width (about a
+/// dozen lines of body text): a block shorter than that shows the lines after it too.
+pub const MIN_SHOWN_SHARE: f32 = 0.25;
+/// Without the target page's glyphs, a block narrower than this share of its page's width (a
+/// heading, a short caption) is shown across the whole page, so the lines after it are whole.
+const NARROW_SHARE: f32 = 0.35;
+/// The widest gap between glyphs, in ems, that still joins them into one text column: more than a
+/// space between words, less than the gutter between columns.
+const COLUMN_GAP_EMS: f32 = 0.6;
+/// The most glyphs read to find a block's column.
+const MAX_COLUMN_GLYPHS: usize = 20_000;
 
 /// What a preview belongs to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -161,6 +178,25 @@ pub struct LinkPeek {
     texture: Option<egui::TextureHandle>,
     /// The renderer could not draw the area.
     failed: bool,
+    /// The window has been scrolled to the block once; after that the scroll is the reader's.
+    scrolled: bool,
+    /// The text column the block sits in on the target page (`[x0, x1]`, view space), from its
+    /// glyphs: the window is that wide, so the lines after a figure or a heading are whole.
+    column: Option<[f32; 2]>,
+}
+
+/// How the window shows the target page, in view space and screen points.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Layout {
+    /// The part of the target page drawn: the block's width (or the page's, for a narrow block),
+    /// and the page's height, or as much of it around the block as one picture can hold.
+    region: [f32; 4],
+    /// The picture's size on screen, in points.
+    content: Vec2,
+    /// How much of it the window shows at once, in points.
+    visible: f32,
+    /// Where the window opens: the block's top, in points from the picture's top.
+    offset: f32,
 }
 
 impl std::fmt::Debug for LinkPeek {
@@ -196,6 +232,8 @@ impl LinkPeek {
             asked: None,
             texture: None,
             failed: false,
+            scrolled: false,
+            column: None,
         })
     }
 
@@ -247,6 +285,8 @@ impl LinkPeek {
             asked: None,
             texture: None,
             failed: false,
+            scrolled: false,
+            column: None,
         })
     }
 
@@ -315,11 +355,9 @@ impl LinkPeek {
         if self.settled {
             return true;
         }
+        // The glyphs fit the area to the block (a link's band), and give the block's column (every
+        // preview), so they are asked for always.
         let Some(asked) = self.glyphs_asked else {
-            if !self.preview.wants_glyphs() {
-                self.settled = true;
-                return true;
-            }
             let request = RenderRequest { page: self.preview.page, kind: RequestKind::Glyphs, tag: GLYPHS_TAG, ..Default::default() };
             self.pool.set_queue(vec![request]);
             self.glyphs_asked = Some(now);
@@ -329,9 +367,11 @@ impl LinkPeek {
             if out.request.tag != GLYPHS_TAG {
                 continue;
             }
-            // Glyphs that could not be read leave the band.
+            // Glyphs that could not be read leave the band, as wide as it is.
             if let Some(math) = out.glyphs {
                 self.preview.fit(&self.target_page, &math);
+                let glyphs = math.glyphs.iter().take(MAX_COLUMN_GLYPHS).map(|g| (g.rect, g.size));
+                self.column = column_of(glyphs, self.preview.area, self.target_page.width);
             }
             self.settled = true;
         }
@@ -349,32 +389,52 @@ impl LinkPeek {
         self.pool.watch()
     }
 
-    /// The picture's size on screen, in points: at `zoom` (screen points per page point, the
-    /// link's page's), so its text reads at the size of the page's, but no wider than `room`, no
-    /// taller than `tallest`, and no narrower than [`MIN_WIDTH`] (or `room`, when less).
-    fn picture_size(&self, zoom: f32, room: Vec2) -> Vec2 {
-        let [x0, y0, x1, y1] = self.preview.area;
-        let (aw, ah) = ((x1 - x0).max(1.0), (y1 - y0).max(1.0));
+    /// How the window shows the target page at `zoom` (screen points per page point, the link's
+    /// page's) in `room` (points), on a screen of `ppp` pixels per point. The block reads at the
+    /// page's zoom unless the room is too small for it, or for [`MIN_SHOWN_SHARE`] of the page,
+    /// and is never narrower than [`MIN_WIDTH`] (or `room`, when less). Below and above it runs
+    /// the rest of the page, as much as one picture of [`MAX_SIDE`] pixels holds.
+    fn layout(&self, zoom: f32, room: Vec2, ppp: f32) -> Layout {
+        let (w, h) = (self.target_page.width.max(1.0), self.target_page.height.max(1.0));
+        // Kept on the page; an area that is not a box there (it never should be) is the page.
+        let a = self.preview.area.map(|v| if v.is_finite() { v } else { -1.0 });
+        let [x0, y0, x1, y1] = [a[0].clamp(0.0, w), a[1].clamp(0.0, h), a[2].clamp(0.0, w), a[3].clamp(0.0, h)];
+        let [x0, y0, x1, y1] = if x1 > x0 && y1 > y0 && a.iter().all(|v| *v >= 0.0) { [x0, y0, x1, y1] } else { [0.0, 0.0, w, h] };
+        let (x0, x1) = match self.column {
+            Some([c0, c1]) => ((x0.min(c0) - BLOCK_MARGIN).max(0.0), (x1.max(c1) + BLOCK_MARGIN).min(w)),
+            None if x1 - x0 < NARROW_SHARE * w => (0.0, w),
+            None => (x0, x1),
+        };
+        let rw = (x1 - x0).max(1.0);
+        let shown = (y1 - y0).max(MIN_SHOWN_SHARE * w).clamp(1.0, h);
         let zoom = if zoom.is_finite() && zoom > 0.0 { zoom } else { 1.0 };
-        let fit = (room.x.max(1.0) / aw).min(room.y.max(1.0) / ah);
-        let least = MIN_WIDTH.min(room.x.max(1.0)) / aw;
+        let ppp = if ppp.is_finite() && ppp > 0.0 { ppp } else { 1.0 };
+        let fit = (room.x.max(1.0) / rw).min(room.y.max(1.0) / shown);
+        let least = MIN_WIDTH.min(room.x.max(1.0)) / rw;
         let per_point = zoom.min(fit).max(least);
-        vec2(aw * per_point, ah * per_point)
+        // The region drawn: the whole page's height when one picture holds it, else a window
+        // around the block that starts a little above it.
+        let rh = h.min((MAX_SIDE / (per_point * ppp)).max(shown));
+        let top = (y0 - 0.25 * (rh - shown)).clamp(0.0, (h - rh).max(0.0));
+        let content = snap(vec2(rw * per_point, rh * per_point), ppp);
+        let visible = snap(vec2(1.0, (shown * per_point).min(room.y.max(1.0)).min(content.y)), ppp).y;
+        let offset = ((y0 - top) * per_point).clamp(0.0, (content.y - visible).max(0.0));
+        Layout { region: [x0, top, x1, top + rh], content, visible, offset }
     }
 
-    /// Ask for the picture at `size` points on a screen of `ppp` pixels per point, when not asked
+    /// Ask for the picture of `layout` on a screen of `ppp` pixels per point, when not asked
     /// already, and take in what has come back. `true` while it is still being drawn.
-    fn render(&mut self, ctx: &egui::Context, size: Vec2, ppp: f32) -> bool {
-        let [x0, y0, x1, y1] = self.preview.area;
+    fn render(&mut self, ctx: &egui::Context, layout: &Layout, ppp: f32) -> bool {
+        let [x0, y0, x1, y1] = layout.region;
         let (aw, ah) = ((x1 - x0).max(1.0), (y1 - y0).max(1.0));
-        let scale = (size.x * ppp / aw).min(MAX_SIDE / aw).min(MAX_SIDE / ah);
+        let scale = (layout.content.x * ppp / aw).min(MAX_SIDE / aw).min(MAX_SIDE / ah);
         if !(scale.is_finite() && scale > 0.0) {
             self.failed = true;
             return false;
         }
-        // Whole thousandths of a pixel per point: a scale changes only when the window or the
-        // screen does.
-        let tag = (scale * 1000.0).round() as u64;
+        // Whole thousandths of a pixel per point, and the region's top in tenths of a point: they
+        // change only when the window or the screen does. Never the glyph request's tag.
+        let tag = ((scale * 1000.0).round() as u64 & 0xFFFF_FFFF) | (((y0 * 10.0).round().max(0.0) as u64 & 0x7FFF_FFFF) << 32);
         if self.asked != Some(tag) && !self.failed {
             let tile = Tile {
                 x: (x0 * scale).floor().max(0.0) as u32,
@@ -507,6 +567,47 @@ pub(super) fn hover(
     }
 }
 
+/// The text column a block `area` (view space) sits in on a page `page_w` points wide, from the
+/// page's `glyphs` (each its box and its size in points): the span of the glyphs inside the block
+/// (not the block's box, whose margin could reach over a gutter), grown over the glyphs the window
+/// first shows (the block and [`MIN_SHOWN_SHARE`] of the page below it) while
+/// the gap to the next is under [`COLUMN_GAP_EMS`]. It stops at a column's gutter and at the page's
+/// margins; the page's foot (a centred page number sits in the gutter) is too far down to bridge
+/// it. `None` when no glyph is near the block (a scan, a page of pictures).
+fn column_of(glyphs: impl Iterator<Item = ([f32; 4], f32)>, area: [f32; 4], page_w: f32) -> Option<[f32; 2]> {
+    let [ax0, ay0, ax1, ay1] = area;
+    if !([ax0, ay0, ax1, ay1, page_w].iter().all(|v| v.is_finite()) && ax1 > ax0) {
+        return None;
+    }
+    let (top, bottom) = (ay0, ay1.max(ay0) + MIN_SHOWN_SHARE * page_w.max(0.0));
+    // Each glyph near the block: its box and the widest gap that joins it to its neighbours.
+    let near: Vec<([f32; 4], f32)> = glyphs
+        .filter(|(r, size)| r.iter().chain(std::iter::once(size)).all(|v| v.is_finite()) && r[2] >= r[0] && r[3] > top && r[1] < bottom)
+        .map(|(r, size)| (r, size.clamp(1.0, 100.0) * COLUMN_GAP_EMS))
+        .collect();
+    let inside = |(r, _): &&([f32; 4], f32)| {
+        let (cx, cy) = ((r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0);
+        cx >= ax0 && cx <= ax1 && cy >= ay0 && cy <= ay1
+    };
+    let mut left = near.iter().filter(inside).map(|(r, _)| r[0]).reduce(f32::min)?;
+    let mut right = near.iter().filter(inside).map(|(r, _)| r[2]).reduce(f32::max)?;
+    let mut spans: Vec<(f32, f32, f32)> = near.iter().map(|(r, gap)| (r[0], r[2], *gap)).collect();
+    // Rightwards in order of where glyphs start, then leftwards in order of where they end.
+    spans.sort_by(|a, b| a.0.total_cmp(&b.0));
+    for &(x0, x1, gap) in &spans {
+        if x0 <= right + gap && x1 > right {
+            right = x1;
+        }
+    }
+    spans.sort_by(|a, b| b.1.total_cmp(&a.1));
+    for &(x0, x1, gap) in &spans {
+        if x1 >= left - gap && x0 < left {
+            left = x0;
+        }
+    }
+    Some([left, right])
+}
+
 /// The zoom the preview is drawn at: the link's page's (screen points per page point), but never
 /// below the viewer's 100 % ([`super::PT`]), where body text is too small to read, times
 /// Reference preview size (`size`, a factor). A page zoomed out to see more of it still gets a
@@ -572,14 +673,15 @@ pub(super) fn show(ui: &egui::Ui, view: &mut DocView, doc: &pdfcraft_engine::Doc
     let t = Tokens::get(&ctx);
     let room = vec2(viewport.width() - 2.0 * (EDGE + PAD), viewport.height() * (MAX_HEIGHT_SHARE * size).min(MAX_HEIGHT_SHARE_CAP));
     let ppp = ctx.pixels_per_point();
-    let picture = snap(peek.picture_size(preview_zoom(xform.map(|xf| xf.zoom()), size), room), ppp);
-    if peek.render(&ctx, picture, ppp) {
+    let layout = peek.layout(preview_zoom(xform.map(|xf| xf.zoom()), size), room, ppp);
+    if peek.render(&ctx, &layout, ppp) {
         ctx.request_repaint_after(std::time::Duration::from_millis(16));
     }
+    let picture = layout.content;
     let caption = peek.caption();
     let caption_font = theme::medium(12.0);
     let caption_h = ctx.fonts_mut(|f| f.row_height(&caption_font));
-    let size = picture + vec2(2.0 * PAD, 2.0 * PAD + caption_h + CAPTION_GAP);
+    let size = vec2(picture.x, layout.visible) + vec2(2.0 * PAD, 2.0 * PAD + caption_h + CAPTION_GAP);
     // On whole pixels, so the picture's texels fall on the screen's.
     let at = place(link, size, viewport).round_to_pixels(ppp);
     let mut go = false;
@@ -596,23 +698,38 @@ pub(super) fn show(ui: &egui::Ui, view: &mut DocView, doc: &pdfcraft_engine::Doc
             ui.set_width(picture.x);
             ui.label(egui::RichText::new(caption.clone()).font(caption_font.clone()).color(t.text_muted));
             ui.add_space(CAPTION_GAP);
-            let (rect, resp) = ui.allocate_exact_size(picture, Sense::click());
-            resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Image, true, &caption));
-            let painter = ui.painter_at(rect);
-            painter.rect_filled(rect, 0.0, Color32::WHITE);
-            if let Some(texture) = &peek.texture {
-                // At its own pixel size from a whole pixel: one texel per screen pixel, never
-                // resampled (which blurs small text). It is the picture's size within a pixel.
-                let shown = Rect::from_min_size(rect.min.round_to_pixels(ppp), texture.size_vec2() / ppp);
-                painter.image(texture.id(), shown, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
-            } else {
-                let note = if peek.failed { tl!("This part of the page could not be drawn.") } else { tl!("Drawing…") };
-                painter.text(rect.center(), Align2::CENTER_CENTER, note, theme::regular(12.0), t.text_muted);
+            // The page runs on above and below the block: the wheel over the window scrolls it.
+            // It opens at the block, once; then the scroll is the reader's.
+            let mut scroll = egui::ScrollArea::vertical()
+                .id_salt(("link-preview-scroll", view.id.0))
+                .max_height(layout.visible)
+                .min_scrolled_height(layout.visible)
+                .auto_shrink([true, true])
+                .scroll_source(egui::scroll_area::ScrollSource { scroll_bar: true, mouse_wheel: true, ..egui::scroll_area::ScrollSource::NONE });
+            if !peek.scrolled {
+                scroll = scroll.vertical_scroll_offset(layout.offset);
+                peek.scrolled = peek.texture.is_some();
             }
-            painter.rect_stroke(rect, 0.0, Stroke::new(1.0, t.divider), egui::StrokeKind::Inside);
-            let resp = theme::hand(resp).on_hover_text(tl!("Click to go there; right-click to close"));
-            go = resp.clicked();
-            resp
+            let out = scroll.show(ui, |ui| {
+                let (rect, resp) = ui.allocate_exact_size(picture, Sense::click());
+                resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Image, true, &caption));
+                let painter = ui.painter_at(rect);
+                painter.rect_filled(rect, 0.0, Color32::WHITE);
+                if let Some(texture) = &peek.texture {
+                    // At its own pixel size from a whole pixel: one texel per screen pixel, never
+                    // resampled (which blurs small text). It is the picture's size within a pixel.
+                    let shown = Rect::from_min_size(rect.min.round_to_pixels(ppp), texture.size_vec2() / ppp);
+                    painter.image(texture.id(), shown, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+                } else {
+                    let note = if peek.failed { tl!("This part of the page could not be drawn.") } else { tl!("Drawing…") };
+                    let at = pos2(rect.center().x, rect.top() + layout.offset + layout.visible / 2.0);
+                    painter.text(at, Align2::CENTER_CENTER, note, theme::regular(12.0), t.text_muted);
+                }
+                theme::hand(resp).on_hover_text(tl!("Click to go there; right-click to close"))
+            });
+            ui.painter().rect_stroke(out.inner_rect, 0.0, Stroke::new(1.0, t.divider), egui::StrokeKind::Inside);
+            go = out.inner.clicked();
+            out.inner
         });
         close = shown.response.secondary_clicked() || shown.inner.secondary_clicked();
         // The window's own response: whether the pointer is on it, so a preview the pointer
@@ -663,6 +780,8 @@ mod tests {
             asked: None,
             texture: None,
             failed: false,
+            scrolled: false,
+            column: None,
         }
     }
 
@@ -670,15 +789,82 @@ mod tests {
     fn the_picture_reads_at_the_pages_zoom_within_the_room_it_has() {
         let peek = peek_of([0.0, 100.0, 612.0, 345.0]);
         let room = vec2(1200.0, 450.0);
-        // At the page's zoom while it fits.
-        assert_eq!(peek.picture_size(1.5, room), vec2(918.0, 367.5));
+        // At the page's zoom while it fits: the whole page's height, opened at the block, which
+        // fills the window.
+        let l = peek.layout(1.5, room, 1.0);
+        assert_eq!((l.region, l.content, l.visible, l.offset), ([0.0, 0.0, 612.0, 792.0], vec2(918.0, 1188.0), 368.0, 150.0));
         // Narrower than the window: fitted to it.
-        let narrow = peek.picture_size(1.5, vec2(600.0, 450.0));
-        assert!((narrow.x - 600.0).abs() < 0.01, "{narrow:?}");
+        assert!((peek.layout(1.5, vec2(600.0, 450.0), 1.0).content.x - 600.0).abs() < 0.01);
         // Zoomed far out: still readable, at its least width.
-        assert!((peek.picture_size(0.1, room).x - MIN_WIDTH).abs() < 0.01);
-        // Nonsense zoom reads as 100%.
-        assert_eq!(peek.picture_size(f32::NAN, room), vec2(612.0, 245.0));
+        assert!((peek.layout(0.1, room, 1.0).content.x - MIN_WIDTH).abs() < 0.01);
+        // Nonsense zoom and pixels read as 100% on a 1× screen.
+        let l = peek.layout(f32::NAN, room, f32::NAN);
+        assert_eq!((l.content, l.visible, l.offset), (vec2(612.0, 792.0), 245.0, 100.0));
+    }
+
+    #[test]
+    fn a_short_or_narrow_block_shows_the_lines_after_it_across_the_page() {
+        // A heading: one line, a third of the page wide.
+        let peek = peek_of([72.0, 300.0, 200.0, 312.0]);
+        let l = peek.layout(1.0, vec2(1200.0, 800.0), 1.0);
+        assert_eq!([l.region[0], l.region[2]], [0.0, 612.0]);
+        // A quarter of the page's width tall, from the heading down.
+        assert_eq!((l.visible, l.offset), (153.0, 300.0));
+        // A wide block keeps its own width.
+        let wide = peek_of([60.0, 300.0, 552.0, 312.0]).layout(1.0, vec2(1200.0, 800.0), 1.0);
+        assert_eq!([wide.region[0], wide.region[2]], [60.0, 552.0]);
+    }
+
+    #[test]
+    fn a_block_shows_as_wide_as_its_text_column_and_no_wider() {
+        // Two columns of 10 pt text, 72–296 and 306–530 (a 10 point gutter), words 4 points
+        // apart; a narrow figure in the left one, from y 300, and text under it.
+        let mut glyphs = Vec::new();
+        for line in 0..20 {
+            let y = 300.0 + 12.0 * line as f32;
+            for (c0, c1) in [(72.0, 296.0), (306.0, 530.0)] {
+                let mut x = c0;
+                while x < c1 {
+                    let end = (x + 30.0_f32).min(c1);
+                    glyphs.push(([x, y, end, y + 10.0], 10.0));
+                    x = end + 4.0;
+                }
+            }
+        }
+        let figure = [120.0, 300.0, 240.0, 360.0];
+        // A page number in the gutter at the foot of the page does not join the columns.
+        glyphs.push(([298.0, 740.0, 304.0, 750.0], 10.0));
+        assert_eq!(column_of(glyphs.iter().copied(), figure, 612.0), Some([72.0, 296.0]));
+        // In the right column, the right column.
+        assert_eq!(column_of(glyphs.iter().copied(), [350.0, 300.0, 400.0, 312.0], 612.0), Some([306.0, 530.0]));
+        // A block of the left column with a margin around it that reaches into the gutter: its
+        // glyphs decide, not its box.
+        assert_eq!(column_of(glyphs.iter().copied(), [66.0, 294.0, 302.0, 340.0], 612.0), Some([72.0, 296.0]));
+        // No glyphs near it, or nonsense: none.
+        assert_eq!(column_of(glyphs.iter().copied(), [120.0, 900.0, 240.0, 920.0], 612.0), None);
+        assert_eq!(column_of(std::iter::once(([f32::NAN; 4], 10.0)), figure, 612.0), None);
+        // The window is the column wide, a little more.
+        let mut peek = peek_of(figure);
+        peek.column = Some([72.0, 296.0]);
+        let l = peek.layout(1.0, vec2(1200.0, 800.0), 1.0);
+        assert_eq!([l.region[0], l.region[2]], [72.0 - BLOCK_MARGIN, 296.0 + BLOCK_MARGIN]);
+    }
+
+    #[test]
+    fn a_page_too_tall_for_one_picture_shows_the_part_around_the_block() {
+        let peek = peek_of([0.0, 500.0, 612.0, 600.0]);
+        // 3 points per page point on a 2× screen: the page would be 4752 pixels tall.
+        let l = peek.layout(3.0, vec2(4000.0, 4000.0), 2.0);
+        let [_, top, _, bottom] = l.region;
+        assert!((bottom - top) * 3.0 * 2.0 <= MAX_SIDE + 0.5, "{l:?}");
+        assert!(top <= 500.0 && bottom >= 600.0 && top > 0.0, "{l:?}");
+        assert!((l.offset - (500.0 - top) * 3.0).abs() < 0.01, "{l:?}");
+        // Hostile areas never leave the page or make a nonsense size.
+        for area in [[f32::NAN; 4], [0.0, 900.0, 612.0, 1000.0], [-50.0, -50.0, 10.0, 10.0]] {
+            let l = peek_of(area).layout(1.0, vec2(800.0, 600.0), 1.0);
+            assert!(l.content.x.is_finite() && l.content.y.is_finite() && l.offset.is_finite() && l.visible >= 1.0, "{area:?} {l:?}");
+            assert!(l.region[1] >= 0.0 && l.region[3] <= 792.0, "{area:?} {l:?}");
+        }
     }
 
     #[test]
