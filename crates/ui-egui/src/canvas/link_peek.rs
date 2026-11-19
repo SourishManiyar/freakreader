@@ -1,9 +1,9 @@
 //! The reference preview: with the Select tool, resting the pointer on a link to a place in this
 //! document (a theorem, an equation, a cited work) for [`HOVER_DELAY`], or a right-click on it,
 //! shows that place in a small window by the link, so the reader can look without leaving the
-//! page they are on. A preview the pointer opened closes [`HOVER_GRACE`] after the pointer leaves
-//! the link and the window, so the pointer can cross to the window; one a right-click opened
-//! stays. Another right-click closes it, as does Escape (`app/keys.rs`); a click on the preview
+//! page they are on. A preview the pointer opened is a glance: it closes [`HOVER_GRACE`] after the
+//! pointer leaves the link, over its window or not; one a right-click opened stays, to be read,
+//! scrolled and clicked. Another right-click closes it, as does Escape (`app/keys.rs`); a click on the preview
 //! goes there. Preferences ▸ Documents and view turns the pointer's previews off.
 //!
 //! A mention the text makes without a link ("by Lemma 2.1", "see (3.4)", "Section 3", a citation
@@ -61,9 +61,10 @@ const MAX_SIDE: f32 = 4096.0;
 /// How long the pointer rests on a link before its preview opens, in seconds: long enough that
 /// moving across a page of references opens none, as a tooltip waits.
 pub const HOVER_DELAY: f64 = 0.4;
-/// How long a preview the pointer opened stays after the pointer leaves its link and its window,
-/// in seconds: time to cross the gap between them.
-pub const HOVER_GRACE: f64 = 0.3;
+/// How long a preview the pointer opened stays after the pointer leaves its link, in seconds: a
+/// few frames, so a pointer slipping off the link's edge and back doesn't make it flicker. The
+/// window doesn't hold it: a right-click opens one that stays.
+pub const HOVER_GRACE: f64 = 0.1;
 /// How long the window waits for the target page's glyphs before it shows the band below the
 /// destination instead, in seconds.
 pub const GLYPHS_PATIENCE: f64 = 0.5;
@@ -612,7 +613,7 @@ pub(super) fn hover(
             if !allowed || (pressed && !peek.pointer_inside) || moved {
                 return true;
             }
-            if on_link || peek.pointer_inside {
+            if on_link {
                 peek.left_at = None;
                 return false;
             }

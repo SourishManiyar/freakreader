@@ -1304,7 +1304,7 @@ evidence = [
     "crates/ui-egui/tests/it/link_preview.rs::a_web_link_and_the_link_tool_keep_the_link_menu",
     "crates/ui-egui/tests/it/link_preview.rs::an_edit_closes_the_preview",
     "crates/ui-egui/tests/it/link_preview.rs::resting_the_pointer_on_a_link_previews_it_and_leaving_closes_it",
-    "crates/ui-egui/tests/it/link_preview.rs::the_pointer_can_cross_to_the_preview_and_stay_on_it",
+    "crates/ui-egui/tests/it/link_preview.rs::a_pointer_preview_closes_over_its_window_and_a_right_click_one_stays_there",
     "crates/ui-egui/tests/it/link_preview.rs::escape_closes_a_pointer_preview_until_the_pointer_comes_back",
     "crates/ui-egui/tests/it/link_preview.rs::a_right_click_keeps_a_pointer_preview_open",
     "crates/ui-egui/tests/it/link_preview.rs::no_pointer_preview_with_the_preference_off_a_web_link_scrolling_or_a_menu_open",
@@ -1969,19 +1969,9 @@ evidence = [
   "crates/ui-egui/tests/it/pinned_tools.rs::home_shows_pinned_tools_section_and_placeholder",
   "crates/ui-egui/tests/it/pinned_tools.rs::pin_tool_dialog_workflow",
   "crates/ui-egui/tests/it/pinned_tools.rs::a_pinned_tools_card_unpins_it_from_home",
-  "crates/ui-egui/tests/it/comments.rs::hotbar_picker_adds_and_runs_freehand_highlight",
-  "crates/ui-egui/tests/it/comments.rs::hotbar_drag_moves_and_persists_position",
-  "crates/ui-egui/tests/it/comments.rs::hotbar_vertical_size_and_docking",
-  "crates/ui-egui/tests/it/comments.rs::hotbar_settings_reopen_even_with_remembered_collapsed_state",
-  "crates/ui-egui/tests/it/comments.rs::hotbar_full_side_strip_spans_each_edge_and_returns_to_float",
-  "crates/ui-egui/tests/it/comments.rs::hotbar_docked_left_does_not_override_quick_tools",
-  "crates/ui-egui/tests/it/comments.rs::hotbar_docked_in_compact_window_keeps_settings_button_visible",
-  "crates/ui-egui/tests/it/comments.rs::hotbar_settings_menu_closes_on_click_outside",
-  "crates/ui-egui/tests/it/comments.rs::hotbar_picker_in_narrow_viewport_fits_within_screen_width",
-  "crates/ui-egui/tests/it/comments.rs::hotbar_floating_picker_does_not_overlap_rendered_bar",
-  "crates/ui-egui/tests/it/comments.rs::hotbar_settings_layout_and_side_controls_are_reachable_by_label",
+  "crates/ui-egui/tests/it/viewer.rs::the_quick_tools_are_at_the_left_of_the_navigation_bar",
 ]
-notes = "Pin and unpin tools on the Home page via tool card hover button, All Tools row toggle, or 'Pin a tool' search dialog. Pinned tool order persists across sessions. Customizable document hotbar searches the command registry, adds/removes tools, resizes buttons from 24 to 64 pixels, floats or docks on any side with an optional full-side chrome strip, and persists preferences (UI control: hotbar-tools, hotbar-size, hotbar-side, hotbar-full-side). Missing: hotbar shortcut reordering and full Acrobat customization-dialog parity."
+notes = "Pin and unpin tools on the Home page via tool card hover button, All Tools row toggle, or 'Pin a tool' search dialog. Pinned tool order persists across sessions. The document's quick tools are fixed at the left of the navigation bar: Select, Hand and the Comment group, with Edit text & images in the Edit workspace and the controls of the comment or Fill & Sign tool in use; there is no floating or customizable toolbar (the floating hotbar was removed). Missing: choosing which tools the bar shows, and full Acrobat customization-dialog parity."
 
 [[feature]]
 id = "view.restriction-notice"
@@ -3387,8 +3377,8 @@ milestone = "M4"
 status = "shipped"
 commands = ["page.crop"]
 tools = ["page_set_box"]
-evidence = ["crates/ui-egui/tests/it/pageboxes.rs::the_crop_tool_crops_to_the_dragged_rectangle_then_returns_to_select", "crates/ui-egui/tests/it/pageboxes.rs::quick_toolbar_crop_crops_the_page_and_undo_restores_it", "crates/ui-egui/tests/it/pageboxes.rs::quick_toolbar_crop_is_disabled_when_page_assembly_is_forbidden", "crates/ui-egui/tests/it/pageboxes.rs::quick_toolbar_crop_is_hidden_on_home_and_in_read_mode"]
-notes = "drag to crop; double-click opens Set Page Boxes; Crop pages is also directly available in the document quick toolbar (#5330), using the existing command availability and assembly permission check. The quick toolbar is hidden on Home and in Read/full-screen modes; arbitrary toolbar customization remains outside this feature."
+evidence = ["crates/ui-egui/tests/it/pageboxes.rs::the_crop_tool_crops_to_the_dragged_rectangle_then_returns_to_select", "crates/ui-egui/tests/it/pageboxes.rs::crop_is_refused_when_page_assembly_is_forbidden"]
+notes = "drag to crop; double-click opens Set Page Boxes; Crop pages is refused where the assembly permission forbids it. The floating quick toolbar and its Crop pages button (#5330) were removed: Crop pages is in Organize pages, the Tools panel, the menus and the command search."
 
 [[feature]]
 id = "organize.remove-white-margins"

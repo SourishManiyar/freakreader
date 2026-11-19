@@ -991,6 +991,8 @@ fn initial_view_is_edited_and_honoured_on_open() {
     let bytes = s.session.save_bytes(id).unwrap();
     let mut app = PdfCraftApp::new();
     app.set_option("language", "en").unwrap();
+    // Its own view: Always use my default zoom and page layout (on by default) would set it aside.
+    app.always_default_view = false;
     app.open_bytes("again.pdf", None, bytes.to_vec()).unwrap();
     let view = &app.views[0];
     assert_eq!((view.current, view.cover, app.right), (1, true, Some(pdfcraft_ui_egui::RightPanel::Bookmarks)));
@@ -1024,6 +1026,7 @@ fn initial_view_magnification_offers_25_and_100_percent() {
         let id = s.views[s.active.unwrap()].id;
         let bytes = s.session.save_bytes(id).unwrap();
         let mut app = PdfCraftApp::new();
+        app.always_default_view = false;
         app.open_bytes("again.pdf", None, bytes.to_vec()).unwrap();
         let view = &app.views[0];
         (app.session.get(view.id).unwrap().initial_view().magnification, view.zoom, view.fit)
@@ -2783,4 +2786,38 @@ fn the_accessible_window_has_the_window_title_as_its_name() {
     // Unsaved, so it carries the window title's mark too (#3640).
     assert_eq!(name(&h).as_deref(), Some("Quarterly report • — PdfCraft"));
     assert_eq!(name(&h), Some(h.state().window_title.clone()));
+}
+
+/// Select, Hand and the Comment group sit at the left of the navigation bar, before its centred
+/// controls; no toolbar floats over the pages, and Read mode hides the tools.
+#[test]
+fn the_quick_tools_are_at_the_left_of_the_navigation_bar() {
+    use pdfcraft_ui_egui::QuickTool;
+    let mut h = harness();
+    let select = h.get_by_label("Select (V)").rect();
+    let hand = h.get_by_label("Hand (H)").rect();
+    let comment = h.get_by_label("Add a sticky note").rect();
+    let back = h.get_by_label_contains("Previous view (").rect();
+    assert!(
+        select.right() <= hand.left() && hand.right() <= comment.left() && comment.right() < back.left(),
+        "{select:?} {hand:?} {comment:?} {back:?}"
+    );
+    for r in [select, hand, comment] {
+        assert!((r.center().y - back.center().y).abs() < 1.0, "on the navigation bar's row: {r:?} {back:?}");
+        assert!(r.left() < 200.0, "at the bar's left: {r:?}");
+    }
+    assert!(h.query_by_label("Drag hotbar").is_none(), "no floating toolbar");
+    h.get_by_label("Hand (H)").click();
+    h.run_steps(2);
+    assert_eq!(h.state().quick_tool, QuickTool::Hand);
+    h.get_by_label("Select (V)").click();
+    h.run_steps(2);
+    assert_eq!(h.state().quick_tool, QuickTool::Select);
+    h.get_by_label("Add a sticky note").click();
+    h.run_steps(2);
+    assert!(matches!(h.state().quick_tool, QuickTool::Comment(_)), "{:?}", h.state().quick_tool);
+    h.state_mut().mode = pdfcraft_ui_egui::Mode::Read;
+    h.run_steps(3);
+    assert!(h.query_by_label("Hand (H)").is_none(), "Read mode hides the tools");
+    assert!(h.query_by_label_contains("Previous view (").is_some(), "the bar stays");
 }

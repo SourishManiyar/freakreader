@@ -29,6 +29,10 @@ const NOT_STATEMENTS: [&str; 14] = [
 const MAX_HEAD_WORDS: usize = 14;
 /// A share of letters at least this large makes text italic.
 const ITALIC_SHARE: f32 = 0.6;
+/// A line indented more than this many of its sizes is a list item's, not a paragraph's first.
+const LIST_INDENT_EMS: f32 = 2.0;
+/// How many lines after a head alone on its line are read for the look of the statement's body.
+const BODY_LOOK_LINES: usize = 4;
 
 /// A run-in head found at the start of a line.
 #[derive(Clone, Debug, PartialEq)]
@@ -304,8 +308,17 @@ pub(super) fn find(pages: &[PageWords], out: &mut References) {
             return None;
         }
         // A short statement whose head is bold can look like a heading to the layout: it is a
-        // statement when body text follows its head on the line.
-        parse_head(&l.words).filter(|h| l.kind != BlockKind::Heading || (h.number.is_some() && l.words.len() > h.words))
+        // statement when body text follows its head on the line, or when its numbered head of a
+        // statement word stands alone on the line and text, not another heading, comes next (an
+        // example or a definition that opens with a display or a list: `Example 2.3.` alone).
+        parse_head(&l.words).filter(|h| {
+            l.kind != BlockKind::Heading
+                || (h.number.is_some()
+                    && (l.words.len() > h.words
+                        || (!h.proof
+                            && canonical_statement(&h.kind).is_some()
+                            && flow.line(at + 1).is_some_and(|next| next.page == l.page && next.kind != BlockKind::Heading))))
+        })
     };
     let mut at = 0;
     while at < n {
@@ -336,7 +349,22 @@ pub(super) fn find(pages: &[PageWords], out: &mut References) {
             body.extend(l.words.iter());
             k += 1;
         }
-        let (it, all) = italic_letters(body.into_iter());
+        let (mut it, mut all) = italic_letters(body.into_iter());
+        // A head alone on its line (before a display or a list): the body's look is that of the
+        // text after it, a few lines on at most.
+        let mut next = k;
+        while all < 3 && next <= at.saturating_add(BODY_LOOK_LINES) {
+            let Some(l) = flow.line(next) else { break };
+            if l.kind == BlockKind::Heading || head_at(next).is_some() {
+                break;
+            }
+            if l.kind != BlockKind::DisplayEquation {
+                let (i, a) = italic_letters(l.words.iter());
+                it += i;
+                all += a;
+            }
+            next += 1;
+        }
         let italic_body = all >= 3 && it as f32 >= ITALIC_SHARE * all as f32;
         let mut last = at;
         let mut mark: Option<(usize, EndMark)> = None;
@@ -390,11 +418,22 @@ pub(super) fn find(pages: &[PageWords], out: &mut References) {
                 true
             } else {
                 let indented = l.rect[0] - l.column[0] > 0.5 * l.size;
+                let full = prev.rect[2] >= prev.column[1] - 2.0 * prev.size;
+                // Nothing but a line's space between them, in one column.
+                let close = l.page == prev.page && l.column == prev.column && !flow.spaced(prev, l);
                 // A paragraph that goes on after a display, or into the next column or page.
-                let goes_on = !indented
-                    && (prev.kind == BlockKind::DisplayEquation
-                        || (l.first && (l.page != prev.page || l.column != prev.column) && prev.rect[2] >= prev.column[1] - 2.0 * prev.size));
-                goes_on || (italic_body && italic(&l.words) == Some(true) && (prev.kind == BlockKind::DisplayEquation || !flow.spaced(prev, l)))
+                let goes_on =
+                    !indented && (prev.kind == BlockKind::DisplayEquation || (l.first && (l.page != prev.page || l.column != prev.column) && full));
+                // The text of a line before it, full to the column's edge, going on deeper than a
+                // paragraph's indent: a list item's second line, which the layout may set apart as
+                // a block of its own. (A new upright paragraph is not taken: the space LaTeX leaves
+                // after an environment can shrink to a line's, so it cannot tell the statement's
+                // second paragraph from the text after it.)
+                let hanging = l.rect[0] - l.column[0] > LIST_INDENT_EMS * l.size;
+                let wraps = close && full && hanging;
+                goes_on
+                    || wraps
+                    || (italic_body && italic(&l.words) == Some(true) && (prev.kind == BlockKind::DisplayEquation || !flow.spaced(prev, l)))
             };
             if !take {
                 break;

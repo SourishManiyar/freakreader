@@ -1148,7 +1148,7 @@ fn default_page_display_is_used_for_new_documents() {
 fn default_zoom_is_used_for_new_documents() {
     use pdfcraft_ui_egui::canvas::Fit;
     let fit_zoom = |app: &PdfCraftApp, i: usize| (app.views[i].fit, app.views[i].zoom);
-    let mut h = harness(&[]);
+    let mut h = harness(&[("always-default-view", "off")]);
     // The factory default fits the width.
     assert_eq!(h.state().views[0].fit, Fit::Width);
     h.state_mut().set_option("default-zoom", "fit-page").unwrap();
@@ -1219,33 +1219,44 @@ fn always_use_my_default_zoom_and_page_layout_ignores_what_the_pdf_asks_for() {
         let v = &app.views[0];
         (v.fit, v.layout, v.continuous, v.current)
     };
-    // Off by default: the document's view wins.
-    assert_eq!(open(None), (Fit::Page, PageLayout::TwoUp, false, 1));
-    assert_eq!(open(Some("off")), (Fit::Page, PageLayout::TwoUp, false, 1));
-    // On: Default zoom and Default page display; the page it opens at is still the document's.
+    // On by default: Default zoom and Default page display, so every document opens alike; the
+    // page it opens at is still the document's.
+    assert_eq!(open(None), (Fit::Width, PageLayout::Single, true, 1));
     assert_eq!(open(Some("on")), (Fit::Width, PageLayout::Single, true, 1));
+    // Off: the document's view wins.
+    assert_eq!(open(Some("off")), (Fit::Page, PageLayout::TwoUp, false, 1));
     assert!(PdfCraftApp::new().set_option("always-default-view", "yes").is_err());
 }
 
 #[test]
 fn always_use_my_default_zoom_and_page_layout_survives_a_restart() {
     let mut app = PdfCraftApp::new();
-    assert!(!app.always_default_view, "off by default");
-    app.always_default_view = true;
+    assert!(app.always_default_view, "on by default");
+    app.always_default_view = false;
     let mut restarted = PdfCraftApp::new();
     restarted.restore(&app.persist());
-    assert!(restarted.always_default_view, "the choice is kept");
-    restarted.restore(r#"{"always_default_view":"bogus"}"#);
-    assert!(restarted.always_default_view, "garbage leaves it alone");
+    assert!(!restarted.always_default_view, "turning it off is kept");
+    restarted.restore(r#"{"default_view_always":"bogus"}"#);
+    assert!(!restarted.always_default_view, "garbage leaves it alone");
+    app.always_default_view = true;
+    restarted.restore(&app.persist());
+    assert!(restarted.always_default_view, "turning it on is kept");
     let mut legacy = PdfCraftApp::new();
     legacy.restore("{}");
-    assert!(!legacy.always_default_view, "a legacy file without the key keeps it off");
+    assert!(legacy.always_default_view, "a legacy file without the key gets the default");
+    // Older versions saved the switch as `always_default_view`, off by default: their `false` was
+    // that default, not a choice, so documents now open at the default view; their `true` stays.
+    let mut legacy = PdfCraftApp::new();
+    legacy.restore(r#"{"always_default_view":false}"#);
+    assert!(legacy.always_default_view, "the old default gives way to the new one");
+    legacy.restore(r#"{"always_default_view":true}"#);
+    assert!(legacy.always_default_view, "an old choice to turn it on is kept");
 }
 
 #[test]
 fn preferences_turn_on_always_use_my_default_zoom_and_page_layout() {
     use egui_kittest::kittest::Queryable;
-    let mut h = harness(&[]);
+    let mut h = harness(&[("always-default-view", "off")]);
     assert!(h.state_mut().execute("app.preferences"));
     h.run_steps(3);
     h.get_by_label("Always use my default zoom and page layout").scroll_to_me();
@@ -1258,7 +1269,7 @@ fn preferences_turn_on_always_use_my_default_zoom_and_page_layout() {
 #[test]
 fn preferences_turn_on_always_use_my_default_zoom_and_page_layout_updates_open_documents() {
     use egui_kittest::kittest::Queryable;
-    let mut h = harness(&[("continuous", "off"), ("zoom", "50")]);
+    let mut h = harness(&[("always-default-view", "off"), ("continuous", "off"), ("zoom", "50")]);
     h.state_mut().open_bytes("second.pdf", None, PAGES.to_vec()).expect("opens");
     h.state_mut().views[1].set_continuous(false);
     h.state_mut().views[1].set_zoom(0.75);
@@ -1301,7 +1312,7 @@ fn preferences_during_full_screen_updates_saved_normal_display_and_restores_on_e
     use egui_kittest::kittest::Queryable;
     use pdfcraft_ui_egui::canvas::Fit;
 
-    let mut h = harness(&[("continuous", "off"), ("zoom", "50")]);
+    let mut h = harness(&[("always-default-view", "off"), ("continuous", "off"), ("zoom", "50")]);
     let v0 = &h.state().views[0];
     assert!(!v0.continuous());
     assert_eq!(v0.fit, Fit::None);
@@ -2783,7 +2794,7 @@ fn full_screen_shows_one_fitted_page_and_clicks_turn_it() {
 #[test]
 fn full_screen_survives_a_reload_and_keeps_a_new_documents_own_view() {
     use pdfcraft_ui_egui::canvas::{Fit, PageLayout};
-    let mut h = harness(&[("layout", "continuous"), ("zoom", "50")]);
+    let mut h = harness(&[("always-default-view", "off"), ("layout", "continuous"), ("zoom", "50")]);
     h.run_steps(4);
     h.key_press_modifiers(Modifiers::COMMAND, Key::L);
     h.run_steps(6);

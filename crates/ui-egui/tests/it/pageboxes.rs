@@ -1,7 +1,7 @@
 //! Crop tool, Set Page Boxes and Duplicate pages in the real shell (egui_kittest).
 
 use egui_kittest::Harness;
-use egui_kittest::kittest::{NodeT, Queryable};
+use egui_kittest::kittest::Queryable;
 use pdfcraft_ui_egui::{Dialog, PdfCraftApp, QuickTool};
 
 const FIXTURE: &[u8] = b"%PDF-1.7
@@ -41,20 +41,7 @@ fn the_crop_tool_crops_to_the_dragged_rectangle_then_returns_to_select() {
 }
 
 #[test]
-fn quick_toolbar_crop_crops_the_page_and_undo_restores_it() {
-    let mut h = harness();
-    h.get_by_label("Crop pages").click();
-    h.run_steps(2);
-    assert_eq!(h.state().quick_tool, QuickTool::Crop);
-    assert!(!h.state().views[0].organize);
-    crop_middle_half(&mut h);
-    assert!(h.state_mut().execute("edit.undo"));
-    h.run_steps(3);
-    assert_eq!(size(&h, 0), (300.0, 400.0));
-}
-
-#[test]
-fn quick_toolbar_crop_is_disabled_when_page_assembly_is_forbidden() {
+fn crop_is_refused_when_page_assembly_is_forbidden() {
     let mut doc = pdfcraft_cos::Document::open(std::sync::Arc::new(FIXTURE.to_vec())).unwrap();
     doc.set_encryption(&pdfcraft_cos::NewEncryption {
         algorithm: pdfcraft_cos::Algorithm::Aes256,
@@ -74,24 +61,9 @@ fn quick_toolbar_crop_is_disabled_when_page_assembly_is_forbidden() {
         app
     });
     h.run_steps(6);
-    assert!(h.get_by_label("Crop pages").accesskit_node().is_disabled());
     assert!(!h.state_mut().execute("page.crop"));
     assert_eq!(h.state().quick_tool, QuickTool::Select);
     assert_eq!(size(&h, 0), (300.0, 400.0));
-}
-
-#[test]
-fn quick_toolbar_crop_is_hidden_on_home_and_in_read_mode() {
-    let mut h = harness();
-    h.state_mut().execute("view.read_mode");
-    h.run_steps(3);
-    assert!(h.query_by_label("Crop pages").is_none());
-    h.state_mut().execute("view.read_mode");
-    h.run_steps(3);
-    h.get_by_label("Crop pages");
-    h.state_mut().active = None;
-    h.run_steps(3);
-    assert!(h.query_by_label("Crop pages").is_none());
 }
 
 fn crop_middle_half(h: &mut Harness<'static, PdfCraftApp>) {

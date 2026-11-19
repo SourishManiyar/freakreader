@@ -263,25 +263,31 @@ fn resting_the_pointer_on_a_link_previews_it_and_leaving_closes_it() {
     rest_on(&mut h, link, HOVER_DELAY);
     assert_eq!(peek_trigger(&h), Some(Trigger::Hover), "the pointer rested on the link");
     wait_drawn(&mut h);
-    // Off the link and the window: it closes once the grace has passed, not before.
+    // Off the link: it closes once the short grace has passed, not on the first frame.
     let away = on_page(&h, 400.0, 30.0);
     h.hover_at(away);
     h.run_steps(2);
-    assert_eq!(peek_trigger(&h), Some(Trigger::Hover), "the pointer may still be on its way to the window");
+    assert_eq!(peek_trigger(&h), Some(Trigger::Hover), "the pointer may only have slipped off the link's edge");
     h.run_steps(frames(HOVER_GRACE));
     assert_eq!(peek_trigger(&h), None, "the pointer left");
 }
 
 #[test]
-fn the_pointer_can_cross_to_the_preview_and_stay_on_it() {
+fn a_pointer_preview_closes_over_its_window_and_a_right_click_one_stays_there() {
     let mut h = harness();
     let link = the_link(&h);
     rest_on(&mut h, link, HOVER_DELAY * 1.5);
     wait_drawn(&mut h);
+    // A glance: the window doesn't hold it once the pointer has left the link.
     let inside = in_window(&h);
     rest_on(&mut h, inside, HOVER_GRACE * 3.0);
-    assert_eq!(peek_trigger(&h), Some(Trigger::Hover), "on the window it stays");
-    // A click on it goes there, as on a right-click's.
+    assert_eq!(peek_trigger(&h), None, "over the window a pointer preview still closes");
+    // A right-click's stays under the pointer, and a click on it goes there.
+    right_click(&mut h, link);
+    wait_drawn(&mut h);
+    let inside = in_window(&h);
+    rest_on(&mut h, inside, HOVER_GRACE * 3.0);
+    assert_eq!(peek_trigger(&h), Some(Trigger::Click), "on the window a right-click's stays");
     h.get_by_role_and_label(Role::Image, "Go to page 2").click();
     h.run_steps(4);
     assert_eq!((peek_trigger(&h), h.state().views[0].current), (None, 1));
@@ -489,7 +495,8 @@ fn a_pointer_preview_closes_as_soon_as_the_pages_scroll() {
 fn the_wheel_over_the_preview_scrolls_it_and_leaves_the_pages_and_the_preview_alone() {
     let mut h = harness();
     let link = the_link(&h);
-    rest_on(&mut h, link, HOVER_DELAY * 1.5);
+    // A right-click's preview: one the pointer opened closes once it leaves the link.
+    right_click(&mut h, link);
     wait_drawn(&mut h);
     let page = h.state().views[0].page_screen_rect(0).unwrap();
     let before = picture(&h).expect("on screen");
@@ -506,9 +513,9 @@ fn the_wheel_over_the_preview_scrolls_it_and_leaves_the_pages_and_the_preview_al
         h.run_steps(2);
     }
     h.run_steps(frames(0.5));
-    // The pointer's preview is still open, its picture moved up under the window (further down
+    // The preview is still open, its picture moved up under the window (further down
     // page 2 is in view), and the pages under it did not move.
-    assert_eq!(peek_trigger(&h), Some(Trigger::Hover), "scrolling the window keeps it");
+    assert_eq!(peek_trigger(&h), Some(Trigger::Click), "scrolling the window keeps it");
     let after = picture(&h).expect("on screen");
     assert!(after.top() < before.top() - 20.0, "the window scrolled: {before:?} then {after:?}");
     assert_eq!(h.state().views[0].page_screen_rect(0).unwrap(), page, "the pages stayed");

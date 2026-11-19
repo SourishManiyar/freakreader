@@ -684,6 +684,8 @@ const NAV_ZOOM_FIELD: [f32; 2] = [64.0, 26.0];
 const NAV_FIELD_MARGIN: egui::Vec2 = egui::vec2(4.0, 4.0);
 /// The navigation bar's height.
 const NAV_BAR: f32 = 40.0;
+/// The least space between the quick tools and the centred controls.
+const NAV_TOOLS_GAP: f32 = 16.0;
 
 /// A field the navigation bar can type in: boxed, and the same size whatever it holds.
 fn nav_field(ui: &mut egui::Ui, t: &Tokens, size: [f32; 2], edit: egui::TextEdit<'_>) -> egui::Response {
@@ -698,22 +700,23 @@ fn nav_field(ui: &mut egui::Ui, t: &Tokens, size: [f32; 2], edit: egui::TextEdit
         .inner
 }
 
-/// The page navigation bar under the menus, as other readers have it: view history, the page and
-/// its neighbours, zoom, fit, rotation and page display, centred over the document. Only with a
-/// document open, and not in full screen or when the document hides the toolbars.
+/// The page navigation bar under the menus, as other readers have it: the quick tools (Select,
+/// Hand, Comment, see [`crate::quick_tools`]) at its left, then view history, the page and its
+/// neighbours, zoom, fit, rotation and page display, centred over the document. Only with a
+/// document open, and not in full screen or when the document hides the toolbars. Read mode
+/// hides the quick tools (#2646).
 pub fn nav_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     if app.full_screen {
         return;
     }
     let Some((index, id)) = app.active_ids() else { return };
-    let Some(doc) = app.session.get(id) else { return };
-    let page_count = doc.info.pages.len();
-    // Borrowed: this runs every frame, and a document can have many thousands of pages.
-    let pages = &doc.info.pages;
+    if app.session.get(id).is_none() || app.views.get(index).is_none() {
+        return;
+    }
+    let tools = app.mode != crate::Mode::Read;
     let dark = app.dark_documents();
     let mut toggle_dark = false;
-    let Some(view) = app.views.get_mut(index) else { return };
     let mut page_display = None;
     egui::Panel::top("nav_bar")
         .exact_size(NAV_BAR)
@@ -722,11 +725,23 @@ pub fn nav_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
             // Centred: the controls' own width, measured last frame, from the middle.
             let width_id = egui::Id::unique("nav-bar-width");
             let width: f32 = ui.data(|d| d.get_temp(width_id)).unwrap_or(0.0);
-            let lead = ((ui.available_width() - width) / 2.0).max(0.0);
+            let centred = ((ui.available_width() - width) / 2.0).max(0.0);
             let row = ui.horizontal_centered(|ui| {
-                ui.add_space(lead);
                 ui.spacing_mut().item_spacing.x = 4.0;
+                let left = ui.cursor().left();
+                if tools {
+                    crate::quick_tools::show(ui, app);
+                }
+                // Centred over the whole bar, but never over the quick tools.
+                let taken = ui.cursor().left() - left;
+                let gap = if tools { NAV_TOOLS_GAP } else { 0.0 };
+                ui.add_space((centred - taken).max(gap));
                 let start = ui.cursor().left();
+                let Some(doc) = app.session.get(id) else { return 0.0 };
+                let page_count = doc.info.pages.len();
+                // Borrowed: this runs every frame, and a document can have many thousands of pages.
+                let pages = &doc.info.pages;
+                let Some(view) = app.views.get_mut(index) else { return 0.0 };
                 // History is distinct from stepping to the adjacent page, and belongs to this tab.
                 for (forward, icon, label, shortcut, enabled) in [
                     (false, "chevron-left", tl!("Previous view"), crate::commands::PREV_VIEW, !view.back.is_empty()),

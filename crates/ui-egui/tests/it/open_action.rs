@@ -40,6 +40,9 @@ fn harness(catalog: &str) -> Harness<'static, PdfCraftApp> {
         let mut app = PdfCraftApp::new();
         app.set_option("language", "en").unwrap();
         app.set_option("left", "closed").unwrap();
+        // The document's own view, which Always use my default zoom and page layout (on by
+        // default) would set aside.
+        app.always_default_view = false;
         app.open_bytes("open.pdf", None, bytes).expect("opens");
         app
     });

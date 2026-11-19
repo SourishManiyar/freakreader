@@ -38,6 +38,9 @@ fn harness(setup: impl FnOnce(&mut PdfCraftApp) + 'static, files: &'static [&'st
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
         let mut app = PdfCraftApp::new();
         app.set_option("language", "en").unwrap();
+        // The document's own preferences, which Always use my default zoom and page layout (on
+        // by default) would set aside; a test that wants it turns it on in `setup`.
+        app.always_default_view = false;
         setup(&mut app);
         for (i, catalog) in files.iter().enumerate() {
             app.open_bytes(&format!("{i}.pdf"), None, fixture(catalog)).unwrap();
@@ -216,6 +219,7 @@ fn one_page_at_a_time_opens_at_fit_page() {
     // A zoom the document names wins.
     assert_eq!(opening_fit("/PageLayout /SinglePage /OpenAction [3 0 R /FitH 300]", false), Fit::Width);
     let mut app = PdfCraftApp::new();
+    app.always_default_view = false;
     app.open_bytes("x.pdf", None, fixture("/PageLayout /SinglePage /OpenAction [3 0 R /XYZ 0 300 2]")).unwrap();
     assert_eq!((app.views[0].fit, app.views[0].zoom), (Fit::None, 2.0));
 }
@@ -227,7 +231,9 @@ fn a_remembered_zoom_wins_over_the_layouts_fit_page() {
     let path = std::env::temp_dir().join(format!("pdfcraft-viewer-prefs-last-view-{}.pdf", std::process::id())).to_string_lossy().into_owned();
     let mut app = PdfCraftApp::new();
     let json_path = serde_json::to_string(&path).unwrap();
-    app.restore(&format!(r#"{{"last_views": [{{"path": {json_path}, "page": 1, "zoom": "62.5%", "display": "single"}}]}}"#));
+    app.restore(&format!(
+        r#"{{"last_views": [{{"path": {json_path}, "page": 1, "zoom": "62.5%", "display": "single"}}], "default_view_always": false}}"#
+    ));
     assert!(app.restore_last_view);
     app.open_bytes("x.pdf", Some(path), fixture("/PageLayout /SinglePage")).unwrap();
     let v = &app.views[0];
@@ -278,6 +284,8 @@ fn windowed(files: &'static [&'static str]) -> Harness<'static, PdfCraftApp> {
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
         let mut app = PdfCraftApp::new();
         app.set_option("language", "en").unwrap();
+        // The document's own preferences (see `harness`).
+        app.always_default_view = false;
         app
     });
     on_monitor(&mut h);

@@ -399,3 +399,75 @@ fn page_words_never_fail() {
     assert!(w.diagnostics.iter().any(|d| d.code == "capped"));
     assert!(w.lines.iter().map(|l| l.words.len()).sum::<usize>() <= MAX_WORDS_PER_PAGE);
 }
+
+#[test]
+fn a_head_alone_on_its_line_before_a_display_is_a_statement() {
+    let mut p = Page::new();
+    // amsthm's definition style: a bold head, then the example opens with a display, and the
+    // layout takes the short bold line for a heading.
+    p.line(0, BlockKind::Heading, true, &[("Example", BOLD), ("1.4.", BOLD)]);
+    p.line(1, BlockKind::DisplayEquation, true, &[("f(x)", ROMAN), ("=", ROMAN), ("x2", ROMAN)]);
+    p.line(2, BlockKind::Paragraph, true, &[("is", ROMAN), ("a", ROMAN), ("convex", ROMAN), ("function.", ROMAN)]);
+    p.y += 10.0;
+    p.text(3, "After the example comes text.");
+    let blocks = (0..4).map(|_| block(BlockKind::Paragraph, "", None)).collect();
+    let r = analyse_references(&[layout_with(blocks)], &p.words(), &DocumentStructure::default());
+    let s = r.statements.first().expect("the example");
+    assert_eq!((s.kind.as_str(), s.number.as_deref(), s.italic_body), ("Example", Some("1.4"), false));
+    assert_eq!((s.first_line, s.last_line), ((0, 0), (0, 2)), "through its display and the text after it");
+    // A heading that is no statement stays a heading: an unnumbered one, or one followed by another
+    // heading.
+    let mut p = Page::new();
+    p.line(0, BlockKind::Heading, true, &[("Examples.", BOLD)]);
+    p.text(1, "Some text here.");
+    p.line(2, BlockKind::Heading, true, &[("Example", BOLD), ("2.", BOLD)]);
+    p.line(3, BlockKind::Heading, true, &[("Further", BOLD), ("results", BOLD)]);
+    let blocks = (0..4).map(|_| block(BlockKind::Paragraph, "", None)).collect();
+    let r = analyse_references(&[layout_with(blocks)], &p.words(), &DocumentStructure::default());
+    assert!(r.statements.is_empty(), "{:?}", r.statements);
+}
+
+#[test]
+fn an_upright_statement_takes_a_list_items_second_line_but_not_the_paragraph_after_it() {
+    let mut p = Page::new();
+    p.line(
+        0,
+        BlockKind::Paragraph,
+        true,
+        &[("Example", BOLD), ("2.1.", BOLD), ("Let", ROMAN), ("X", ROMAN), ("be", ROMAN), ("a", ROMAN), ("set.", ROMAN)],
+    );
+    // A list item, then its second line, which the layout made a block of its own.
+    p.line(1, BlockKind::ListItem, true, &[("(1)", ROMAN), ("The", ROMAN), ("first", ROMAN), ("item", ROMAN), ("goes", ROMAN), ("on", ROMAN)]);
+    p.line(2, BlockKind::Paragraph, true, &[("here.", ROMAN)]);
+    if let Some(l) = p.lines.last_mut() {
+        l.rect[0] += 30.0;
+    }
+    // A paragraph after it, indented as a paragraph is and with no more than a line's space before
+    // it (LaTeX's space after an environment can shrink that far): not the example's.
+    p.line(3, BlockKind::Paragraph, true, &[("After", ROMAN), ("the", ROMAN), ("example", ROMAN), ("comes", ROMAN), ("text.", ROMAN)]);
+    if let Some(l) = p.lines.last_mut() {
+        l.rect[0] += 15.0;
+    }
+    let blocks = (0..4).map(|_| block(BlockKind::Paragraph, "", None)).collect();
+    let r = analyse_references(&[layout_with(blocks)], &p.words(), &DocumentStructure::default());
+    let s = r.statements.first().expect("the example");
+    assert!(!s.italic_body);
+    assert_eq!(s.last_line, (0, 2), "{:?}", r.statements);
+    // An italic statement still ends where upright text starts a paragraph.
+    let mut p = Page::new();
+    p.line(
+        0,
+        BlockKind::Paragraph,
+        true,
+        &[("Lemma", BOLD), ("2.2.", BOLD), ("Every", ITALIC), ("set", ITALIC), ("is", ITALIC), ("closed.", ITALIC)],
+    );
+    p.line(1, BlockKind::Paragraph, true, &[("We", ROMAN), ("turn", ROMAN), ("to", ROMAN), ("the", ROMAN), ("proof.", ROMAN)]);
+    if let Some(l) = p.lines.last_mut() {
+        l.rect[2] = 300.0;
+    }
+    let blocks = (0..2).map(|_| block(BlockKind::Paragraph, "", None)).collect();
+    let r = analyse_references(&[layout_with(blocks)], &p.words(), &DocumentStructure::default());
+    let s = r.statements.first().expect("the lemma");
+    assert!(s.italic_body);
+    assert_eq!(s.last_line, (0, 0));
+}

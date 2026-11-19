@@ -1,4 +1,4 @@
-use super::{Color32, CornerRadius, DocInfo, DocView, PdfCraftApp, Pos2, Rect, Sense, SnapshotKind, Stroke, Tokens, icons, vec2};
+use super::{Color32, CornerRadius, DocInfo, DocView, Pos2, Rect, Sense, SnapshotKind, Stroke, Tokens, icons, vec2};
 
 /// Whether `p` lies in the bottom-left quadrant of `area`, where the page size shows (#1855).
 pub(super) fn in_size_hint_zone(area: Rect, p: Pos2) -> bool {
@@ -309,7 +309,7 @@ fn notice_bar(ui: &mut egui::Ui, t: &Tokens, icon: &str, icon_color: Color32, te
     /// Content width below which the buttons stack under the message.
     const STACK_BELOW: f32 = 200.0;
     /// Content width under which stacking is not tried: the message would wrap to a column of a
-    /// few characters, thousands of points tall, and push the hotbar off the screen. Such a width
+    /// few characters, thousands of points tall, and push the pages off the screen. Such a width
     /// is below the smallest supported window, so the single row stays as it was.
     const STACK_ABOVE: f32 = 100.0;
     egui::Frame::NONE.fill(t.accent_soft).inner_margin(egui::Margin::symmetric(14, 7)).show(ui, |ui| {
@@ -347,59 +347,4 @@ fn notice_bar(ui: &mut egui::Ui, t: &Tokens, icon: &str, icon_color: Color32, te
             });
         });
     });
-}
-
-/// The bar's narrowest form: one 32 pt button, 6 pt margins and a 1 pt border each side.
-pub(crate) const QUICK_BAR_WIDTH: f32 = 46.0;
-pub(crate) const QUICK_BAR_EDGE: f32 = 14.0;
-
-/// How far from the side panel the quick-action bar stands, given the width of the margin between
-/// the panel and the page and the bar's own width: centred in the margin when it holds the bar,
-/// else 14 pt in (a page filling the width). With no page on screen the caller passes a margin of 0,
-/// which is 14 pt too.
-pub(crate) fn quick_bar_offset(margin: f32, width: f32) -> f32 {
-    // shortcut: centred in at most 100 pt of margin, so a wide margin keeps the bar by the panel.
-    // `f32::min` returns the other operand for NaN, which would pass the fit check below.
-    let margin = if margin.is_nan() { 0.0 } else { margin.min(100.0) };
-    if margin >= width + 2.0 * 8.0 { (margin - width) / 2.0 } else { QUICK_BAR_EDGE }
-}
-
-/// The unified quick-action bar and hotbar in the margin or docked to an edge.
-pub(super) fn quick_bar(app: &mut PdfCraftApp, area: Rect, page_left: Option<f32>, ui: &mut egui::Ui) {
-    crate::hotbar::show(app, area, page_left, ui);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::quick_bar_offset;
-
-    #[test]
-    fn the_quick_bar_centres_in_the_margin_that_holds_it() {
-        assert_eq!(quick_bar_offset(72.0, 46.0), 13.0);
-        assert_eq!(quick_bar_offset(62.0, 46.0), 8.0);
-        // A wide margin centres in its first 100 pt, not all of it.
-        assert_eq!(quick_bar_offset(400.0, 46.0), 27.0);
-    }
-
-    #[test]
-    fn the_margin_that_just_holds_the_bar_centres_and_a_point_less_does_not() {
-        // 46 pt of bar and 8 pt to spare each side: 62 pt.
-        assert_eq!(quick_bar_offset(62.0, 46.0), 8.0);
-        assert_eq!(quick_bar_offset(61.0, 46.0), 14.0);
-        assert_eq!(quick_bar_offset(1000.0, 46.0), 27.0);
-    }
-
-    #[test]
-    fn a_wider_quick_bar_centres_by_its_own_width_and_needs_a_wider_margin() {
-        // A 70 pt bar centres by that, and 72 pt no longer holds it.
-        assert_eq!(quick_bar_offset(120.0, 70.0), 15.0);
-        assert_eq!(quick_bar_offset(72.0, 70.0), 14.0);
-    }
-
-    #[test]
-    fn the_quick_bar_keeps_14_pt_in_when_the_margin_cannot_hold_it() {
-        for margin in [61.9, 30.0, 0.0, -50.0, f32::NEG_INFINITY, f32::NAN] {
-            assert_eq!(quick_bar_offset(margin, 46.0), 14.0, "{margin}");
-        }
-    }
 }

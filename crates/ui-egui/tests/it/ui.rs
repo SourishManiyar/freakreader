@@ -1251,7 +1251,9 @@ fn newly_opened_pdfs_use_the_default_workspace() {
     assert_eq!(app.mode, Mode::Edit, "changing the preference affects future opens");
     app.open_bytes("second.pdf", None, FIXTURE.to_vec()).unwrap();
     assert_eq!(app.mode, Mode::Read);
-    // PDF Initial View is independent of the workspace preference.
+    // PDF Initial View is independent of the workspace preference (with the document's own
+    // layout let in: Always use my default zoom and page layout is on by default).
+    app.always_default_view = false;
     let pdf =
         String::from_utf8(FIXTURE.to_vec()).unwrap().replace("/Outlines 6 0 R", "/Outlines 6 0 R /PageLayout /TwoColumnLeft /PageMode /UseOutlines");
     app.open_bytes("initial-view.pdf", None, pdf.into_bytes()).unwrap();
@@ -1861,7 +1863,12 @@ fn a_file_opened_again_shows_its_last_view() {
     use pdfcraft_ui_egui::canvas::{Fit, PageLayout};
     let path = std::env::temp_dir().join(format!("pdfcraft-last-view-{}.pdf", std::process::id())).to_string_lossy().into_owned();
     let p = path.clone();
-    let mut h = harness(move |app| app.open_bytes("doc.pdf", Some(p), pages_fixture(3)).expect("opens"));
+    // The zoom and display remembered for the file, which Always use my default zoom and page
+    // layout (on by default) would set aside; it is saved with the settings, so it stays off.
+    let mut h = harness(move |app| {
+        app.always_default_view = false;
+        app.open_bytes("doc.pdf", Some(p), pages_fixture(3)).expect("opens");
+    });
     let p = path.clone();
     assert!(h.state().restore_last_view, "on by default");
     {
@@ -1914,7 +1921,12 @@ fn a_fractional_zoom_is_remembered_exactly() {
     use pdfcraft_ui_egui::canvas::Fit;
     let path = std::env::temp_dir().join(format!("pdfcraft-last-view-frac-{}.pdf", std::process::id())).to_string_lossy().into_owned();
     let p = path.clone();
-    let mut h = harness(move |app| app.open_bytes("doc.pdf", Some(p), pages_fixture(3)).expect("opens"));
+    // The zoom and display remembered for the file, which Always use my default zoom and page
+    // layout (on by default) would set aside; it is saved with the settings, so it stays off.
+    let mut h = harness(move |app| {
+        app.always_default_view = false;
+        app.open_bytes("doc.pdf", Some(p), pages_fixture(3)).expect("opens");
+    });
     h.state_mut().views[0].set_zoom(0.625);
     h.run_steps(3);
     h.state_mut().close_tab(0);
@@ -1936,7 +1948,12 @@ fn full_screen_neither_is_remembered_nor_hides_the_last_view() {
     use pdfcraft_ui_egui::canvas::{Fit, PageLayout};
     let path = std::env::temp_dir().join(format!("pdfcraft-last-view-fs-{}.pdf", std::process::id())).to_string_lossy().into_owned();
     let p = path.clone();
-    let mut h = harness(move |app| app.open_bytes("doc.pdf", Some(p), pages_fixture(3)).expect("opens"));
+    // The zoom and display remembered for the file, which Always use my default zoom and page
+    // layout (on by default) would set aside; it is saved with the settings, so it stays off.
+    let mut h = harness(move |app| {
+        app.always_default_view = false;
+        app.open_bytes("doc.pdf", Some(p), pages_fixture(3)).expect("opens");
+    });
     {
         let app = h.state_mut();
         app.set_option("zoom", "50").unwrap();

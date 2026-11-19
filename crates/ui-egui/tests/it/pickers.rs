@@ -616,6 +616,9 @@ fn a_late_startup_url_preserves_the_current_edit_workspace_and_save_target() {
     let late = s.save_bytes(id).unwrap().as_ref().clone();
 
     let mut h = harness(&[3]);
+    // The document's own magnification, which Always use my default zoom and page layout (on by
+    // default) would set aside.
+    h.state_mut().always_default_view = false;
     let active = h.state().active_ids().unwrap().1;
     h.state_mut().apply_edit(Edit::DeletePages { pages: vec![1] });
     h.state_mut().mode = Mode::Edit;

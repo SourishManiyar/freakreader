@@ -108,17 +108,6 @@ pub struct Panes {
     pub(crate) drop_hint: Option<Rect>,
 }
 
-impl Panes {
-    /// An egui id for something drawn once per pane (the floating tools bar): the main pane keeps
-    /// the plain id.
-    pub(crate) fn area_id(&self, name: &'static str) -> egui::Id {
-        match self.drawing {
-            Place::Main => egui::Id::unique(name),
-            place => egui::Id::unique((name, place)),
-        }
-    }
-}
-
 /// The two panes and the divider between them, in `area`.
 fn layout(area: Rect, split: Split) -> (Rect, Rect, Rect) {
     let f = if split.fraction.is_finite() { split.fraction.clamp(*FRACTION.start(), *FRACTION.end()) } else { 0.5 };

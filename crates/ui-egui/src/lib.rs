@@ -57,9 +57,9 @@ mod dialogs;
 pub use edit_text_ui::{CropMode, DragTarget, ImageDrag, ImageHandle, ImageSelection};
 mod editing;
 mod home;
-mod hotbar;
 mod panels;
 pub mod panes;
+mod quick_tools;
 pub use print_ui::{
     DefaultPaperSource, Handling as PrintHandling, OptionsSource, PrintDraft, PrinterPapersSource, PrinterSetup, PrinterSource, Spooler,
     TwoSidedSource, Which as PrintWhich, system_printers, system_two_sided,
@@ -367,7 +367,6 @@ pub struct PdfCraftApp {
     full_screen_tool: Option<QuickTool>,
     /// Comment author, per-tool colours and widths, pin.
     pub comment_prefs: comments::CommentPrefs,
-    pub(crate) hotbar: hotbar::Hotbar,
     /// Resolved colours, including the current OS theme when following the system.
     pub theme: ThemeKind,
     pub theme_preference: ThemePreference,
@@ -496,7 +495,9 @@ pub struct PdfCraftApp {
     /// links (#4207).
     pub text_links: bool,
     /// Preferences: open every document at Default zoom and Default page display, whatever
-    /// layout or zoom it asks for (#1618).
+    /// layout or zoom it asks for (#1618), and whatever zoom and display it was last shown at.
+    /// On by default, so every document opens the same way; off, a document's `/PageLayout`,
+    /// `/OpenAction` zoom and its remembered view win.
     pub always_default_view: bool,
     /// Open documents' files, watched for changes on disk.
     #[cfg(not(target_arch = "wasm32"))]

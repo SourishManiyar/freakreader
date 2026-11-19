@@ -18,20 +18,6 @@ pub(crate) const PREFERENCES_BUTTON_ROW: f32 = 52.0;
 /// The least height the scrolling settings are given in very small windows.
 pub(crate) const PREFERENCES_MIN_SCROLL: f32 = 60.0;
 
-/// A segmented pill control for mutually exclusive choices.
-///
-/// Draws a rounded container with options inside. The active option is highlighted
-/// with the accent colour. Emits AccessKit RadioButton widget info with the option's label.
-pub fn segmented_pill_choice<T: PartialEq + Copy>(ui: &mut egui::Ui, t: &Tokens, current: &mut T, options: &[(T, &str)]) -> bool {
-    let with_a11y: Vec<(T, &str, &str)> = options.iter().map(|&(v, l)| (v, l, l)).collect();
-    segmented_pill_choice_a11y(ui, t, current, &with_a11y)
-}
-
-/// A segmented pill selection bar with separate accessibility labels.
-pub fn segmented_pill_choice_a11y<T: PartialEq + Copy>(ui: &mut egui::Ui, t: &Tokens, current: &mut T, options: &[(T, &str, &str)]) -> bool {
-    segmented_pill_choice_a11y_query(ui, t, current, options, "").0
-}
-
 /// A segmented pill selection bar with separate accessibility labels and optional query highlighting.
 /// Returns whether the selection changed and the Response of the first matching option, if any.
 pub fn segmented_pill_choice_a11y_query<T: PartialEq + Copy>(

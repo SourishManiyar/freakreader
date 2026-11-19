@@ -603,24 +603,6 @@ fn wheel(h: &mut Harness<'_, PdfCraftApp>, delta: egui::Vec2) {
     }
 }
 
-/// Check that the quick bar's frame keeps the default cursor over the page while the page below it still
-/// shows the stamp tool.
-#[test]
-fn stamp_cursor_stays_off_the_quick_bar() {
-    let mut h = open(link_pdf(), "400", true);
-    stamp_tool(&mut h);
-    // Bring the page under the quick bar's left end.
-    wheel(&mut h, egui::vec2(-200.0, 0.0));
-    let bar = h.ctx.memory(|m| m.area_rect(egui::Id::unique("quick-bar"))).expect("quick bar shown");
-    // Inside the bar's frame margin: no button there.
-    let p = egui::pos2(bar.left() + 3.0, bar.bottom() - 3.0);
-    assert!(page(&h).contains(p), "the quick bar must lie over the page here");
-    assert_eq!(cursor_at(&mut h, p), egui::CursorIcon::Default);
-    let below = egui::pos2(bar.left() + 3.0, bar.bottom() + 20.0);
-    assert!(page(&h).contains(below));
-    assert_eq!(cursor_at(&mut h, below), egui::CursorIcon::Crosshair);
-}
-
 #[test]
 fn stamp_cursor_stays_off_the_chrome_above_a_page_scrolled_under_it() {
     let mut h = open(link_pdf(), "400", true);
@@ -2364,39 +2346,6 @@ fn delete_with_a_menu_open_leaves_the_selected_picture() {
     let s = h.state();
     assert_eq!(s.session.get(s.views[0].id).unwrap().can_undo(), None, "nothing was deleted");
     assert!(s.views[0].image_selection.is_some(), "and the picture is still selected");
-}
-
-/// The Hotbar tools window, left open when full screen hides it, holds no keys there: the arrows
-/// still turn the page. It held every page key until the window was drawn again.
-#[test]
-fn a_hotbar_window_hidden_by_full_screen_holds_no_keys() {
-    let mut h = open(bottom_line_pages_pdf(), "100", false);
-    h.get_by_label("Hotbar settings").click();
-    h.run_steps(3);
-    assert!(h.state_mut().execute("view.full_screen"));
-    h.run_steps(4);
-    assert!(h.state().full_screen, "full screen");
-    let before = h.state().views[0].current;
-    h.key_press(egui::Key::ArrowRight);
-    h.run_steps(4);
-    assert_eq!(h.state().views[0].current, before + 1, "→ turns the page");
-}
-
-/// Full screen entered as a native menu's click is, between passes, closes the Hotbar tools window
-/// on the pass it hides it: → on that pass turns the page. The window, drawn on the pass before,
-/// held it.
-#[test]
-fn full_screen_from_a_native_menu_with_the_hotbar_window_open_leaves_the_keys_to_the_page() {
-    let mut h = open(bottom_line_pages_pdf(), "100", false);
-    h.get_by_label("Hotbar settings").click();
-    h.run_steps(3);
-    assert!(h.query_by_label("Close menu").is_some(), "the Hotbar tools window is open");
-    let before = h.state().views[0].current;
-    assert!(h.state_mut().execute("view.full_screen"));
-    h.key_press(egui::Key::ArrowRight);
-    h.run_steps(4);
-    assert!(h.state().full_screen, "full screen");
-    assert_eq!(h.state().views[0].current, before + 1, "→ turns the page");
 }
 
 /// With a menu of the menu bar open, the view's chords wait, as the registered commands' do: ⌘=

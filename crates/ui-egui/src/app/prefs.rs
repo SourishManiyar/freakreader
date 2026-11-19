@@ -134,7 +134,7 @@ impl PdfCraftApp {
             "default_mode": self.default_mode,
             "default_layout": canvas::display_token(self.view_defaults.layout, self.view_defaults.continuous),
             "default_zoom": self.view_defaults.zoom_name(),
-            "always_default_view": self.always_default_view,
+            "default_view_always": self.always_default_view,
             "highlight_fields": self.view_defaults.highlight_fields,
             "units": self.units,
             "language": self.language,
@@ -213,7 +213,6 @@ impl PdfCraftApp {
         // Not `check_updates_at_start`: that key was an opt-in of its own, off unless chosen, and
         // settings written then would turn this off unasked.
         v["update_check_at_start"] = self.update_check_at_start.into();
-        v["hotbar"] = serde_json::to_value(&self.hotbar).unwrap_or_default();
         v["comment_tool_pinned"] = serde_json::Value::Bool(self.comment_prefs.pinned);
         v["show_secured_notice"] = serde_json::Value::Bool(self.show_secured_notice);
         v["text_links"] = serde_json::Value::Bool(self.text_links);
@@ -235,13 +234,6 @@ impl PdfCraftApp {
     /// Restore state written by `persist`. Unknown or malformed data is ignored.
     pub fn restore(&mut self, json: &str) {
         let Ok(v) = serde_json::from_str::<serde_json::Value>(json) else { return };
-        if let Ok(mut bar) = serde_json::from_value::<crate::hotbar::Hotbar>(v["hotbar"].clone()) {
-            if v["hotbar"].get("placed").is_none() {
-                bar.adopt_legacy();
-            }
-            bar.normalize();
-            self.hotbar = bar;
-        }
         let panels = side_panels::restore(&v);
         self.side_panels = panels.panels;
         if let Some(open) = panels.tools_open {
@@ -420,7 +412,10 @@ impl PdfCraftApp {
         if let Ok(units) = serde_json::from_value::<units::Unit>(v["units"].clone()) {
             self.units = units;
         }
-        if let Some(on) = v["always_default_view"].as_bool() {
+        // `always_default_view` was saved by versions where the switch was off by default, so
+        // its `false` is that old default, not a choice: only its `true` carries over. The
+        // switch is now saved as `default_view_always`, whose `false` is a choice.
+        if let Some(on) = v["default_view_always"].as_bool().or_else(|| v["always_default_view"].as_bool().filter(|on| *on)) {
             self.always_default_view = on;
         }
         self.restore_print_prefs(v);

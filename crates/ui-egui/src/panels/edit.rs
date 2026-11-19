@@ -16,7 +16,7 @@ const EDIT_OTHER_TOOLS: [&str; 3] = ["combine", "redact", "form"];
 /// Edit a PDF, laid out as Acrobat's Edit panel: the title with Preferences and Close; Format text
 /// while text is being edited or added; Modify page as a row of icon buttons and Organize pages;
 /// Add content with the rarer items under More; and Other options, the neighbouring tools.
-/// Edit text & images itself is on the floating toolbar, and on from the moment Edit opens.
+/// Edit text & images itself is in the navigation bar's quick tools, and on from the moment Edit opens.
 /// Every item comes from the catalogue, so its label, icon and availability have one source.
 pub(super) fn edit_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, g: &'static ToolGroup) {
     let items = || g.sections.iter().flat_map(|s| s.items.iter());

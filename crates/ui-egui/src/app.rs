@@ -97,7 +97,6 @@ impl PdfCraftApp {
             space_hand: None,
             full_screen_tool: None,
             comment_prefs: Default::default(),
-            hotbar: Default::default(),
             theme: ThemeKind::Light,
             // A fresh install follows the desktop's appearance (#1248); saved settings override.
             theme_preference: ThemePreference::System,
@@ -156,7 +155,7 @@ impl PdfCraftApp {
             update_check_at_start: true,
             show_secured_notice: true,
             text_links: true,
-            always_default_view: false,
+            always_default_view: true,
             #[cfg(not(target_arch = "wasm32"))]
             watch: Default::default(),
             #[cfg(not(target_arch = "wasm32"))]
@@ -396,22 +395,18 @@ impl PdfCraftApp {
     }
 
     /// Whether something over the pages has the keyboard: what covers them
-    /// ([`Self::covers_pages`]), the hotbar's tools window, a popup, a menu of the menu bar, or the
-    /// bar holding the keyboard (Alt, F10).
+    /// ([`Self::covers_pages`]), a popup, a menu of the menu bar, or the bar holding the keyboard
+    /// (Alt, F10).
     pub(crate) fn over_pages(&self, ctx: &egui::Context) -> bool {
-        self.covers_pages()
-            || self.hotbar.picker_over_pages(ctx)
-            || egui::Popup::is_any_open(ctx)
-            || craft_menu::bar::is_open(ctx)
-            || craft_menu::bar::is_focused(ctx)
+        self.covers_pages() || egui::Popup::is_any_open(ctx) || craft_menu::bar::is_open(ctx) || craft_menu::bar::is_focused(ctx)
     }
 
     /// Edit ▸ Copy, Cut, Select all and Delete stand for keys, and Edit ▸ Paste for the paste the
     /// platform answers with. They go where the user's would: to a text field that has the
     /// keyboard, else to the pages. They join the input once the menu bar has let go of the keys,
     /// which an in-window menu's click does a pass later (craft-menu stores the menu as open on
-    /// the pass its click closes it). A native menu's click leaves egui's popups and the Hotbar
-    /// tools window open, which hold the pages' keys; a click anywhere else closes them, and so
+    /// the pass its click closes it). A native menu's click leaves egui's popups open, which hold
+    /// the pages' keys; a click anywhere else closes them, and so
     /// does this. Edit ▸ Paste asks the platform for the clipboard only then, so its answer, on a
     /// later pass, is an ordinary paste. With a text field focused, a native click on Copy, Cut,
     /// Paste or Select all doesn't come here: craft-menu taps the shortcut for the field instead.
@@ -425,18 +420,12 @@ impl PdfCraftApp {
         }
         if !ctx.text_edit_focused() {
             egui::Popup::close_all(ctx);
-            self.hotbar.close_picker();
         }
         let events = std::mem::take(&mut self.menu_input);
         ctx.input_mut(|i| i.events.extend(events));
         for _ in 0..std::mem::take(&mut self.menu_pastes) {
             ctx.send_viewport_cmd(egui::ViewportCommand::RequestPaste);
         }
-    }
-
-    /// Read mode and full screen hide the hotbar (the quick tools), and its tools window with it.
-    pub(crate) fn hotbar_hidden(&self) -> bool {
-        self.mode == crate::Mode::Read || self.full_screen
     }
 
     /// The pages are covered, and no page key reaches them, a menu click's included: by a dialog or
@@ -766,7 +755,6 @@ impl PdfCraftApp {
         // A command's chord pressed with the keyboard on the menu bar (Alt, F10) takes it off the
         // bar, so the chord runs in the same press, the pages' as well as the registry's.
         craft_menu::bar::leave_for_shortcut(ctx);
-        self.hotbar.close_hidden_picker(ctx, self.hotbar_hidden());
         self.page_keys = page_keys::PageKeys::new(self.over_pages(ctx));
         self.shortcuts(ctx);
         // Scrolling and group-drag previews are transient: never resume after changing tabs,

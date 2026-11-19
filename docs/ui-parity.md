@@ -28,7 +28,7 @@ No dump of Acrobat's menu tree has been diffed against the registry yet (gap 24)
 |---|---|---|---|
 | Home view (recent files, recommended tools) | yes | yes | shipped |
 | All tools pane, tool sets | yes | yes, with milestone badges | shipped |
-| Quick-action toolbar, customisable | yes | customizable floating/docked hotbar, adjustable size, persistent multi-select picker | partial (`view.customize-quick-tools`; no shortcut reordering) |
+| Quick-action toolbar, customisable | yes | fixed quick tools at the left of the navigation bar (Select, Hand, Comment); no floating or customizable toolbar | partial (not customisable) |
 | Command search | "Search tools" | command palette (⌘K), matches translated and English labels | shipped |
 | Document tabs | yes | yes, with unsaved marker | shipped |
 | Multiple windows, drag a tab out | yes | no | planned |

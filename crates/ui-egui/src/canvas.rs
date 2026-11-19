@@ -51,7 +51,7 @@ pub(crate) use area::signature_badges;
 use area::{drawing_edge_pointer, glide_interrupted, page_scroll, presentation_click, run_button, set_layers, zoom_anchor};
 #[cfg(test)]
 use bars::in_size_hint_zone;
-use bars::{Notice, notices, page_size_hint, quick_bar};
+use bars::{Notice, notices, page_size_hint};
 pub use cache::RasterMemory;
 pub(crate) use cache::{BASE_SIDE, TILE_THRESHOLD, texture_image, thumbnail_rows};
 #[cfg(test)]
@@ -3641,9 +3641,8 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         remote_open,
         form,
         generation,
-        avail,
     };
-    apply_frame_requests(app, index, ui, requests);
+    apply_frame_requests(app, index, requests);
 }
 
 /// What the frame's input asked the app to do, once the document is no longer borrowed.
@@ -3670,12 +3669,11 @@ struct FrameRequests {
     remote_open: Option<(pdfcraft_engine::DocId, String, pdfcraft_render::RemoteDestination)>,
     form: Arc<Vec<pdfcraft_engine::FormField>>,
     generation: u64,
-    avail: Rect,
 }
 
 /// Opens the dialogs and runs the app commands the frame asked for.
 #[allow(clippy::cognitive_complexity)]
-fn apply_frame_requests(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui, requests: FrameRequests) {
+fn apply_frame_requests(app: &mut PdfCraftApp, index: usize, requests: FrameRequests) {
     let FrameRequests {
         open_props,
         field_props,
@@ -3696,7 +3694,6 @@ fn apply_frame_requests(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui, 
         remote_open,
         form,
         generation,
-        avail,
     } = requests;
     if let Some((page, at)) = app.views[index].comments.attach_at.take() {
         app.attach_file_comment(page, at);
@@ -3901,14 +3898,6 @@ fn apply_frame_requests(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui, 
     }
     if let Some(notice) = comment_notice {
         app.notify_tr(notice);
-    }
-    // Read mode hides the tools (#2646), and full screen is the page and nothing else (#1459);
-    // the quick tools come back with the window.
-    // A document that hides the toolbars (`HideToolbar`) hides this one too.
-    if !app.hotbar_hidden() && !app.views.get(index).is_some_and(|v| v.interface.hidden.toolbar) {
-        // The page nearest the left edge, whose margin the bar sits in.
-        let page_left = app.views[index].screen_rects.iter().map(|(_, r)| r.left()).reduce(f32::min);
-        quick_bar(app, avail, page_left, ui);
     }
     if let Some((source, file, destination)) = remote_open {
         app.open_remote_link(source, file, destination);
