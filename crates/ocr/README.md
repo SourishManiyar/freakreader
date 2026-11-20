@@ -93,6 +93,9 @@ plain-text file in the preferences folder, so words added from a document persis
 outside it until removed — Re-OCR of a region or a page, Accept/Reject), a
 multiple-file run writes searchable copies as it goes, and the automation tools `ocr_recognize`,
 `ocr_words`, `ocr_status` and `ocr_recognize_files` expose recognition headlessly.
+Edit ▸ Recognize text in area reads just a dragged rectangle (rendered as a tile) and puts
+its words on the clipboard without changing the document, or the page's own text where it has
+some; `ocr_area_text` is the same path headless.
 `ocr_words` with `retain_review` returns a bounded session-local handle; `ocr_review_apply`
 applies text corrections at the stored original boxes through its stale-document guard,
 or discards the result. Empty corrections remove words. Searchable acceptance is one undo

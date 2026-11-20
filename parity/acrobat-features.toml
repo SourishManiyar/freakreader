@@ -7101,6 +7101,18 @@ evidence = []
 notes = ""
 
 [[feature]]
+id = "ocr.recognize-area"
+title = "Recognize text in an area (Edit ▸ Recognize text in area)"
+area = "I"
+tier = "P2"
+milestone = "M10"
+status = "shipped"
+commands = ["edit.recognize_area"]
+tools = ["ocr_area_text"]
+evidence = ["crates/engine/src/ocr.rs::an_area_of_a_scan_is_recognised", "crates/engine/src/ocr.rs::an_area_with_its_own_text_gives_that_text", "crates/engine/src/ocr.rs::bad_areas_are_refused", "crates/engine/src/ocr.rs::a_region_renders_as_a_tile_with_the_pages_pixels", "crates/engine/src/ocr.rs::an_area_reading_keeps_lines_and_the_lowest_band", "crates/automation/tests/it/automation.rs::ocr_area_text_reads_an_area", "crates/ui-egui/tests/it/recognize_area.rs::an_area_of_a_scan_is_recognised_onto_the_clipboard", "crates/ui-egui/tests/it/recognize_area.rs::a_page_with_its_own_text_copies_that_text", "crates/ui-egui/tests/it/recognize_area.rs::a_document_that_withholds_copying_is_not_read", "crates/ui-egui/tests/it/recognize_area.rs::escape_finishes_recognize_text_in_area"]
+notes = "Not an Acrobat command (Acrobat recognises whole pages); for reading scanned papers. Drag a rectangle over a scan: only that area is rendered (a tile at about 300 dpi, a scan at most at its own resolution; larger than 4096 pixels a side, the page is rendered and cropped) and read off the UI thread with the Recognize Text dialog's engine and language; the words go on the clipboard, a new line where the baseline moves, and the notice gives the word count and the lowest confidence band. Where the page has its own text in the area it is already selectable: that text is copied instead (rows as a column selection copies them) and the notice says so. Missing models are named with how to install them; the document never changes; a document that withholds copying reads nothing. ocr_area_text is the same engine path (Session::area_job, and the region crop ocr_recognize and ocr_words use). The end-to-end checks with the models skip on machines without them. Missing: a choice of resolution, keeping the area for a second read, and the web build in a browser (it compiles; not run)."
+
+[[feature]]
 id = "ocr.ocr-engines"
 title = "Pluggable OCR engines (PP-OCR default; tesseract optional)"
 area = "I"

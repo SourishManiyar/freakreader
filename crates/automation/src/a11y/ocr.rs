@@ -1,5 +1,8 @@
 use super::{Args, Automation, Result, ToolError, Value, child, failed, json, with_warnings, write_atomic};
 
+/// How a `region` argument is written.
+const REGION_FORMAT: &str = "region must be [x0, y0, x1, y1] in points";
+
 impl Automation {
     /// The settings every OCR tool shares: dpi, language, the engine/strategy choice, the four
     /// preprocessing flags, the skip flags and the output mode — each named exactly as its tool
@@ -78,21 +81,59 @@ impl Automation {
         page: usize,
         settings: &pdfcraft_engine::ocr::OcrSettings,
     ) -> Result<Option<[f32; 4]>> {
-        const BAD: &str = "region must be [x0, y0, x1, y1] in points";
+        let Some(points) = Self::region_points(a)? else { return Ok(None) };
+        let job = self.session.ocr_job(id, &[page], settings.clone()).ok_or_else(|| failed("the document could not be read"))?;
+        // The same crop Edit ▸ Recognize text in area reads (`OcrJob::region_pixels`).
+        Ok(Some(job.region_pixels(page, points).ok_or_else(|| ToolError::InvalidArgs(REGION_FORMAT.into()))?))
+    }
+
+    /// The `region` argument as given: [x0, y0, x1, y1] in points, finite.
+    fn region_points(a: &Args) -> Result<Option<[f32; 4]>> {
         let Some(v) = a.get("region") else { return Ok(None) };
-        let arr = v.as_array().ok_or_else(|| ToolError::InvalidArgs(BAD.into()))?;
+        let arr = v.as_array().ok_or_else(|| ToolError::InvalidArgs(REGION_FORMAT.into()))?;
         if arr.len() != 4 {
-            return Err(ToolError::InvalidArgs(BAD.into()));
+            return Err(ToolError::InvalidArgs(REGION_FORMAT.into()));
         }
-        let mut pts = [0.0f64; 4];
+        let mut pts = [0.0f32; 4];
         for (i, x) in arr.iter().enumerate() {
-            pts[i] = x.as_f64().filter(|f| f.is_finite()).ok_or_else(|| ToolError::InvalidArgs(BAD.into()))?;
+            let v = x.as_f64().map(|f| f as f32).filter(|f| f.is_finite()).ok_or_else(|| ToolError::InvalidArgs(REGION_FORMAT.into()))?;
+            if let Some(slot) = pts.get_mut(i) {
+                *slot = v;
+            }
         }
-        let scale = f64::from(
-            self.session.ocr_job(id, &[page], settings.clone()).ok_or_else(|| failed("the document could not be read"))?.render_scale(page),
-        );
-        let px: Vec<f32> = pts.iter().map(|p| scale * p).map(|p| if p.is_finite() { p } else { 0.0 }).map(|p| p as f32).collect();
-        Ok(Some([px[0], px[1], px[2], px[3]]))
+        Ok(Some(pts))
+    }
+
+    /// Edit ▸ Recognize text in area, headless: the text in `region` of `page`. The page's own
+    /// text there is returned as it is (`source` "text_layer"); otherwise the area is recognised
+    /// with the configured engine and language (`source` the engine's id). Changes nothing.
+    pub(crate) fn ocr_area_text(&mut self, a: &Args) -> Result<Value> {
+        use pdfcraft_engine::ocr::{AreaJob, ConfidenceBand};
+        let settings = self.ocr_settings(a)?;
+        // The area's text goes out of the document: refused when it forbids copying.
+        let id = self.doc_to_copy(a)?.id;
+        let page = self.page(a)?;
+        let region = Self::region_points(a)?.ok_or_else(|| Args::missing("region"))?;
+        let job = self.session.area_job(id, page, region, settings).map_err(ToolError::InvalidArgs)?;
+        let band = |b: Option<ConfidenceBand>| match b {
+            Some(ConfidenceBand::High) => json!("high"),
+            Some(ConfidenceBand::Medium) => json!("medium"),
+            Some(ConfidenceBand::Low) => json!("low"),
+            None => Value::Null,
+        };
+        match job {
+            AreaJob::Text(text) => {
+                let words = text.split_whitespace().count();
+                Ok(json!({ "page": page + 1, "source": "text_layer", "text": text, "words": words, "lowest_band": null }))
+            }
+            AreaJob::Read(job) => {
+                let recognizers = pdfcraft_engine::ocr::recognizers(&job.settings).map_err(failed)?;
+                let source = recognizers.primary.id();
+                let found = job.run(&recognizers, |_, _| true);
+                let r = pdfcraft_engine::ocr::area_reading(&found).map_err(failed)?;
+                Ok(json!({ "page": page + 1, "source": source, "text": r.text, "words": r.words, "lowest_band": band(r.lowest) }))
+            }
+        }
     }
 
     /// The per-page result entries the OCR tools return: recognised text or why the page was

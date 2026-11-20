@@ -93,6 +93,9 @@ pub enum QuickTool {
     /// Edit ▸ Column Select: drag a rectangle to select only the text inside it (#740). The
     /// Select tool does the same while Alt/Option is held at the start of a drag.
     ColumnSelect,
+    /// Edit ▸ Recognize text in area: drag a rectangle over a scan to copy the words recognised in
+    /// it.
+    RecognizeArea,
 }
 
 /// A file dropped on a page grid: its name, and its bytes or, for a file on disk, the path they are

@@ -143,6 +143,12 @@ impl PdfCraftApp {
             self.quick_tool = QuickTool::Select;
             self.space_hand = None;
         }
+        // Escape finishes Recognize text in area (and an area still being read), back to
+        // selecting; a rectangle being dragged is Escape's to cancel first.
+        if self.quick_tool == QuickTool::RecognizeArea && self.views[i].marquee.is_none() && keys.pressed(ctx, Key::Escape) {
+            self.quick_tool = QuickTool::Select;
+            self.cancel_area_ocr();
+        }
         if keys.pressed(ctx, Key::H) {
             self.quick_tool = QuickTool::Hand;
             self.space_hand = None;

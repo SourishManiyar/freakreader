@@ -464,3 +464,14 @@ updates the same one-word-per-UTF-8-line format OCR Verify uses. Omit add/remove
 The explicit path honors `--root`, including symlink confinement; choose the appropriate
 per-language file used by the UI. Entries are case-insensitive and duplicate-free. Invalid
 or oversized inputs fail before writing (65,536 words, 4 MiB, at most 1,024 bytes per word).
+
+## Recognizing text in an area
+
+`ocr_area_text {doc, page, region}` is Edit ▸ Recognize text in area without the GUI: the text
+inside `region` ([x0, y0, x1, y1] in points from the top-left of the displayed page). Where the
+page has its own text there it comes back as it is (`source: "text_layer"`); otherwise only that
+area is rendered and recognised with the given `engine`, `language` and `dpi` (`source` is the
+engine's id, `ppocr` by default), with `words` and `lowest_band` (`high`, `medium`, `low`, or
+null when no word reported a confidence). It changes nothing and is refused when the document
+forbids copying. The engine reads the area through the same crop as `ocr_recognize`'s and
+`ocr_words`'s `region` (`OcrJob::region_pixels`).

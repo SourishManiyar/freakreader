@@ -79,6 +79,7 @@ mod properties_session;
 mod protect;
 mod reading_colors;
 mod recent_files;
+mod recognize_area;
 mod recovery;
 mod redact;
 mod reload;

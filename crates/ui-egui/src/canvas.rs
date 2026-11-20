@@ -19,6 +19,7 @@ use crate::theme::{self, Tokens};
 use crate::{PdfCraftApp, QuickTool, RightPanel, comments, icons, widgets};
 
 mod area;
+pub(super) mod area_ocr_ui;
 pub(crate) mod autoscroll;
 pub(crate) mod bars;
 mod cache;
@@ -754,6 +755,9 @@ pub struct DocView {
     /// Snapshot: the area just copied (page, view-space rect), kept with a small menu under it
     /// (Print area…, Save as image…), and what was chosen there.
     pub area_pick: Option<(usize, [f32; 4])>,
+    /// Recognize text in area: the area being read (page, view-space rect), outlined until its
+    /// answer comes.
+    pub(crate) area_ocr_pending: Option<(usize, [f32; 4])>,
     pub area_choice: Option<crate::zoom_snap::AreaChoice>,
     /// Fill & Sign text being typed.
     pub fill_text: Option<crate::fill_sign::TypeBox>,
@@ -1182,6 +1186,7 @@ impl DocView {
             marquee: None,
             marquee_done: None,
             area_pick: None,
+            area_ocr_pending: None,
             area_choice: None,
             fill_text: None,
             fill_signature_page: None,
@@ -1214,6 +1219,8 @@ impl DocView {
         // A Snapshot area names a page by its index and a rectangle on it: after pages were
         // deleted or moved it would outline, print and save a different page.
         self.area_pick = None;
+        // The area being read is of the document as it was: its outline would mark another page.
+        self.area_ocr_pending = None;
         self.area_choice = None;
         self.goto = None;
         self.goto_point = None;
@@ -3161,7 +3168,8 @@ fn tool_selects_text(tool: QuickTool, preparing: bool) -> bool {
         | QuickTool::Link
         | QuickTool::SignArea { .. }
         | QuickTool::MarqueeZoom
-        | QuickTool::Snapshot => false,
+        | QuickTool::Snapshot
+        | QuickTool::RecognizeArea => false,
     }
 }
 

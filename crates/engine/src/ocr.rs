@@ -662,6 +662,10 @@ fn page_has_text(text: Option<&Arc<pdfcraft_render::PageText>>) -> bool {
     text.is_some_and(|t| t.glyphs.iter().any(|g| !g.text.trim().is_empty()))
 }
 
+/// The widest region rendered as a tile: the renderer's tiles are at most this many pixels a
+/// side, so a larger region is rendered with its page and cropped.
+const MAX_TILE: u32 = 4096;
+
 /// Clamp a region to the image, snapping outward to whole pixels. `None` when nothing of it
 /// is inside the image (empty, inverted, NaN, or wholly outside).
 pub fn clamp_region(region: [f32; 4], width: u32, height: u32) -> Option<[u32; 4]> {
@@ -708,6 +712,15 @@ impl OcrJob {
         // image, and no "Downsample to" choice could ask for less.
         let fit = self.infos.get(page).map_or(1.0, |i| (SHEET / i.width.max(i.height).max(1e-3)).min(1.0));
         native.clamp(fit, wanted * fit)
+    }
+
+    /// `region`, in points from the top-left of the displayed `page`, as the pixel crop this job
+    /// reads it at ([`OcrSettings::region`]); `None` when a coordinate is not finite. What
+    /// `ocr_recognize`'s `region` and Edit ▸ Recognize text in area both read.
+    pub fn region_pixels(&self, page: usize, region: [f32; 4]) -> Option<[f32; 4]> {
+        let scale = self.render_scale(page);
+        let px = region.map(|v| v * scale);
+        px.iter().all(|v| v.is_finite()).then_some(px)
     }
 
     /// Whether any of the job's pages already has text (at least one non-blank run): the
@@ -802,22 +815,48 @@ impl OcrSteps {
         // A scan is read at its own resolution (enlarging it only blurs the letters), at
         // most the chosen one.
         let scale = self.job.render_scale(page);
-        let shot = r.render(RenderRequest { page, scale, ..Default::default() });
-        if let Some(e) = shot.error {
-            return Err(skip(&e));
-        }
-        let full = pdfcraft_ocr::OcrImage::new(shot.width, shot.height, shot.rgba.to_vec()).map_err(|e| skip(&e.to_string()))?;
-        // The optional region: crop the rendered page, clamped; an empty region skips the
-        // page with a named reason (nothing was asked of it).
-        let (image, offset) = match settings.region {
-            None => (full, [0.0f32; 2]),
-            Some(region) => match clamp_region(region, shot.width, shot.height) {
-                Some([x0, y0, x1, y1]) => match crop(&full, x0, y0, x1, y1) {
-                    Some(c) => (c, [x0 as f32, y0 as f32]),
-                    None => return Err(skip("the selected region is empty")),
-                },
-                None => return Err(skip("the selected region is outside the page")),
-            },
+        // A region renders only itself when it can (a tile at the page's own scale); otherwise
+        // the page is rendered whole and cropped.
+        let tiled = settings.region.and_then(|region| {
+            if pdfcraft_render::effective_scale(info.width, info.height, scale) != scale {
+                return None;
+            }
+            let (w, h) = (pdfcraft_render::device_pixels(info.width, scale), pdfcraft_render::device_pixels(info.height, scale));
+            let [x0, y0, x1, y1] = clamp_region(region, w, h)?;
+            let (tw, th) = (x1 - x0, y1 - y0);
+            if tw > MAX_TILE || th > MAX_TILE {
+                return None;
+            }
+            let tile = pdfcraft_render::Tile { x: x0, y: y0, w: tw, h: th };
+            let shot = r.render(RenderRequest { page, scale, tile: Some(tile), ..Default::default() });
+            if shot.error.is_some() || shot.width != tw || shot.height != th {
+                return None;
+            }
+            let image = pdfcraft_ocr::OcrImage::new(tw, th, shot.rgba.to_vec()).ok()?;
+            Some((image, [x0 as f32, y0 as f32], w as f32 / info.width.max(1e-3)))
+        });
+        let (image, offset, pixels_per_point) = match tiled {
+            Some(t) => t,
+            None => {
+                let shot = r.render(RenderRequest { page, scale, ..Default::default() });
+                if let Some(e) = shot.error {
+                    return Err(skip(&e));
+                }
+                let full = pdfcraft_ocr::OcrImage::new(shot.width, shot.height, shot.rgba.to_vec()).map_err(|e| skip(&e.to_string()))?;
+                let ppp = shot.width as f32 / info.width.max(1e-3);
+                // The optional region: crop the rendered page, clamped; an empty region skips the
+                // page with a named reason (nothing was asked of it).
+                match settings.region {
+                    None => (full, [0.0f32; 2], ppp),
+                    Some(region) => match clamp_region(region, shot.width, shot.height) {
+                        Some([x0, y0, x1, y1]) => match crop(&full, x0, y0, x1, y1) {
+                            Some(c) => (c, [x0 as f32, y0 as f32], ppp),
+                            None => return Err(skip("the selected region is empty")),
+                        },
+                        None => return Err(skip("the selected region is outside the page")),
+                    },
+                }
+            }
         };
         // Preprocessing sits between the page raster and recognition; its word boxes come
         // back in processed coordinates and are mapped to the ORIGINAL raster's before
@@ -839,7 +878,7 @@ impl OcrSteps {
             image: Some(pre.image),
             inverse: pre.inverse_transform,
             offset,
-            pixels_per_point: shot.width as f32 / info.width.max(1e-3),
+            pixels_per_point,
             info,
             existing,
             strategy: settings.strategy,
@@ -1296,10 +1335,210 @@ fn open_file(name: &str, bytes: Arc<Vec<u8>>, password: Option<&str>, javascript
     Ok((s, id))
 }
 
+// ---- Edit ▸ Recognize text in area -----------------------------------------------------------
+
+/// The smallest area read, in points a side: less is a click, not a rectangle.
+pub const MIN_AREA_SIDE: f32 = 2.0;
+
+/// What reading an area of a page needs.
+pub enum AreaJob {
+    /// The page has its own text in the area: it is already selectable, and this is its text
+    /// (rows top to bottom, as a column selection copies it). Nothing is recognised.
+    Text(String),
+    /// The area holds no text of the page's own: recognise it with this job (one page, its
+    /// [`OcrSettings::region`] set). [`OcrJob::run`] it anywhere, then [`area_reading`].
+    Read(OcrJob),
+}
+
+/// What was read in an area: the text, how many words, and the lowest confidence band among
+/// them (`None` when no word reported a confidence).
+#[derive(Clone, Debug, PartialEq)]
+pub struct AreaReading {
+    pub text: String,
+    pub words: usize,
+    pub lowest: Option<ConfidenceBand>,
+}
+
+/// The reading of an area from what its job found: the words in reading order, a new line where
+/// a word's baseline leaves the previous word's line. A page that was skipped is an error naming
+/// why.
+pub fn area_reading(found: &[OcrPage]) -> Result<AreaReading, String> {
+    let Some(page) = found.first() else { return Err("nothing was read".into()) };
+    if let Some(why) = &page.skipped {
+        return Err(why.clone());
+    }
+    let mut text = String::new();
+    let mut previous: Option<&PlacedWord> = None;
+    for w in &page.words {
+        if let Some(p) = previous {
+            let height = p.up[0].hypot(p.up[1]).max(w.up[0].hypot(w.up[1]));
+            // How far this word's origin lies across the previous word's line.
+            let (ux, uy) = (p.up[0] / height.max(1e-6), p.up[1] / height.max(1e-6));
+            let across = (w.origin[0] - p.origin[0]) * ux + (w.origin[1] - p.origin[1]) * uy;
+            text.push(if across.abs() > 0.5 * height { '\n' } else { ' ' });
+        }
+        text.push_str(&w.text);
+        previous = Some(w);
+    }
+    let lowest = page.words.iter().filter_map(|w| w.confidence).map(band_for).min();
+    Ok(AreaReading { text, words: page.words.len(), lowest })
+}
+
+impl Session {
+    /// Edit ▸ Recognize text in area: what reading `region` (points from the top-left of the
+    /// displayed `page`, corners in either order) of document `id` takes. The page's own text
+    /// there wins: it is returned as it is. Otherwise a job reads just that area, at the
+    /// resolution `settings` ask for, through the same region crop `ocr_recognize` uses
+    /// ([`OcrJob::region_pixels`]).
+    pub fn area_job(&self, id: DocId, page: usize, region: [f32; 4], settings: OcrSettings) -> Result<AreaJob, String> {
+        if !region.iter().all(|v| v.is_finite()) {
+            return Err("the area is not a rectangle".into());
+        }
+        let region = [region[0].min(region[2]), region[1].min(region[3]), region[0].max(region[2]), region[1].max(region[3])];
+        if region[2] - region[0] < MIN_AREA_SIDE || region[3] - region[1] < MIN_AREA_SIDE {
+            return Err("the area is too small to hold text".into());
+        }
+        let doc = self.get(id).ok_or("the document is not open")?;
+        if page >= doc.info.pages.len() {
+            return Err(format!("page {} does not exist", page.saturating_add(1)));
+        }
+        let config = RenderConfig { password: doc.password.as_deref().map(Arc::from), ..Default::default() };
+        let mut r = PageRenderer::new(doc.bytes.clone(), config);
+        if let Ok(own) = own_text(&mut r, page) {
+            let glyphs: Vec<usize> =
+                own.glyphs_in(region).into_iter().filter(|&i| own.glyphs.get(i).is_some_and(|g| !g.text.trim().is_empty())).collect();
+            if !glyphs.is_empty() {
+                return Ok(AreaJob::Text(own.column_text(&glyphs)));
+            }
+        }
+        let mut job = self
+            .ocr_job(id, &[page], OcrSettings { skip_text_pages: false, force_ocr: true, region: None, ..settings })
+            .ok_or("the document could not be read")?;
+        job.settings.region = Some(job.region_pixels(page, region).ok_or("the area is not a rectangle")?);
+        Ok(AreaJob::Read(job))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::export;
+
+    /// A scan of `text` (a typed page exported at 300 dpi and placed back as an image), and where
+    /// the typed text sat: the page's own text box, in points from the top-left.
+    fn area_scan(s: &mut Session, text: &str) -> (DocId, [f32; 4]) {
+        let typed = s.create_from_text("t", text).unwrap();
+        let tid = s.open("typed.pdf", None, typed, None).unwrap();
+        let own = {
+            let d = s.get(tid).unwrap();
+            let mut r = PageRenderer::new(d.bytes.clone(), RenderConfig::default());
+            own_text(&mut r, 0).unwrap()
+        };
+        let mut b = [f32::INFINITY, f32::INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY];
+        for g in own.glyphs.iter().filter(|g| !g.text.trim().is_empty()) {
+            b = [b[0].min(g.rect[0]), b[1].min(g.rect[1]), b[2].max(g.rect[2]), b[3].max(g.rect[3])];
+        }
+        let png = export::Exporter::new(s.get(tid).unwrap()).png(0, 300.0).unwrap();
+        let scan = s.create_from_images_with_resolution(&[("scan.png".into(), png)], crate::ImageResolution::Dpi(300.0)).unwrap();
+        (s.open("scan.pdf", None, scan, None).unwrap(), [b[0] - 6.0, b[1] - 6.0, b[2] + 6.0, b[3] + 6.0])
+    }
+
+    /// An area of a page that has its own text there gives that text, and nothing is recognised.
+    #[test]
+    fn an_area_with_its_own_text_gives_that_text() {
+        let mut s = Session::new();
+        let typed = s.create_from_text("t", "Already selectable words").unwrap();
+        let id = s.open("typed.pdf", None, typed, None).unwrap();
+        match s.area_job(id, 0, [0.0, 0.0, 600.0, 200.0], OcrSettings::default()).unwrap() {
+            AreaJob::Text(t) => assert!(t.contains("Already selectable words"), "{t:?}"),
+            AreaJob::Read(_) => panic!("the page's own text must win"),
+        }
+    }
+
+    /// Areas that are not rectangles, too small, or on a page that isn't there are refused with a
+    /// reason, never read.
+    #[test]
+    fn bad_areas_are_refused() {
+        let mut s = Session::new();
+        let (id, _) = area_scan(&mut s, "x");
+        for region in [[f32::NAN, 0.0, 10.0, 10.0], [0.0, 0.0, 1.0, 50.0], [5.0, 5.0, 5.0, 5.0], [0.0, 0.0, f32::INFINITY, 9.0]] {
+            assert!(s.area_job(id, 0, region, OcrSettings::default()).is_err(), "{region:?}");
+        }
+        let Err(e) = s.area_job(id, 7, [0.0, 0.0, 100.0, 100.0], OcrSettings::default()) else { panic!("no page 8") };
+        assert!(e.contains("page 8"), "{e}");
+        // Corners in either order are one rectangle; a scan has no text of its own, so it is read.
+        let AreaJob::Read(job) = s.area_job(id, 0, [100.0, 100.0, 10.0, 20.0], OcrSettings::default()).unwrap() else {
+            panic!("a scan has no text of its own")
+        };
+        let px = job.settings.region.unwrap();
+        assert!(px[0] < px[2] && px[1] < px[3], "{px:?}");
+        assert_eq!(job.pages, [0]);
+    }
+
+    /// A region renders only itself, and gives the same pixels as the page rendered whole and
+    /// cropped.
+    #[test]
+    fn a_region_renders_as_a_tile_with_the_pages_pixels() {
+        let mut s = Session::new();
+        let (id, area) = area_scan(&mut s, "Tiles and crops agree");
+        let AreaJob::Read(job) = s.area_job(id, 0, area, OcrSettings::default()).unwrap() else { panic!("a scan") };
+        let scale = job.render_scale(0);
+        let region = job.settings.region.unwrap();
+        let mut steps = job.steps();
+        let tiles_before = steps.renderer.stats().tile_requests;
+        let Some(Ok(shot)) = steps.next_page() else { panic!("the area is read") };
+        assert_eq!(steps.renderer.stats().tile_requests, tiles_before + 1, "the area was rendered as a tile");
+        let tile = shot.image().unwrap().clone();
+        let d = s.get(id).unwrap();
+        let full = PageRenderer::new(d.bytes.clone(), RenderConfig::default()).render(RenderRequest { page: 0, scale, ..Default::default() });
+        let full = pdfcraft_ocr::OcrImage::new(full.width, full.height, full.rgba.to_vec()).unwrap();
+        let [x0, y0, x1, y1] = clamp_region(region, full.width(), full.height()).unwrap();
+        let cropped = crop(&full, x0, y0, x1, y1).unwrap();
+        assert_eq!((tile.width(), tile.height()), (cropped.width(), cropped.height()));
+        let diff: u64 = tile.rgba().iter().zip(cropped.rgba()).map(|(a, b)| u64::from(a.abs_diff(*b))).sum();
+        assert!(diff as f64 / (tile.rgba().len() as f64) < 2.0, "mean difference {}", diff as f64 / tile.rgba().len() as f64);
+        assert_eq!(shot.offset, [x0 as f32, y0 as f32]);
+    }
+
+    /// The reading of an area: words in order, a new line where the baseline moves, the lowest
+    /// band among the confidences; a skipped page is an error naming why.
+    #[test]
+    fn an_area_reading_keeps_lines_and_the_lowest_band() {
+        let w = |text: &str, x: f64, y: f64, c: Option<f32>| PlacedWord {
+            text: text.into(),
+            origin: [x, y],
+            across: [20.0, 0.0],
+            up: [0.0, 10.0],
+            confidence: c,
+            source: "ppocr".into(),
+        };
+        let page = |words| OcrPage { page: 0, words, already_on_page: 0, skipped: None, notes: Vec::new() };
+        let r =
+            area_reading(&[page(vec![w("Hölder", 0.0, 100.0, Some(99.0)), w("bound", 30.0, 100.5, Some(75.0)), w("next", 0.0, 86.0, Some(95.0))])])
+                .unwrap();
+        assert_eq!(r, AreaReading { text: "Hölder bound\nnext".into(), words: 3, lowest: Some(ConfidenceBand::Medium) });
+        assert_eq!(area_reading(&[page(vec![w("a", 0.0, 0.0, None)])]).unwrap().lowest, None);
+        let skipped = OcrPage { skipped: Some("the selected region is outside the page".into()), ..page(Vec::new()) };
+        assert_eq!(area_reading(&[skipped]).unwrap_err(), "the selected region is outside the page");
+        assert!(area_reading(&[]).is_err());
+    }
+
+    /// With the models: an area of a scan with accented names is read, and only that area.
+    #[test]
+    fn an_area_of_a_scan_is_recognised() {
+        if Models::find().is_none() {
+            eprintln!("skipped: OCR models not installed");
+            return;
+        }
+        let mut s = Session::new();
+        let (id, area) = area_scan(&mut s, "Hölder and Lévy");
+        let AreaJob::Read(job) = s.area_job(id, 0, area, OcrSettings::default()).unwrap() else { panic!("a scan") };
+        let engines = recognizers(&job.settings).unwrap();
+        let r = area_reading(&job.run(&engines, |_, _| true)).unwrap();
+        assert_eq!(r.text, "Hölder and Lévy");
+        assert_eq!(r.words, 3);
+        assert!(r.lowest.is_some(), "PP-OCR reports confidences");
+    }
 
     /// #5080: [`recognize_file`] opens each file with the caller's JavaScript preference, so an
     /// XFA initialize script (it sets an empty `qty` to 2) runs only when that is on. This checks

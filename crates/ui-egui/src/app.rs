@@ -193,6 +193,7 @@ impl PdfCraftApp {
             app_frame_shown: None,
             password_prompt: None,
             document_copy: None,
+            area_ocr: None,
             unlock_prompt: None,
             full_screen: false,
             inbox: Default::default(),

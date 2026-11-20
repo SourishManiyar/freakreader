@@ -9439,6 +9439,41 @@ fn ocr_tools_make_a_scan_searchable() {
     assert!(a.call("edit_undo", &json!({ "doc": scan })).is_err(), "ocr_words changes nothing, so there is no undo");
 }
 
+/// Edit ▸ Recognize text in area, headless: a page's own text comes back as it is; an area of a
+/// scan is recognised with the configured engine, changing nothing; bad areas are refused.
+#[test]
+fn ocr_area_text_reads_an_area() {
+    let dir = workdir("ocr-area");
+    let mut a = auto(&dir);
+    let text = ok(&mut a, "doc_create", json!({ "from": "text", "text": "Hölder and Lévy bounds" }))["doc"].as_u64().unwrap();
+    // The typed page has its own text in the area: it is returned, nothing is recognised.
+    let own = ok(&mut a, "ocr_area_text", json!({ "doc": text, "page": 1, "region": [0, 0, 600, 200] }));
+    assert_eq!(own["source"], "text_layer", "{own}");
+    assert!(own["text"].as_str().unwrap().contains("Hölder and Lévy bounds"), "{own}");
+    for bad in [
+        json!({ "doc": text, "page": 1 }),
+        json!({ "doc": text, "page": 1, "region": [0, 0, 1] }),
+        json!({ "doc": text, "page": 1, "region": [0, 0, 1, 1] }),
+        json!({ "doc": text, "page": 9, "region": [0, 0, 99, 99] }),
+    ] {
+        assert!(matches!(a.call("ocr_area_text", &bad), Err(ToolError::InvalidArgs(_))), "{bad}");
+    }
+    if ok(&mut a, "ocr_status", json!({}))["available"] != true {
+        eprintln!("skipped: OCR models not installed");
+        return;
+    }
+    ok(&mut a, "doc_export_images", json!({ "doc": text, "folder": "scan", "dpi": 300, "pages": [1] }));
+    let png = std::fs::read_dir(dir.join("scan")).unwrap().next().unwrap().unwrap().path();
+    let scan = ok(&mut a, "doc_create", json!({ "from": "images", "paths": [png.to_string_lossy()] }))["doc"].as_u64().unwrap();
+    let r = ok(&mut a, "ocr_area_text", json!({ "doc": scan, "page": 1, "region": [0, 0, 4000, 1200] }));
+    assert_eq!(r["source"], "ppocr", "{r}");
+    assert!(r["text"].as_str().unwrap().contains("Hölder and Lévy"), "{r}");
+    assert!(r["words"].as_u64().unwrap() >= 4 && r["lowest_band"].is_string(), "{r}");
+    assert!(a.call("edit_undo", &json!({ "doc": scan })).is_err(), "reading an area changes nothing");
+    let why = a.call("ocr_area_text", &json!({ "doc": scan, "page": 1, "region": [0, 0, 4000, 1200], "engine": "ocrs" })).unwrap_err();
+    assert!(matches!(why, ToolError::InvalidArgs(_)), "{why}");
+}
+
 /// An editable-text recognition writes a NEW file of visible text, never the source.
 #[test]
 fn ocr_recognize_editable_output_writes_visible_text() {

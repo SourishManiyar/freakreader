@@ -871,6 +871,7 @@ impl Automation {
             "ocr_status" => self.ocr_status()?,
             "ocr_recognize_files" => self.ocr_recognize_files(&a)?,
             "ocr_words" => self.ocr_words(&a)?,
+            "ocr_area_text" => self.ocr_area_text(&a)?,
             "ocr_review_apply" => self.ocr_review_apply(&a)?,
             "ocr_dictionary" => self.ocr_dictionary(&a)?,
             "accessibility_report" => self.a11y_report(&a)?,

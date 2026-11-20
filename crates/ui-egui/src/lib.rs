@@ -104,6 +104,7 @@ pub(crate) mod os_clipboard;
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) use app::same_file;
 pub(crate) use app::{MAX_AUTHOR_CHARS, copy_refused, date_text_for_pdf, print_refused};
+use canvas::area_ocr_ui;
 use canvas::autoscroll;
 use canvas::crop;
 use canvas::fling;
@@ -561,6 +562,8 @@ pub struct PdfCraftApp {
     pub password_prompt: Option<PasswordPrompt>,
     /// Copy of a whole document's text (#2639) whose pages are being read off the UI thread.
     document_copy: Option<DocumentCopy>,
+    /// Recognize text in area: the area being read off the UI thread (`canvas/area_ocr_ui.rs`).
+    area_ocr: Option<area_ocr_ui::AreaOcr>,
     pub unlock_prompt: Option<UnlockPrompt>,
     pub full_screen: bool,
     /// Files delivered asynchronously (web drag-and-drop, web file picker).

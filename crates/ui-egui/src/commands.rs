@@ -593,6 +593,10 @@ impl PdfCraftApp {
             "comment.export" => self.export_data_dialog(true, false),
             "comment.summarize" => self.dialog = Some(Dialog::SummarizeComments),
             "edit.column_select" => self.quick_tool = crate::QuickTool::ColumnSelect,
+            "edit.recognize_area" => {
+                self.quick_tool = crate::QuickTool::RecognizeArea;
+                self.notify_tr("Drag a rectangle around the text to recognise. Esc to finish.");
+            }
             "edit.snapshot" => {
                 self.quick_tool = crate::QuickTool::Snapshot;
                 self.notify_tr("Drag a rectangle around the area to copy");

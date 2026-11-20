@@ -1662,6 +1662,21 @@ pub fn tools() -> Vec<ToolDef> {
                 }),
                 &["doc"],
             )),
+        t("ocr_area_text", "Recognize text in an area", "Edit ▸ Recognize text in area: the text inside region ([x0, y0, x1, y1] in points from the top-left of the displayed page) of one page. Where the page has its own text there, that text is returned as it is (source text_layer: it is already selectable, nothing is recognised); otherwise just that area is rendered and read with the engine and language given (source: the engine's id), with the word count and the lowest confidence band among the words (high >= 90, medium 70–89, low < 70). Changes nothing; refused when the document forbids copying. Needs the engines for areas without text (ocr_status).")
+            .ro()
+            .cmd("edit.recognize_area")
+            .with(schema(
+                json!({
+                    "doc": doc(),
+                    "page": { "type": "integer", "minimum": 1 },
+                    "region": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4, "description": "[x0, y0, x1, y1] in points from the top-left of the displayed page." },
+                    "dpi": { "type": "number", "minimum": 72, "maximum": 600, "description": "Resolution the area is read at (default 300; a scan is read at most at its own resolution)." },
+                    "language": { "type": "string", "enum": language_enum() },
+                    "engine": { "type": "string", "enum": ["auto", "ppocr", "tesseract"] },
+                    "strategy": { "type": "string", "enum": ["primary", "confidence", "rover"] },
+                }),
+                &["doc", "page", "region"],
+            )),
         t("ocr_review_apply", "Apply or discard reviewed OCR words", "Accept corrected recognition from ocr_words retain_review. Corrections use 1-based page/word positions and text only; empty text removes a word, omitted words keep their original text and boxes. The stored document guard refuses stale, foreign or consumed reviews. Searchable output is one undoable step; editable requires out and writes a new document (out must not exist yet; the review is kept when it does). discard releases the review without applying it. Input is capped at 65536 words and 4 MiB, never truncated.")
             .cmd("ocr.correct")
             .with(schema(json!({ "doc": doc(), "review": { "type": "integer", "minimum": 1 }, "discard": { "type": "boolean" }, "output_mode": { "type": "string", "enum": ["searchable", "editable"] }, "out": { "type": "string" },

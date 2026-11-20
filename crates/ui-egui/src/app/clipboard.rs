@@ -299,8 +299,10 @@ impl PdfCraftApp {
     /// After Select All of the document (#2639), pages whose text wasn't read for display are read
     /// off the UI thread ([`DocumentCopy`]), and the clipboard gets the text when they're done.
     pub(crate) fn copy_selected_text(&mut self, i: usize, ctx: &egui::Context) -> bool {
-        // A newer copy wins: a whole-document copy still reading must not replace it later.
+        // A newer copy wins: a whole-document copy or an area still being read must not replace it
+        // later.
         self.document_copy = None;
+        self.cancel_area_ocr();
         let Some(v) = self.views.get(i) else { return false };
         let id = v.id;
         if v.all_text && !v.pages_without_text().is_empty() {
