@@ -18,6 +18,7 @@ mod root_arguments;
 mod run_report;
 mod run_root;
 mod split;
+mod split_spreads;
 mod stderr;
 mod stdout;
 mod text;

@@ -24,6 +24,7 @@ mod outline_io;
 mod outline_rows;
 mod pdfx;
 mod prune;
+mod spreads;
 mod transition;
 pub mod view;
 mod xmp;
@@ -44,6 +45,7 @@ pub use outline::{
 };
 pub use outline_io::{MAX_IMPORT_BOOKMARKS, OutlineNode, OutlineTree, import_outline, outline_tree, unmapped, view_arity};
 pub use outline_rows::{MAX_ROW_TITLE_CHARS, MAX_ROWS, OutlineRow, RowTarget, outline_rows, rewrite_outline};
+pub use spreads::{MAX_PAGE_ANNOTS, MAX_SPLIT_PAGES, PageSplit, SplitAxis, SplitPage, split_pages_in_two};
 pub use transition::{TRANSITION_DIRECTIONS, TRANSITION_STYLES, Transition, TransitionSpec, set_transition};
 pub use view::{InitialView, displays_doc_title, initial_view, set_initial_view};
 

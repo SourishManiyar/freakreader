@@ -133,11 +133,13 @@ impl Session {
     /// groups it left as they were (and why). The counts are this edit's own, not a preview's.
     pub fn prepare_text(&mut self, id: DocId, page: usize) -> Result<pdfcraft_edit::text::forms::Preparation, EditError> {
         self.apply_reporting(id, Edit::PrepareText { page })?
+            .prepared
             .ok_or_else(|| EditError::Invalid("preparing grouped text gave no result; the document was not changed".into()))
     }
 
-    /// [`Session::apply`], giving back what an [`Edit::PrepareText`] did (`None` for other edits).
-    fn apply_reporting(&mut self, id: DocId, edit: Edit) -> Result<Option<pdfcraft_edit::text::forms::Preparation>, EditError> {
+    /// [`Session::apply`], giving back what an [`Edit::PrepareText`] or [`Edit::SplitSpreads`] did
+    /// (nothing for other edits, or when the edit changed nothing).
+    pub(crate) fn apply_reporting(&mut self, id: DocId, edit: Edit) -> Result<EditReport, EditError> {
         let now = self.now();
         let today = self.today();
         let js_off = self.js_off;
@@ -169,11 +171,11 @@ impl Session {
             check_permission(&edit, &p)?;
         }
         let Some(edit) = prepare_ocr_text_edit(editor, &doc.info, edit) else {
-            return Ok(None);
+            return Ok(EditReport::default());
         };
         // Nothing to bake: leave undo history and the dirty flag alone.
         if matches!(&edit, Edit::FlattenFillSign) && !pdfcraft_annot::has_visible_fill_sign(&editor.cos) {
-            return Ok(None);
+            return Ok(EditReport::default());
         }
         let mut next = editor.cos.clone();
         if !js_off && uses_scripts(&edit) {
@@ -194,7 +196,7 @@ impl Session {
         // a batch keeps the other edits it holds.
         if cx.xfa_unchanged && matches!(edit, Edit::XfaEvent { .. }) {
             take_xfa_output(doc, cx.xfa_out, cx.xfa_ran_away);
-            return Ok(None);
+            return Ok(EditReport::default());
         }
         // Redaction removed what its own interpreter places under the marks. The marks were drawn
         // over the page as the renderer shows it, so the renderer has the last word: on every
@@ -384,7 +386,7 @@ impl Session {
             doc.js_output.append(js.output);
         }
         take_xfa_output(doc, cx.xfa_out, cx.xfa_ran_away);
-        Ok(cx.prepared)
+        Ok(EditReport { prepared: cx.prepared, split: cx.split })
     }
 
     /// Undo the last edit of document `id`, keeping it for [`Session::redo`]. Returns its label.
@@ -760,4 +762,13 @@ fn edit_notices(edit: &Edit, prev: &pdfcraft_cos::Document, next: &pdfcraft_cos:
         }
     }
     notices
+}
+
+/// What an applied edit reports beyond changing the document.
+#[derive(Default)]
+pub(crate) struct EditReport {
+    /// [`Edit::PrepareText`]'s result.
+    pub(crate) prepared: Option<pdfcraft_edit::text::forms::Preparation>,
+    /// [`Edit::SplitSpreads`]'s result.
+    pub(crate) split: Option<Vec<pdfcraft_organize::SplitPage>>,
 }

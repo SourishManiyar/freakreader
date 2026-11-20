@@ -20,6 +20,7 @@ pub(super) mod preferences;
 pub(super) mod printer_marks_ui;
 mod prompts;
 pub(super) mod protect;
+pub(super) mod spreads;
 pub(super) mod standards_ui;
 pub(super) mod word_count_ui;
 
@@ -57,6 +58,7 @@ struct Pending {
     link_command: Option<&'static str>,
     protect_now: bool,
     boxes_now: bool,
+    spreads_now: bool,
     printer_marks_now: bool,
     colours_now: bool,
     fix_hairlines_now: bool,
@@ -477,6 +479,12 @@ fn dialog_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, dialog: Dialog, req: &m
             req.apply = go;
             req.boxes_now = req.apply;
             req.close = req.apply || cancel;
+            return false;
+        }
+        Dialog::SplitSpreads => {
+            let (go, cancel) = crate::spreads::body(ui, app, &t);
+            req.spreads_now = go;
+            req.close = go || cancel;
             return false;
         }
         Dialog::Protect => {
@@ -2171,6 +2179,9 @@ fn finish_edits(app: &mut PdfCraftApp, dialog: Dialog, req: &mut Pending) {
         let edit = app.boxes_draft.edit(app.views[i].current, count);
         app.apply_edit(edit);
         app.boxes_draft.seeded = None;
+    }
+    if req.spreads_now {
+        crate::spreads::apply(app);
     }
     if req.protect_now && app.apply_edit(app.protect_draft.edit()) {
         app.protect_draft = Default::default();

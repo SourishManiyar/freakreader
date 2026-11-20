@@ -337,6 +337,8 @@ impl PdfCraftApp {
             protect_draft: Default::default(),
             text_style_draft: Default::default(),
             boxes_draft: Default::default(),
+            spreads_draft: Default::default(),
+            spreads_preview: Default::default(),
             marks_draft: Default::default(),
             unmarked_page: Default::default(),
             export_draft: Default::default(),

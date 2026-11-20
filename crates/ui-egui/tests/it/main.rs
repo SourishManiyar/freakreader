@@ -94,6 +94,7 @@ mod split_view;
 mod split_view_edits;
 mod split_view_find;
 mod split_view_render;
+mod spreads;
 mod stamps;
 mod status_layers;
 mod text_select;

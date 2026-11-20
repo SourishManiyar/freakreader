@@ -141,6 +141,7 @@ pub(crate) fn panel(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
         for (icon, label, availability, command) in [
             ("square-dashed-mouse-pointer", "Set page boxes", Availability::Ready, Some("page.boxes")),
             ("crop", "Crop pages", Availability::Ready, Some("page.crop")),
+            ("book-open", "Split two-page spreads", Availability::Ready, Some("page.split_spreads")),
             ("presentation", "Page transitions", Availability::Later, Some("page.transitions")),
             ("file-text", "Page templates", Availability::Later, None),
             ("printer", "Print pages", Availability::Ready, Some("print.dialog")),

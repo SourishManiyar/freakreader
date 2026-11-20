@@ -195,6 +195,7 @@ const PAGES: &[&str] = &[
     "page.reverse",
     SEP,
     "page.crop",
+    "page.split_spreads",
     "page.boxes",
     "page.number",
     "page.properties",

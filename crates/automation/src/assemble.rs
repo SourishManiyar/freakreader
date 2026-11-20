@@ -143,6 +143,78 @@ impl Automation {
         Ok(out)
     }
 
+    /// `page_split_spreads`: each two-page spread becomes two pages, cropped to its halves.
+    pub(crate) fn page_split_spreads(&mut self, a: &Args) -> Result<Value> {
+        use pdfcraft_engine::spreads::{
+            DEFAULT_LANDSCAPE_RATIO, MAX_SPLIT_MARGIN, ReadingOrder, SPLIT_FRACTION_RANGE, SplitPosition, SplitSource, SpreadOptions,
+        };
+        let id = self.doc(a)?.id;
+        let pages = match a.opt_ints("pages")? {
+            Some(_) => Some(self.pages(a, "pages")?),
+            None => None,
+        };
+        let (lo, hi) = SPLIT_FRACTION_RANGE;
+        let position = match a.get("position") {
+            None => SplitPosition::Auto,
+            Some(v) if v.as_str() == Some("auto") => SplitPosition::Auto,
+            Some(v) => match v.as_f64().filter(|f| f.is_finite() && (lo..=hi).contains(f)) {
+                Some(f) => SplitPosition::Fixed(f),
+                None => {
+                    return Err(ToolError::InvalidArgs(format!(
+                        "position must be \"auto\" or a fraction of the page width from its left edge, between {lo} and {hi} (0.5 is the centre)"
+                    )));
+                }
+            },
+        };
+        let margin = a.opt_num("margin")?.unwrap_or(0.0);
+        if !(0.0..=MAX_SPLIT_MARGIN).contains(&margin) {
+            return Err(ToolError::InvalidArgs(format!("margin must be between 0 and {MAX_SPLIT_MARGIN} points")));
+        }
+        let min_ratio = a.opt_num("min_ratio")?.unwrap_or(DEFAULT_LANDSCAPE_RATIO);
+        if !(1.0..=10.0).contains(&min_ratio) {
+            return Err(ToolError::InvalidArgs("min_ratio must be between 1 and 10 (width ÷ height of the page as displayed)".into()));
+        }
+        let order = match a.opt_str("order")? {
+            None | Some("ltr") => ReadingOrder::LeftToRight,
+            Some("rtl") => ReadingOrder::RightToLeft,
+            Some(o) => {
+                return Err(ToolError::InvalidArgs(format!("order must be \"ltr\" (left half first) or \"rtl\" (right half first), not {o:?}")));
+            }
+        };
+        let options = SpreadOptions { pages, landscape_only: a.opt_bool("landscape_only")?.unwrap_or(true), min_ratio, position, margin, order };
+        let plan = |p: &pdfcraft_engine::spreads::SpreadPlan| {
+            json!({
+                "page": p.page + 1,
+                "position": (p.fraction * 10_000.0).round() / 10_000.0,
+                "confidence": (p.confidence * 100.0).round() / 100.0,
+                "source": match p.source { SplitSource::Fixed => "fixed", SplitSource::Gutter => "gutter", SplitSource::Centre => "centre" },
+                "note": p.note,
+            })
+        };
+        if a.opt_bool("dry_run")?.unwrap_or(false) {
+            let plans = self.session.plan_spreads(id, &options).map_err(failed)?;
+            return Ok(json!({ "dry_run": true, "splits": plans.iter().map(plan).collect::<Vec<_>>() }));
+        }
+        let (plans, done) = self.session.split_spreads(id, &options).map_err(failed)?;
+        let mut out = self.applied(a)?;
+        out["splits"] = json!(
+            plans
+                .iter()
+                .zip(&done)
+                .map(|(p, d)| {
+                    let mut v = plan(p);
+                    v["first_page"] = json!(d.first + 1);
+                    v["second_page"] = json!(d.first + 2);
+                    v["moved_annotations"] = json!(d.moved);
+                    v["annotations_on_both"] = json!(d.on_both);
+                    v["first_half_only"] = json!(d.first_only);
+                    v
+                })
+                .collect::<Vec<_>>()
+        );
+        Ok(out)
+    }
+
     pub(crate) fn insert_blank(&mut self, a: &Args) -> Result<Value> {
         let doc = self.doc(a)?;
         let at = self.position(a, "at")?;

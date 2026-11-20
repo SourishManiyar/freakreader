@@ -423,6 +423,21 @@ pub(crate) fn drop_deleted_pages(doc: &mut Document, deleted: &[usize]) -> Resul
     set_page_label_ranges(doc, &ranges)
 }
 
+/// After a page is inserted right after each of `after` (0-based, as numbered before, sorted),
+/// move the label ranges with the pages they label: a range starts as many pages later as pages
+/// were inserted before it. The inserted pages take the numbering of the range they fall in, so
+/// it runs on through them. The counterpart of [`drop_deleted_pages`]; a tree that can't be read
+/// is left as it is.
+pub(crate) fn insert_after_pages(doc: &mut Document, after: &[usize]) -> Result<(), OrganizeError> {
+    let Ok(old) = checked_ranges(doc) else { return Ok(()) };
+    let ranges: Vec<LabelRange> =
+        old.iter().map(|r| LabelRange { start: r.start.saturating_add(after.partition_point(|a| *a < r.start)), ..r.clone() }).collect();
+    if ranges == old {
+        return Ok(());
+    }
+    set_page_label_ranges(doc, &ranges)
+}
+
 /// Acrobat's "Number pages": label pages `from..=to` (0-based) with `style`, `prefix` and
 /// starting number `first`; pages after `to` keep the labels they had.
 pub fn number_pages(doc: &mut Document, from: usize, to: usize, style: LabelStyle, prefix: &str, first: u32) -> Result<(), OrganizeError> {

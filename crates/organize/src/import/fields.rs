@@ -208,7 +208,7 @@ fn qualified_optional(prefix: &str, name: &str) -> String {
 
 /// Add `kid` to `field`'s `/Kids`, in the array object itself when `/Kids` is one, so the field
 /// keeps its other widgets.
-pub(super) fn add_kid(dst: &mut Document, field: ObjRef, kid: ObjRef) -> Result<(), OrganizeError> {
+pub(crate) fn add_kid(dst: &mut Document, field: ObjRef, kid: ObjRef) -> Result<(), OrganizeError> {
     match dst.get(field).as_dict().and_then(|f| f.get(b"Kids").cloned()) {
         Some(Object::Ref(list)) => {
             let mut kids = dst.get(list).as_array().cloned().unwrap_or_default();

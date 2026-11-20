@@ -459,6 +459,10 @@ impl PdfCraftApp {
                 self.boxes_draft.seeded = None;
                 self.dialog = Some(Dialog::PageBoxes);
             }
+            "page.split_spreads" => {
+                self.spreads_draft.seeded = false;
+                self.dialog = Some(Dialog::SplitSpreads);
+            }
             "page.extract" => self.open_extract_dialog(),
             "page.rotate_dialog" => {
                 if let Some(i) = active {

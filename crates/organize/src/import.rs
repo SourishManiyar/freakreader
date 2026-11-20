@@ -39,8 +39,9 @@ pub use combine::{
 };
 pub(crate) use copy::{Copier, copy_object};
 use copy::{MAX_COPY_DEPTH, SKIP_ON_PAGE};
-use fields::{add_kid, field_and_widget, register_fields, resolve_field_conflicts, split_own_field};
+pub(crate) use fields::add_kid;
 pub use fields::{combine_field_conflicts, field_name_conflicts};
+use fields::{field_and_widget, register_fields, resolve_field_conflicts, split_own_field};
 
 /// How colliding fully-qualified field names are resolved when pages are imported.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

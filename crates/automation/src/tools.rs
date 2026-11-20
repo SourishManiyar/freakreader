@@ -1317,6 +1317,25 @@ pub fn tools() -> Vec<ToolDef> {
             &["doc"],
         )),
         t(
+            "page_split_spreads",
+            "Split two-page spreads",
+            "Turn each page that holds two book pages side by side (a scanned spread) into two pages, first the left half then the right (order \"rtl\": right first). Each half is a crop box on the same page content, so nothing is re-encoded and the scan stays once in the file; the other half is still in the file behind each crop box, as with page_set_box. Pages: the range given (default all); with landscape_only (default true) only pages whose width ÷ height as displayed is above min_ratio (default 1.2), so covers and plates are left alone; a portrait page is split only when named in pages with landscape_only false. position: \"auto\" (default) finds the gutter in a 100 dpi render, the emptiest column in the middle 40% of the width, or the centre when none stands out (each split says which, with a confidence); or a fraction of the width from the left edge, 0.1 to 0.9. margin: points each half keeps from the split line (default 0). Annotations go to the half that holds them; one across the line is on both. Bookmarks, links, named destinations and page labels that went to a split page go to its first half; the second half takes the next label of its range. dry_run: true only reports where each page would be split. One undo step; a failure on any page leaves the document unchanged.",
+        )
+        .cmd("page.split_spreads")
+        .with(schema(
+            json!({
+                "doc": doc(),
+                "pages": pages("to consider (default: all)"),
+                "landscape_only": { "type": "boolean" },
+                "min_ratio": { "type": "number", "minimum": 1, "maximum": 10 },
+                "position": { "description": "\"auto\" or a fraction of the width, 0.1 to 0.9" },
+                "margin": { "type": "number", "minimum": 0, "maximum": 1000 },
+                "order": { "type": "string", "enum": ["ltr", "rtl"] },
+                "dry_run": { "type": "boolean" },
+            }),
+            &["doc"],
+        )),
+        t(
             "doc_header_footer",
             "Add header and footer",
             "Add a header and/or footer to pages. Text boxes: header_left/center/right, footer_left/center/right. Tokens: <<1>> page number, <<n>> page count, <<1 of n>>, <<Page 1 of n>>, <<1/n>>, dates <<m/d/yyyy>> <<yyyy-mm-dd>> <<mmmm d, yyyy>> <<dd.mm.yyyy>> (and more), Bates <<Bates Number#6#1#PREFIX#SUFFIX>>. shrink: true scales the page content down evenly into the room the header and footer leave free, so they don't cover it. font: Helvetica (default), Times or Courier; Thai is drawn from PdfCraft's built-in Thai face beside it (a build without one refuses it). replace: true swaps out existing ones (Update). Undoable.",

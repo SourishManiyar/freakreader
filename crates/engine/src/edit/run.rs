@@ -17,6 +17,7 @@ pub(crate) fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Re
         | Edit::DuplicatePages { .. }
         | Edit::ReplacePages { .. }
         | Edit::SetPageBox { .. }
+        | Edit::SplitSpreads { .. }
         | Edit::SetTransition { .. }
         | Edit::InsertPagesFrom { .. }
         // "Assemble the document: insert, rotate or delete pages and create bookmarks" (Table 22).
@@ -266,6 +267,8 @@ pub(crate) struct EditCtx {
     /// What [`Edit::PrepareText`] prepared, repaired and left grouped, for
     /// [`Session::prepare_text`](crate::Session::prepare_text).
     pub(crate) prepared: Option<pdfcraft_edit::text::forms::Preparation>,
+    /// What [`Edit::SplitSpreads`] did to each page, for [`Session::split_spreads`](crate::Session::split_spreads).
+    pub(crate) split: Option<Vec<pdfcraft_organize::SplitPage>>,
 }
 
 impl EditCtx {
@@ -319,6 +322,7 @@ impl EditCtx {
             redaction_elsewhere: None,
             redaction_identification: pdfcraft_redact::Identification::default(),
             prepared: None,
+            split: None,
         }
     }
 
@@ -551,6 +555,16 @@ pub(crate) fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut E
             pdfcraft_organize::replace_pages(doc, pages, &src, src_pages)?;
         }
         Edit::SetPageBox { pages, which, spec } => pdfcraft_organize::set_page_box(doc, pages, *which, *spec)?,
+        Edit::SplitSpreads { splits, margin, order } => {
+            // As with Duplicate pages: a new page cannot be tied back to an earlier redaction's marks.
+            if !cx.redaction_marks.is_empty() {
+                return Err(EditError::Invalid(
+                    "a batch that applies redactions can't also split pages: the new pages can't be checked against the marks; the document was not changed"
+                        .into(),
+                ));
+            }
+            cx.split = Some(crate::spreads::run(doc, splits, *margin, *order)?);
+        }
         Edit::SetTransition { pages, spec } => pdfcraft_organize::set_transition(doc, pages, spec)?,
         Edit::InsertPagesFrom { name, bytes, pages, at, field_conflicts } => {
             let src = crate::sources::open_source_into(name, bytes, doc)?;

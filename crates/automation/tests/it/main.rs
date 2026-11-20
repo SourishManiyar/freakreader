@@ -28,6 +28,7 @@ mod redact_text_after_q;
 mod reference_preview;
 mod references;
 mod render_warnings;
+mod split_spreads;
 mod text_copy;
 mod timesheet_compat;
 mod unreadable_objects;

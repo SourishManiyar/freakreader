@@ -233,6 +233,38 @@ otherwise). Read-only; copy permission is required. The analysis is
 4. Add an end-to-end test in `tests/it/automation.rs`. `tool_table_is_well_formed` checks names, schemas and command links.
 
 
+## Splitting two-page spreads
+
+`page_split_spreads {doc, pages?, landscape_only?, min_ratio?, position?, margin?, order?, dry_run?}`
+turns each scanned page that holds two book pages side by side into two pages, as Organize ▸ Split
+two-page spreads does. Each half is a crop box on the same page content: nothing is re-encoded, the
+scan is stored once, and the other half stays in the file behind the crop box.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `pages` | all | 1-based pages to consider. |
+| `landscape_only` | `true` | Only pages whose width ÷ height as displayed is above `min_ratio`. A portrait page is split only when `pages` names it and this is `false`. |
+| `min_ratio` | `1.2` | 1 to 10. |
+| `position` | `"auto"` | `"auto"` looks for the gutter in a render of at most 100 dpi (the emptiest column in the middle 40% of the width, or the centre when none stands out); a number is a fixed fraction of the width from the left edge, 0.1 to 0.9. |
+| `margin` | `0` | Points each half keeps from the split line, 0 to 1000. |
+| `order` | `"ltr"` | `"ltr"`: left half first; `"rtl"`: right half first. |
+| `dry_run` | `false` | Only report where each page would be split. |
+
+The result lists, per split page, its 1-based `page`, `position`, `confidence`, `source`
+(`gutter`, `centre` or `fixed`, with a `note` when it fell back to the centre), the new
+`first_page` and `second_page`, `moved_annotations`, `annotations_on_both` and `first_half_only`
+(what the second half does not carry, such as article beads or tagged structure). Bookmarks, links,
+named destinations and page labels that went to a split page go to its first half. The whole
+operation is one undo step, and a failure on any page leaves the document unchanged.
+
+```json
+[
+  { "tool": "doc_open", "args": { "path": "scan.pdf" } },
+  { "tool": "page_split_spreads", "args": { "doc": 1, "margin": 4 } },
+  { "tool": "doc_save", "args": { "doc": 1, "path": "book.pdf" } }
+]
+```
+
 ## Moving several page objects
 
 `object_list {doc, page}` inventories recognised paragraphs, Image/Form artwork and added items

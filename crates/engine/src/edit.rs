@@ -59,6 +59,14 @@ pub enum Edit {
         which: PageBox,
         spec: BoxSpec,
     },
+    /// Organize ▸ Split two-page spreads: each `(page, fraction)` becomes two pages, cropped to
+    /// the halves either side of `fraction` of its displayed width, each keeping `margin` points
+    /// from the line, first in `order` (see [`crate::spreads`]).
+    SplitSpreads {
+        splits: Vec<(usize, f64)>,
+        margin: f64,
+        order: crate::spreads::ReadingOrder,
+    },
     /// Set or remove the page transition and display time of pages (ISO 32000-2 §12.4.4),
     /// Organize ▸ Page Transitions.
     SetTransition {
