@@ -6,8 +6,9 @@
 //! Messages are plain objects with a `type`:
 //!
 //! - `ready` (to the page): the worker is listening; send the models now.
-//! - `models` (from the page): `{ detection, recognition }`, each a `Uint8Array` holding a model
-//!   file. Answered with `loaded`, or `failed` with an `error`.
+//! - `models` (from the page): `{ detection, recognition, dictionary }`, each a `Uint8Array`
+//!   holding a model file (the PP-OCR detector, the Latin recogniser and its model card with the
+//!   character dictionary). Answered with `loaded`, or `failed` with an `error`.
 //! - `page` (from the page): `{ id, width, height, pixels }`, the RGBA pixels of a rendered page
 //!   as a `Uint8Array`. Answered with `lines` `{ id, lines }`, the recognised lines as
 //!   `pdfcraft_ocr::lines_to_json` writes them, or `failed` `{ id, error }`.
@@ -42,7 +43,7 @@ mod worker {
     use pdfcraft_ocr::Ocr;
     use wasm_bindgen::{JsCast, JsValue};
 
-    /// The models are about 12 MB together.
+    /// The detector and the Latin recogniser are about 13 MB together.
     const MAX_MODEL_BYTES: u32 = 64 << 20;
     /// The renderer keeps pages far smaller; anything larger isn't a page.
     const MAX_PIXEL_BYTES: u64 = 1 << 30;
@@ -60,7 +61,7 @@ mod worker {
         let get = |k: &str| js_sys::Reflect::get(data, &k.into()).unwrap_or(JsValue::UNDEFINED);
         let id = get("id");
         let reply = match get("type").as_string().as_deref() {
-            Some("models") => load(&get("detection"), &get("recognition")).map(|o| {
+            Some("models") => load(&get("detection"), &get("recognition"), &get("dictionary")).map(|o| {
                 *ocr = Some(o);
                 message(&[("type", "loaded".into())])
             }),
@@ -82,9 +83,9 @@ mod worker {
         Ok(a.to_vec())
     }
 
-    fn load(detection: &JsValue, recognition: &JsValue) -> Result<Ocr, String> {
+    fn load(detection: &JsValue, recognition: &JsValue, dictionary: &JsValue) -> Result<Ocr, String> {
         let max = u64::from(MAX_MODEL_BYTES);
-        Ocr::from_bytes(bytes(detection, max)?, bytes(recognition, max)?).map_err(|e| e.to_string())
+        Ocr::from_bytes(bytes(detection, max)?, bytes(recognition, max)?, bytes(dictionary, max)?).map_err(|e| e.to_string())
     }
 
     fn recognize(ocr: &Ocr, width: &JsValue, height: &JsValue, pixels: &JsValue) -> Result<String, String> {

@@ -1006,7 +1006,7 @@ impl OcrVerify {
             return;
         }
         use pdfcraft_engine::ocr::{EngineChoice, engine_unavailable_reason};
-        if engine_unavailable_reason(EngineChoice::Ocrs).is_none() {
+        if engine_unavailable_reason(EngineChoice::PpOcr).is_none() {
             // The models are in. An engine the browser can never run (Tesseract) says why
             // rather than waiting for ever.
             let outcome = engine_unavailable_reason(app.ocr_draft.engine).map_or(Ok(()), Err);
@@ -1540,7 +1540,7 @@ fn language_name(code: &str) -> String {
 fn engine_label(engine: EngineChoice) -> &'static str {
     match engine {
         EngineChoice::Auto => tl!("Automatic"),
-        EngineChoice::Ocrs => "ocrs",
+        EngineChoice::PpOcr => "PP-OCR",
         EngineChoice::Tesseract => "Tesseract",
     }
 }
@@ -1554,14 +1554,14 @@ fn strategy_label(strategy: MergeStrategy) -> &'static str {
     }
 }
 
-/// The Engine dropdown: Automatic, ocrs, Tesseract. An engine that cannot run is disabled and
+/// The Engine dropdown: Automatic, PP-OCR, Tesseract. An engine that cannot run is disabled and
 /// says why (a tooltip names the missing models or program). The choice feeds the next run.
 /// Choosing Automatic while the strategy is "Primary only" (which would never run the second
 /// engine) moves the strategy to Automatic's own default, Confidence weighted.
 fn engine_combo(ui: &mut egui::Ui, engine: &mut EngineChoice, strategy: &mut MergeStrategy) {
     ocr_ui::keep_asking_while_probing(ui.ctx());
     craft_ui::ComboBox::from_id_salt("ocr-verify-engine").width(120.0).selected_text(engine_label(*engine)).show_ui(ui, |ui| {
-        for (choice, label) in [(EngineChoice::Auto, tl!("Automatic")), (EngineChoice::Ocrs, "ocrs"), (EngineChoice::Tesseract, "Tesseract")] {
+        for (choice, label) in [(EngineChoice::Auto, tl!("Automatic")), (EngineChoice::PpOcr, "PP-OCR"), (EngineChoice::Tesseract, "Tesseract")] {
             let why = pdfcraft_engine::ocr::engine_unavailable_reason(choice);
             let resp = ui.add_enabled(why.is_none(), egui::Button::selectable(*engine == choice, label));
             let clicked = resp.clicked();
@@ -1572,7 +1572,7 @@ fn engine_combo(ui: &mut egui::Ui, engine: &mut EngineChoice, strategy: &mut Mer
                 None => {
                     resp.on_hover_text(match choice {
                         EngineChoice::Auto => tl!("Both engines, combined as the Strategy says"),
-                        EngineChoice::Ocrs => tl!("The built-in engine (pure Rust)"),
+                        EngineChoice::PpOcr => tl!("The built-in engine (pure Rust)"),
                         EngineChoice::Tesseract => tl!("The tesseract program, run as an external process"),
                     });
                 }
@@ -2298,7 +2298,7 @@ mod tests {
     /// A word box that sits where a real placed word would (high on the page, reading left
     /// to right).
     fn word(text: &str, conf: Option<f32>) -> PlacedWord {
-        PlacedWord { text: text.into(), origin: [72.0, 700.0], across: [40.0, 0.0], up: [0.0, 12.0], confidence: conf, source: "ocrs".into() }
+        PlacedWord { text: text.into(), origin: [72.0, 700.0], across: [40.0, 0.0], up: [0.0, 12.0], confidence: conf, source: "ppocr".into() }
     }
 
     /// One page of words with the given confidences, and a review loaded with it (the guard
@@ -2560,7 +2560,7 @@ mod tests {
 
     /// A word at `x` on the first line of a US Letter page, with a Low confidence.
     fn word_at(text: &str, x: f64) -> PlacedWord {
-        PlacedWord { text: text.into(), origin: [x, 700.0], across: [40.0, 0.0], up: [0.0, 12.0], confidence: Some(40.0), source: "ocrs".into() }
+        PlacedWord { text: text.into(), origin: [x, 700.0], across: [40.0, 0.0], up: [0.0, 12.0], confidence: Some(40.0), source: "ppocr".into() }
     }
 
     /// Whole-page re-read: review marks are positional, so the page's marks go with the old
@@ -2621,7 +2621,7 @@ mod tests {
     #[test]
     fn a_page_reread_runs_off_the_ui_thread_and_poll_applies_it() {
         let (mut app, _) = app_review(vec![vec![word("one", Some(95.0))]]);
-        app.ocr_draft.engine = EngineChoice::Ocrs; // an ocrs-only job never probes tesseract
+        app.ocr_draft.engine = EngineChoice::PpOcr; // a PP-OCR-only job never probes tesseract
         app.run_inline = false; // the point of the test: a real worker thread
         with_state(&mut app, |v, app| v.start_reread(app, 0, None));
         assert!(app.ocr_verify.reread.is_some(), "the reading is in flight");
@@ -2675,7 +2675,7 @@ mod tests {
         let (mut app, _) = app_review(vec![vec![word("one", Some(95.0))]]);
         app.ocr_verify.open = true;
         app.ocr_verify.awaiting_models = Some(AwaitingModels::Run);
-        with_state(&mut app, |v, app| v.models_landed(app, Err("models/text-detection.onnx: HTTP 404".into())));
+        with_state(&mut app, |v, app| v.models_landed(app, Err("models/PP-OCRv5_mobile_det.onnx: HTTP 404".into())));
         assert_eq!(app.ocr_verify.awaiting_models, None);
         assert!(app.ocr_verify.message.contains("Couldn't download") && app.ocr_verify.message.contains("HTTP 404"), "{}", app.ocr_verify.message);
         assert_eq!(app.ocr_verify.phase, Phase::ReviewReady);
@@ -2752,7 +2752,7 @@ mod tests {
             across: [40.0, 0.0],
             up: [0.0, 12.0],
             confidence: Some(95.0),
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         {
             let v = &mut app.ocr_verify;

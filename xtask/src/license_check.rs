@@ -54,7 +54,7 @@ fn validate(root: &Path) -> Result<()> {
     let docs: Documents = toml::from_str(&text).context("parsing LICENSES.toml")?;
     let attribution = assets::load(root)?;
     let mut problems = check(root, &docs, &attribution);
-    let ocr_source = std::fs::read_to_string(root.join("crates/ocr/src/ocrs.rs")).context("reading OCR model filename constants")?;
+    let ocr_source = std::fs::read_to_string(root.join(OCR_SOURCE)).context("reading OCR model filename constants")?;
     problems.extend(check_required_ocr_metadata(&ocr_source, &attribution)?);
     if !problems.is_empty() {
         bail!("source licensing errors:\n{}", problems.join("\n"));
@@ -62,20 +62,52 @@ fn validate(root: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Read only the two filename constants consumed by the OCR application. Fail closed if their
-/// declaration format changes; do not guess filenames or add a dependency on the OCR engine.
-fn check_required_ocr_metadata(source: &str, attribution: &assets::Manifest) -> Result<Vec<String>> {
-    let mut problems = Vec::new();
-    for name in ["DETECTION_MODEL", "RECOGNITION_MODEL"] {
+/// The source that names every OCR model file the application loads.
+const OCR_SOURCE: &str = "crates/ocr/src/ppocr.rs";
+
+/// The model file names `source` declares: the `DETECTION_MODEL`, `RECOGNITION_MODEL` and
+/// `RECOGNITION_DICTIONARY` constants and each recogniser's `model:` and `dictionary:` field.
+/// Fail closed if a declaration's format changes; do not guess filenames or add a dependency on
+/// the OCR engine.
+fn required_ocr_files(source: &str) -> Result<BTreeSet<String>> {
+    let mut files = BTreeSet::new();
+    for name in ["DETECTION_MODEL", "RECOGNITION_MODEL", "RECOGNITION_DICTIONARY"] {
         let prefix = format!("pub const {name}: &str = \"");
         let declarations: Vec<_> = source.lines().map(str::trim).filter_map(|line| line.strip_prefix(&prefix)).collect();
         let file = declarations.first().and_then(|value| value.strip_suffix("\";"));
         let Some(file) = file.filter(|file| declarations.len() == 1 && safe_path(file) && !file.contains('/')) else {
             bail!(
-                "OCR constant {name}: expected one literal filename declaration in crates/ocr/src/ocrs.rs; update the source validator if its syntax changed"
+                "OCR constant {name}: expected one literal filename declaration in {OCR_SOURCE}; update the source validator if its syntax changed"
             );
         };
-        let entries: Vec<_> = attribution.fetched.iter().filter(|f| f.file == file).collect();
+        files.insert(file.to_string());
+    }
+    let mut fields = 0;
+    for field in ["model: ", "dictionary: "] {
+        for value in source.lines().map(str::trim).filter_map(|line| line.strip_prefix(field)) {
+            let file = value.strip_prefix('"').and_then(|v| v.strip_suffix("\","));
+            let Some(file) = file.filter(|file| safe_path(file) && !file.contains('/') && !file.contains('"')) else {
+                bail!(
+                    "OCR recogniser field `{field}…`: expected a literal filename in {OCR_SOURCE}; update the source validator if its syntax changed"
+                );
+            };
+            files.insert(file.to_string());
+            fields += 1;
+        }
+    }
+    if fields < 2 {
+        bail!("OCR recognisers: no `model:`/`dictionary:` fields found in {OCR_SOURCE}; update the source validator if its syntax changed");
+    }
+    Ok(files)
+}
+
+/// Every model file the OCR source names has exactly one `kind = "model"` entry in
+/// ATTRIBUTION.toml, and every fetched model is one the source names (no stale download).
+fn check_required_ocr_metadata(source: &str, attribution: &assets::Manifest) -> Result<Vec<String>> {
+    let required = required_ocr_files(source)?;
+    let mut problems = Vec::new();
+    for file in &required {
+        let entries: Vec<_> = attribution.fetched.iter().filter(|f| &f.file == file).collect();
         if entries.is_empty() {
             problems.push(format!("{file}: required OCR licensing metadata missing from ATTRIBUTION.toml"));
         } else {
@@ -86,6 +118,9 @@ fn check_required_ocr_metadata(source: &str, attribution: &assets::Manifest) -> 
                 problems.push(format!("{file}: required OCR licensing metadata must have kind = \"model\""));
             }
         }
+    }
+    for f in attribution.fetched.iter().filter(|f| f.kind == "model" && !required.contains(&f.file)) {
+        problems.push(format!("{}: a fetched model that {OCR_SOURCE} does not load", f.file));
     }
     Ok(problems)
 }
@@ -407,9 +442,9 @@ mod tests {
 
     #[test]
     fn required_ocr_models_cannot_be_missing() {
-        let source = include_str!("../../crates/ocr/src/ocrs.rs");
+        let source = include_str!("../../crates/ocr/src/ppocr.rs");
         let original = assets::load(&assets::root()).unwrap();
-        assert_eq!(original.fetched.iter().filter(|f| f.kind == "model").count(), 2);
+        assert_eq!(original.fetched.iter().filter(|f| f.kind == "model").count(), 7);
         assert!(check_required_ocr_metadata(source, &original).unwrap().is_empty());
         for model in original.fetched.iter().filter(|f| f.kind == "model") {
             let mut m = assets::load(&assets::root()).unwrap();
@@ -420,9 +455,9 @@ mod tests {
 
     #[test]
     fn required_ocr_models_cannot_be_misclassified() {
-        let source = include_str!("../../crates/ocr/src/ocrs.rs");
+        let source = include_str!("../../crates/ocr/src/ppocr.rs");
         let original = assets::load(&assets::root()).unwrap();
-        assert_eq!(original.fetched.iter().filter(|f| f.kind == "model").count(), 2);
+        assert_eq!(original.fetched.iter().filter(|f| f.kind == "model").count(), 7);
         for model in original.fetched.iter().filter(|f| f.kind == "model") {
             let mut m = assets::load(&assets::root()).unwrap();
             m.fetched.iter_mut().find(|f| f.file == model.file).unwrap().kind = "font".into();
@@ -446,6 +481,20 @@ mod tests {
     #[test]
     fn changed_ocr_constant_syntax_fails_closed() {
         assert!(check_required_ocr_metadata("", &assets::Manifest::default()).is_err());
+        let source = include_str!("../../crates/ocr/src/ppocr.rs");
+        assert!(check_required_ocr_metadata(&source.replace("model: \"", "model: concat!(\""), &assets::Manifest::default()).is_err());
+    }
+
+    /// A fetched model the engine no longer loads is a stale download, not silently kept.
+    #[test]
+    fn stale_ocr_models_are_reported() {
+        let source = include_str!("../../crates/ocr/src/ppocr.rs");
+        let mut m = assets::load(&assets::root()).unwrap();
+        let mut stale = assets::load(&assets::root()).unwrap().fetched.remove(0);
+        stale.file = "text-detection.onnx".into();
+        stale.kind = "model".into();
+        m.fetched.push(stale);
+        assert!(check_required_ocr_metadata(source, &m).unwrap().iter().any(|p| p.contains("text-detection.onnx") && p.contains("does not load")));
     }
 
     #[test]

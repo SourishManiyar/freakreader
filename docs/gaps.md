@@ -45,7 +45,7 @@ update the numbers.
 | 3 | Editing existing text is fragile on real files | feature | 100–180 | [target-app-parity.md](target-app-parity.md) |
 | 5 | Chinese UI lacks a web glyph face | localization | 6–12 | [localization-parity.md](localization-parity.md) |
 | 6 | Open-issue backlog of wrong results in shipped features | stability | 45–80 | this file |
-| 7 | OCR reads only unaccented Latin | feature | 40–75 | [file-format-parity.md](file-format-parity.md) |
+| 7 | OCR reads Latin, Greek and CJK only | feature | 30–60 | [file-format-parity.md](file-format-parity.md) |
 | 8 | Office export weak, Office import basic | file format | 55–100 | [file-format-parity.md](file-format-parity.md) |
 | 9 | No Preflight; PDF/A partial; PDF/X and PDF/UA absent | standards | 65–115 | [pdf-spec-parity.md](pdf-spec-parity.md) |
 | 10 | Signatures: no PKCS #11, timestamp servers or online revocation | feature, hardware | 40–70 | [pdf-spec-parity.md](pdf-spec-parity.md) |
@@ -174,20 +174,25 @@ update the numbers.
   (`AGENTS.md` §4).
 - **Estimate:** 45–80 h (≈ 0.2–0.4 h per issue). **Doc:** this file.
 
-### 7. OCR reads only unaccented Latin
+### 7. OCR reads Latin, Greek and CJK only
 
-- **Missing:** every other script and accented Latin; editable-text output; deskew, rotation,
+- **Read today:** the built-in PP-OCR engine reads English and accented Latin (11 languages),
+  Greek, Chinese and Japanese, with a confidence per word; on the scanned-paper benchmark
+  (`crates/engine/tests/data/ocr_bench`) it keeps accented names and math-italic Greek that the
+  previous engine turned into `?`.
+- **Missing:** Cyrillic, Arabic, Hebrew and Indic scripts; measured quality for Greek, Chinese
+  and Japanese; editable-text output; deskew, rotation,
   despeckle and background clean-up as options of Recognize text (Enhance scanned file removes
   the background and edge shadows on grey and RGB scans and despeckles those and 1-bit ones; it
   reports CMYK, indexed, JPEG 2000, JBIG2 and CCITT scans and scans drawn inside Form XObjects
   and leaves them as they are); MRC compression;
-  pluggable engines; OCR in the
-  browser; scanner input.
-- **Evidence:** `ocr.ocr-languages` partial ("the models read only the Latin alphabet without
-  accents"); 19 of 26 OCR features planned; [#744](https://github.com/storytold/pdfcraft/issues/744)
+  scanner input.
+- **Evidence:** `ocr.ocr-languages` partial (Greek, Chinese and Japanese are not measured);
+  19 of 26 OCR features planned; [#744](https://github.com/storytold/pdfcraft/issues/744)
   (Dutch). Acrobat ships on-device recognition for dozens of languages.
 - **Impact:** scanned documents are a core Pro workflow outside English.
-- **Estimate:** 40–75 h, partly blocked on openly licensed models. **Doc:**
+- **Estimate:** 30–60 h; PaddleOCR publishes Apache-2.0 recognisers for Cyrillic, Arabic and
+  Devanagari that the same engine can load. **Doc:**
   [file-format-parity.md](file-format-parity.md).
 
 ### 8. Office export weak, Office import basic
@@ -433,6 +438,7 @@ update the numbers.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-20 | minor | Gap 7: the built-in OCR engine is now PP-OCRv5 on rten; it reads accented Latin, Greek, Chinese and Japanese with a confidence per word. Estimate 40–75 h → 30–60 h (Cyrillic, Arabic, Hebrew and Indic remain). |
 | 2026-11-11 | minor | Gap 8: known residual risk for the LibreOffice sidecar (Impress has no link-update setting; the soffice process isn't network-sandboxed). Sandboxing tracked in #6953. Estimates unchanged. |
 | 2026-10-26 | minor | Gap 8: the LibreOffice profile never updates Writer or Calc linked content on load; Impress has no such setting and the process's network access isn't sandboxed. Estimates unchanged. |
 | 2026-10-25 | minor | Gaps 5 and 14 current state: native release builds embed LXGW WenKai Lite for Simplified Chinese, while the web build has no Hans face; Arabic catalogs stay logical with explicit RTL label direction and mirrored stock chrome, while native/browser RTL input, IME and complex workflows remain unqualified. Estimates unchanged. |

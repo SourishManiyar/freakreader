@@ -69,7 +69,7 @@ fn recognize_text_in_multiple_files_writes_searchable_copies() {
 
 /// A placed word the review can hold (its box sits where a real one would).
 fn placed(text: &str, confidence: f32) -> PlacedWord {
-    PlacedWord { text: text.into(), origin: [40.0, 40.0], across: [50.0, 0.0], up: [0.0, 12.0], confidence: Some(confidence), source: "ocrs".into() }
+    PlacedWord { text: text.into(), origin: [40.0, 40.0], across: [50.0, 0.0], up: [0.0, 12.0], confidence: Some(confidence), source: "ppocr".into() }
 }
 
 /// The OCR Verify screen (Scan & OCR ▸ Correct recognized text) in the real shell: every
@@ -243,7 +243,7 @@ fn an_ocr_word_opens_for_editing_and_stays_open() {
             across: [80.0, 0.0],
             up: [0.0, 14.0],
             confidence: None,
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         }];
         app.session.apply(id, Edit::AddOcrText { page: 0, words }).unwrap();
         app.set_option("zoom", "100").unwrap();

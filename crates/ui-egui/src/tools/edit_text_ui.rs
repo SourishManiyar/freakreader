@@ -1420,7 +1420,7 @@ C", &picked
             across: [x1 - x0, 0.0],
             up: [0.0, 0.718 * size],
             confidence: None,
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         let mut app = crate::PdfCraftApp::new();
         let png = pdfcraft_engine::export::encode_png(200, 100, &[235u8; 200 * 100 * 4]).unwrap();

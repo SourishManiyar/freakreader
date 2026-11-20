@@ -99,9 +99,9 @@ features total).
 
 | Capability | Acrobat | PdfCraft | Fidelity |
 |---|---|---|---|
-| Searchable image (invisible text layer) | yes | yes (Tr 3 text fitted to word boxes) | good for English |
+| Searchable image (invisible text layer) | yes | yes (Tr 3 text fitted to word boxes) | good for English and accented Latin |
 | Editable text and images output | yes | no | none |
-| Languages | dozens (Latin with accents, Cyrillic, Greek, CJK, Arabic, Hebrew, Indic) | Latin without accents only (ocrs models) | **basic** (#744) |
+| Languages | dozens (Latin with accents, Cyrillic, Greek, CJK, Arabic, Hebrew, Indic) | Latin with accents (11 languages), Greek, Chinese and Japanese (PP-OCRv5 models); no Cyrillic, Arabic, Hebrew or Indic | **partial** (#744) |
 | Deskew, rotation, despeckle, background and halo removal, descreen | yes | no | none |
 | Camera images (edges, perspective, whiteboard, card) | yes | no | none |
 | MRC (adaptive) compression, PDF/A output of scans | yes | no | none |

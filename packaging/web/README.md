@@ -59,8 +59,10 @@ Local test: `python3 -m http.server 8765` inside the folder, then open http://lo
 
 ## Text recognition (OCR)
 
-Scan & OCR ▸ Recognize Text downloads `models/text-detection.onnx` and
-`models/text-recognition.onnx`, relative to the page, the first time it is opened in a visit.
+Scan & OCR ▸ Recognize Text downloads `models/PP-OCRv5_mobile_det.onnx`,
+`models/latin_PP-OCRv5_mobile_rec.onnx` and `models/latin_PP-OCRv5_mobile_rec.yml` (about 13 MB),
+relative to the page, the first time it is opened in a visit. The browser reads English and the
+accented Latin alphabets; the Greek, Chinese and Japanese recognisers are for the desktop app.
 Keep `models/` beside `index.html`. The app loads only the files whose SHA-256 matches
 `ATTRIBUTION.toml`, so a wrong file fails like a missing one. Their file names carry no content
 hash, so the app asks the server before using a cached copy (`no-cache`): the server must answer

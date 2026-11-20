@@ -6735,7 +6735,7 @@ fn backgrounds_and_watermarks_from_files() {
 }
 
 /// The web build reads a page at a time (prepared on the page, recognised in a worker, the
-/// lines sent back as JSON); with the real ocrs engine that finds the same words as reading in
+/// lines sent back as JSON); with the real PP-OCR engine that finds the same words as reading in
 /// one go (needs the models: `cargo xtask models`; skipped without them).
 #[test]
 fn reading_a_page_at_a_time_finds_the_same_words() {
@@ -6779,7 +6779,6 @@ fn recognize_text_reads_the_euro_sign() {
     let id = s.open("scan.pdf", None, scan, None).unwrap();
     s.recognize_text(id, &[], ocr::OcrSettings::default()).unwrap();
     let text = page_texts(&s, id)[0].clone();
-    // The model was trained with € where the ocrs crate's alphabet has a second E.
     assert!(text.contains("€250"), "{text}");
 }
 
@@ -10915,7 +10914,7 @@ fn ocr_words_refresh_only_the_page_content_they_add() {
     assert!(!words_on(&s, 1).iter().any(|w| w.contains("HELLO")));
     take_full_refreshes();
     let word =
-        PlacedWord { text: "HELLO".into(), origin: [40.0, 40.0], across: [60.0, 0.0], up: [0.0, 20.0], confidence: None, source: "ocrs".into() };
+        PlacedWord { text: "HELLO".into(), origin: [40.0, 40.0], across: [60.0, 0.0], up: [0.0, 20.0], confidence: None, source: "ppocr".into() };
     assert_eq!(s.apply_ocr(id, &[OcrPage { page: 1, words: vec![word], already_on_page: 0, skipped: None, notes: Vec::new() }]).unwrap(), 1);
     assert_eq!(take_full_refreshes(), 0, "applying OCR words doesn't re-inspect the document");
     let after = s.get(id).unwrap();

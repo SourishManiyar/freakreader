@@ -118,7 +118,7 @@ fn blur(rgba: &[u8], w: usize, h: usize) -> Vec<u8> {
 /// Gaussian-like noise of standard deviation `sigma` grey levels, seeded per page.
 fn noise(rgba: &mut [u8], sigma: f32, seed: u64) {
     let mut rng = Rng(seed | 1);
-    for px in rgba.chunks_exact_mut(4) {
+    for px in rgba.as_chunks_mut::<4>().0 {
         let g = (0.299 * px[0] as f32 + 0.587 * px[1] as f32 + 0.114 * px[2] as f32 + sigma * rng.normal()).round().clamp(0.0, 255.0) as u8;
         px[..3].fill(g);
     }
@@ -126,7 +126,7 @@ fn noise(rgba: &mut [u8], sigma: f32, seed: u64) {
 
 /// The page through a JPEG round trip at `quality`.
 fn jpeg(rgba: &[u8], w: usize, h: usize, quality: u8) -> Vec<u8> {
-    let rgb: Vec<u8> = rgba.chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect();
+    let rgb: Vec<u8> = rgba.as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect();
     let mut buf = Vec::new();
     image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buf, quality)
         .encode(&rgb, w as u32, h as u32, image::ExtendedColorType::Rgb8)

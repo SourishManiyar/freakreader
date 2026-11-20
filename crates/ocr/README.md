@@ -19,10 +19,11 @@ let layer = visible_text_layer(&placed, &plan);          // visible text: the ed
 ```
 
 - **Engines behind one trait.** A [`Recognizer`] reports its `id`, whether it is `available`,
-  the languages it reads, and reads `Vec<Line>` from an image. Two exist: the pure-Rust
-  `OcrsRecognizer` (the `ocrs` crate, MIT/Apache-2.0, with its pre-trained models,
-  CC-BY-SA-4.0, fetched by `cargo xtask models`; found via `$PDFCRAFT_MODELS` or `models/`
-  beside the executable — see ATTRIBUTION.toml), and — off the web build —
+  the languages it reads, and reads `Vec<Line>` from an image. Two exist: the built-in
+  `PpOcrRecognizer` (id `ppocr`: PaddleOCR's PP-OCRv5 mobile models, Apache-2.0, run on the
+  pure-Rust `rten` runtime; fetched by `cargo xtask models`; found via `$PDFCRAFT_MODELS` or
+  `models/` beside the executable — see ATTRIBUTION.toml and "The PP-OCR engine" below), and —
+  off the web build —
   `tesseract::TesseractCli`, which drives an installed `tesseract` binary as an external
   process: never linked, bundled or downloaded. Implementations are shared across threads
   (`Send + Sync`); nothing spawns on wasm32.
@@ -41,14 +42,15 @@ let layer = visible_text_layer(&placed, &plan);          // visible text: the ed
 - **Confidence drives review.** One classifier (`band_for`) puts a word in the High
   (≥ 90), Medium (70–89) or Low (< 70) band — the review overlay's colours, the legend and the
   counts; the batch flag rule (`low_confidence`, default threshold 60) is deliberately a
-  separate threshold. The `ocrs` models report no confidence (its words carry `None`);
-  a reading whose confidence is unknown is treated as unknown, never as good.
+  separate threshold. PP-OCR gives every word a confidence (the mean probability of its
+  characters); a reading whose confidence is unknown (some Tesseract words) is treated as
+  unknown, never as good.
 - **Two engines can be merged (ROVER).** Strategies: `PrimaryOnly` (the default), and two
   ensembles — `ConfidenceWeighted` (the secondary engine joins when the primary's mean
   confidence is under 70 or unknown; an empty primary keeps the fast path) and `RoverVote`
   (both engines always run). The merge lets every primary word adopt the best-overlapping
   unused secondary word at IoU ≥ 0.5; the higher confidence wins text, box and confidence (a
-  tie keeps the primary; against a primary word of unknown confidence — ocrs — the secondary
+  tie keeps the primary; against a primary word of unknown confidence the secondary
   wins only at 70 or more, `UNKNOWN_CONFIDENCE_BAR`), the survivor is named `"ROVER"`, and
   unclaimed secondary words are
   appended under their engine's name. A merge is capped at 100 M word-pair comparisons (over
@@ -97,8 +99,51 @@ or discards the result. Empty corrections remove words. Searchable acceptance is
 step; editable acceptance writes a separate file. `ocr_dictionary` reads or atomically
 updates the UI's per-language dictionary format through an explicitly root-confined path.
 
-Not yet: languages beyond the tested set (the `ocrs` models read only unaccented Latin; the
-Tesseract side is bounded by its allow-list and whatever its installed language packs cover),
-OCR in the browser (the tesseract module is compiled out for wasm32), the deep scan-cleanup
-options (descreen, background removal, edge-shadow removal), and editable glyph coverage
-beyond the available attributed faces.
+## The PP-OCR engine
+
+`ppocr.rs` runs PaddleOCR's PP-OCRv5 mobile models, the PaddleOCR team's own ONNX exports
+(Apache-2.0, pinned by Hugging Face commit and SHA-256 in ATTRIBUTION.toml), on `rten`. The pre-
+and post-processing are written here from the model cards and the DB and CRNN/CTC papers, not
+from PaddleOCR's code:
+
+- **Detection** (DB): the page is scaled so its long side is at most 2048 pixels, each side a
+  multiple of 32, normalised with the ImageNet mean and deviation in BGR order. The probability
+  map is binarised at 0.3; the outer contour of each component becomes its smallest rotated
+  rectangle (a monotone-chain hull, then a search over the hull's edges); boxes under a mean
+  probability of 0.6, or thinner than 3 map pixels, are dropped; each is grown by
+  `area × 1.5 / perimeter` on every side.
+- **Reading order**: in a frame turned by the page's median text angle (a page scanned a little
+  askew still has gaps between its lines there), the boxes are cut recursively, with an
+  explicit stack: at an empty vertical gutter about two lines wide (columns, left to right),
+  else at the widest empty horizontal band (top to bottom); a region with neither is one line.
+- **Recognition** (CTC): each box is cut out of the original raster, upright, 48 pixels tall at
+  its own width (supersampled when shrinking), normalised to −1…1, and read in batches of
+  similar width. Greedy CTC decoding: class 0 is the blank, 1…N the dictionary (the model
+  card's `character_dict`), N+1 the space. A recogniser whose class count is not its
+  dictionary's plus two is refused at load.
+- **Words**: the time step of each character places it along the line, so each line is split at
+  its spaces into words with their own boxes, within the box as found; Chinese and Japanese
+  become one word per character, and a check box or bullet read as a character (`□`) is a word
+  of its own. A word's confidence is the mean probability of its characters, 0–100.
+- **Recognisers by language**: Latin (`en de fr es it pt nl pl cs hu sv`: the accented Latin
+  alphabets, and Greek letters without tonos), Greek (`el`) and Chinese/Japanese (`zh ja`). A
+  language whose recogniser is not installed is an error that names the installed ones.
+- **Models**: the detector and the Latin recogniser (its `.onnx` and its `.yml` model card) must
+  be in one directory, or there are none; the Greek and Chinese recognisers are used when both
+  their files are there. Every file is checked against its SHA-256 before `rten` parses it.
+  Sizes: detector 4.8 MB, Latin 8.0 MB, Greek 7.8 MB, Chinese/Japanese 16.7 MB (37 MB in all,
+  25 MB more than the previous engine's 12 MB). The web build loads the detector and the Latin
+  recogniser only (13 MB).
+- **Limits**: the image caps of `OcrImage`; at most 20 000 contours looked at and 5 000 boxes
+  kept per page; at most 2 000 000 line-image columns read per page; 1 000 characters per
+  line; 50 000 words per page; dictionaries at most 4 MiB and 30 000 entries, plain or
+  single-quoted items only; model files at most 256 MiB. One page is read at a time.
+
+BENCHMARK-PLACEHOLDER
+
+Not yet: Cyrillic, Arabic, Hebrew and Indic scripts (PaddleOCR publishes recognisers for them
+that this engine could load); measured quality for Greek, Chinese and Japanese; vertical
+Japanese; the text-direction classifier (not needed for the benchmark's pages: a 0.5° turn reads
+as well as a straight page); a browser test of the web build; the deep scan-cleanup options
+(descreen, background removal, edge-shadow removal); and editable glyph coverage beyond the
+available attributed faces.

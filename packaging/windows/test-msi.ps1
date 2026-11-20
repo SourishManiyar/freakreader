@@ -317,7 +317,7 @@ try {
   # FileName can contain a generated 8.3 name before the long name: SHORT|long.
   while ($record = $view.Fetch()) { $modelFiles += ($record.StringData(1) -split '\|')[-1] }
 } finally { [void] $view.Close() }
-foreach ($model in @('text-detection.onnx', 'text-recognition.onnx')) {
+foreach ($model in @('PP-OCRv5_mobile_det.onnx', 'latin_PP-OCRv5_mobile_rec.onnx', 'latin_PP-OCRv5_mobile_rec.yml', 'el_PP-OCRv5_mobile_rec.onnx', 'el_PP-OCRv5_mobile_rec.yml', 'PP-OCRv5_mobile_rec.onnx', 'PP-OCRv5_mobile_rec.yml')) {
   Assert-Equal (@($modelFiles | Where-Object { $_ -ceq $model }).Count) 1 "OCR model $model in models\"
 }
 $rm = Read-Row 'SELECT `Dialog` FROM `Dialog` WHERE `Dialog` = ''MsiRMFilesInUse''' 1

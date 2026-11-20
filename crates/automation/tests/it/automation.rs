@@ -9394,7 +9394,7 @@ fn ocr_tools_make_a_scan_searchable() {
     let mut a = auto(&dir);
     let status = ok(&mut a, "ocr_status", json!({}));
     assert_eq!(status["languages"][0]["code"], "en");
-    assert_eq!(status["engines"][0]["id"], "ocrs", "{status}");
+    assert_eq!(status["engines"][0]["id"], "ppocr", "{status}");
     assert!(status["engines"][1]["id"] == "tesseract" && status["engines"][1]["available"].is_boolean(), "{status}");
     if status["available"] != true {
         eprintln!("skipped: OCR models not installed");
@@ -9417,8 +9417,8 @@ fn ocr_tools_make_a_scan_searchable() {
         assert!(why.to_string().contains("tesseract"), "{why}");
     }
     // ocr_words: the recognition's words with confidence, band and suspects, changing nothing.
-    // ocrs reports no confidences, so `auto` + a confidence merge is asked for when the second
-    // engine is there to supply them; without it confidence and band are honestly null.
+    // PP-OCR reports a confidence for every word; with Tesseract there too, `auto` + a confidence
+    // merge is asked for, so both engines take part.
     ok(&mut a, "doc_close", json!({ "doc": scan, "discard_changes": true }));
     let scan = ok(&mut a, "doc_create", json!({ "from": "images", "paths": [png.to_string_lossy()] }))["doc"].as_u64().unwrap();
     let mut args = json!({ "doc": scan });
@@ -9430,17 +9430,12 @@ fn ocr_tools_make_a_scan_searchable() {
     assert!(words["words"].as_u64().unwrap() >= 4, "{words}");
     let first = &words["pages"][0]["words"][0];
     assert!(first["text"].is_string() && first["box"].as_array().is_some_and(|b| b.len() == 4), "{words}");
-    if status["engines"][1]["available"] == true {
-        let with_confidence = words["pages"][0]["words"]
-            .as_array()
-            .expect("words")
-            .iter()
-            .filter(|w| w["confidence"].is_number() && w["band"].as_str().is_some())
-            .count();
-        assert!(with_confidence >= 4, "the second engine's confidences arrive: {words}");
-    } else {
-        assert!(first["confidence"].is_null() && first["band"].is_null() && first["suspect"] == false, "{words}");
-    }
+    let with_confidence =
+        words["pages"][0]["words"].as_array().expect("words").iter().filter(|w| w["confidence"].is_number() && w["band"].as_str().is_some()).count();
+    assert!(with_confidence >= 4, "every word has a confidence and a band: {words}");
+    // The old engine's id is no longer accepted, and the error names the ones that are.
+    let why = a.call("ocr_words", &json!({ "doc": scan, "engine": "ocrs" })).unwrap_err().to_string();
+    assert!(why.contains("ppocr") && why.contains("tesseract") && why.contains("auto"), "{why}");
     assert!(a.call("edit_undo", &json!({ "doc": scan })).is_err(), "ocr_words changes nothing, so there is no undo");
 }
 

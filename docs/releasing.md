@@ -71,18 +71,15 @@ deliberately.
 
 **OCR models:** desktop packaging stages the Scan & OCR models (#103).
 The packaging scripts call `stage_models` (`packaging/env.sh`; `package.ps1` on Windows), which runs `cargo xtask models` to fetch every `kind = "model"` file in `ATTRIBUTION.toml` and verify its SHA-256.
-The current detection and recognition files are `text-detection.onnx` and `text-recognition.onnx`.
+The files are PaddleOCR's PP-OCRv5 mobile models (Apache-2.0), the PaddleOCR team's own ONNX exports, pinned by Hugging Face commit and SHA-256: the detector `PP-OCRv5_mobile_det.onnx` (4.8 MB) and three recognisers, each an `.onnx` model with its `.yml` model card that holds the character dictionary: `latin_PP-OCRv5_mobile_rec` (8.0 MB; English and accented Latin), `el_PP-OCRv5_mobile_rec` (7.8 MB; Greek) and `PP-OCRv5_mobile_rec` (16.7 MB; Chinese and Japanese). Together about 37 MB, 25 MB more than the previous engine's 12 MB.
 Each model ships with its licence text and the directory's `ATTRIBUTION.txt`, so packaging needs the network.
-Upstream announced the legacy RTEN download URLs' brownout in [ocrs #282](https://github.com/robertknight/ocrs/issues/282) on 2026-10-27 and directs consumers to the ONNX models.
 
-Runtime discovery prefers a complete ONNX detection/recognition pair within each directory, then a complete legacy `text-detection.rten` / `text-recognition.rten` pair.
-An incomplete ONNX update can therefore use an intact RTEN pair in the same directory.
-Discovery never combines model formats or files from different directories.
-Directory precedence stays the same: `$PDFCRAFT_MODELS`, the release-package locations beside the executable, then the source tree's `assets/models/`.
-The first directory with a complete supported pair wins, even if an earlier legacy pair precedes a later ONNX pair.
+Runtime discovery takes, within one directory, the detector and the Latin recogniser (both its files), or nothing; the Greek and Chinese recognisers are used when both their files are there, so a half-copied recogniser is left out rather than loaded with the wrong dictionary.
+Discovery never combines files from different directories.
+Directory precedence: `$PDFCRAFT_MODELS`, the release-package locations beside the executable, then the source tree's `assets/models/`.
 
 The release-package locations are `models\` beside `pdfcraft.exe` (MSI, portable zip), `PdfCraft.app/Contents/Resources/models` (macOS), and `share/pdfcraft/models` beside `bin/` (deb, rpm, tar.gz, AppImage, Flatpak, FreeBSD).
-The web build does not include these models, and OCR remains limited to the Latin alphabet without accents.
+The web build downloads the detector and the Latin recogniser only (about 13 MB), so in the browser OCR reads English and the accented Latin alphabets.
 
 ### macOS
 

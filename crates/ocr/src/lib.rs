@@ -1,10 +1,10 @@
 //! pdfcraft-ocr — Scan & OCR ▸ Recognize text (L4).
 //!
 //! The caller renders a page to pixels ([`OcrImage`]) and hands it to a [`Recognizer`]. Two
-//! engines exist: the pure-Rust `OcrsRecognizer` (ocrs, MIT/Apache-2.0, with its pre-trained
-//! models, CC-BY-SA-4.0, fetched by `cargo xtask models`; see ATTRIBUTION.toml) and — off the
-//! web — `tesseract::TesseractCli`, which drives an installed `tesseract` binary as an external
-//! process. `merge` combines two engines' readings (ROVER), `preprocess` cleans the raster up
+//! engines exist: the built-in [`PpOcrRecognizer`] (PaddleOCR's PP-OCRv5 models, Apache-2.0, run
+//! on the pure-Rust `rten` runtime; fetched by `cargo xtask models`, see ATTRIBUTION.toml and the
+//! [`ppocr`] module) and — off the web — `tesseract::TesseractCli`, which drives an installed
+//! `tesseract` binary as an external process. `merge` combines two engines' readings (ROVER), `preprocess` cleans the raster up
 //! between rendering and recognition, and [`text_layer`] turns words placed in user space into
 //! page content: invisible text (rendering mode 3) over each word, so the page becomes a
 //! searchable image (Acrobat's "Searchable Image (Exact)": the image is left untouched).
@@ -14,23 +14,26 @@
 //! searchable layer uses empty Type3 programs and ToUnicode maps, preserving Unicode without
 //! display fonts. WinAnsi-only invisible text keeps the standard Helvetica layout here.
 //!
-//! The ocrs models read the Latin alphabet (English and other languages written without
-//! accents); Tesseract (the `tesseract` module, off the web build) reads whatever its installed
-//! language packs cover.
+//! The PP-OCR recognisers read the Latin alphabet with its accents (and Greek letters), Greek, and
+//! Chinese and Japanese ([`LANGUAGES`]); Tesseract (the `tesseract` module, off the web build)
+//! reads whatever its installed language packs cover.
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 pub mod confidence;
 pub mod merge;
-mod ocrs;
+/// The previous built-in engine, kept until PP-OCR has replaced it everywhere.
+pub mod ocrs;
+pub mod ppocr;
 pub mod preprocess;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tesseract;
 
 pub use confidence::{ConfidenceBand, band_for, is_suspect, low_confidence};
 pub use merge::{MergeStrategy, StrategyOutcome, mean_confidence, recognize_with_strategy, rover_merge};
-pub use ocrs::{
-    ALPHABET, DETECTION_MODEL, DETECTION_MODEL_SHA256, LANGUAGES, Models, Ocr, OcrsRecognizer, RECOGNITION_MODEL, RECOGNITION_MODEL_SHA256,
+pub use ppocr::{
+    DETECTION_MODEL, DETECTION_MODEL_SHA256, LANGUAGES, Models, Ocr, PpOcrRecognizer, RECOGNITION_DICTIONARY, RECOGNITION_MODEL, RECOGNIZERS,
+    RecognitionModel, model_files, recognizer_for,
 };
 
 pub use pdfcraft_fonts::TextPlan;
@@ -150,8 +153,8 @@ impl OcrImage {
 pub struct Word {
     pub text: String,
     pub rect: [f32; 4],
-    /// How sure the engine is, 0–100, when it reports a confidence at all (`None`: the ocrs
-    /// engine does not).
+    /// How sure the engine is, 0–100, when it reports a confidence at all (`None`: the engine
+    /// reported none, as some Tesseract words and older readings do).
     pub confidence: Option<f32>,
     /// Which engine read this word: the recogniser's [`Recognizer::id`], or `"ROVER"` when two
     /// engines were merged and the surviving text is the merged choice.
@@ -203,7 +206,7 @@ impl Default for RecognizeOptions {
 /// (`Arc<dyn Recognizer>`); `available` and `recognize` may spawn processes only off the web
 /// build (see the `tesseract` module).
 pub trait Recognizer: Send + Sync {
-    /// The engine's short name (`"ocrs"`, `"tesseract"`): what [`Word::source`] carries and
+    /// The engine's short name (`"ppocr"`, `"tesseract"`): what [`Word::source`] carries and
     /// what settings and tools name it by.
     fn id(&self) -> &'static str;
     /// Whether this engine can run right now (models installed, binary found).
@@ -526,11 +529,11 @@ mod tests {
     fn places_words_through_the_mapping() {
         // 2 pixels per point, page 612 × 792, y flipped.
         let to_user = |x: f32, y: f32| [x as f64 / 2.0, 792.0 - y as f64 / 2.0];
-        let w = PlacedWord::place(&Word::new("Hello", [100.0, 200.0, 300.0, 240.0], "ocrs"), to_user);
+        let w = PlacedWord::place(&Word::new("Hello", [100.0, 200.0, 300.0, 240.0], "ppocr"), to_user);
         assert_eq!(w.origin, [50.0, 672.0]);
         assert_eq!(w.across, [100.0, 0.0]);
         assert_eq!(w.up, [0.0, 20.0]);
-        assert_eq!(w.source, "ocrs");
+        assert_eq!(w.source, "ppocr");
         assert_eq!(w.confidence, None);
     }
 
@@ -544,20 +547,12 @@ mod tests {
         assert_eq!(p.source, "tesseract");
     }
 
-    /// The text layer is Helvetica in WinAnsiEncoding: every character the model can recognise
-    /// must be one it can hold, or recognised text would be saved as `?`. A model with a wider
-    /// alphabet (Chinese, for example) needs a text layer in another font first.
-    #[test]
-    fn the_model_alphabet_fits_the_text_layer_font() {
-        assert_eq!(pdfcraft_fonts::first_undrawable(ALPHABET), None);
-    }
-
     /// `with_confidence` is clamped to the documented 0–100 scale: negatives (and −inf) are 0,
     /// anything over 100 (and +inf) is 100, in-scale values pass through, and NaN means no
     /// confidence was reported — the same `None` unknown the unreporting engines carry.
     #[test]
     fn with_confidence_clamps_and_treats_nan_as_unknown() {
-        let c = |v: f32| Word::new("w", [0.0; 4], "ocrs").with_confidence(v).confidence;
+        let c = |v: f32| Word::new("w", [0.0; 4], "ppocr").with_confidence(v).confidence;
         assert_eq!(c(0.0), Some(0.0));
         assert_eq!(c(50.0), Some(50.0));
         assert_eq!(c(100.0), Some(100.0));
@@ -571,7 +566,7 @@ mod tests {
 
     #[test]
     fn text_layer_is_invisible_text_fitted_to_each_box() {
-        let w = PlacedWord { text: "Hi".into(), origin: [10.0, 20.0], across: [30.0, 0.0], up: [0.0, 9.3], confidence: None, source: "ocrs".into() };
+        let w = PlacedWord { text: "Hi".into(), origin: [10.0, 20.0], across: [30.0, 0.0], up: [0.0, 9.3], confidence: None, source: "ppocr".into() };
         let s = String::from_utf8(text_layer(&[w], &TextPlan::default())).unwrap();
         assert!(s.contains("3 Tr") && s.contains("/PCHelv 1 Tf"), "{s}");
         let width = helvetica_width("Hi", 1.0);
@@ -585,7 +580,7 @@ mod tests {
     /// after it on the page starts from the graphics state it had before.
     #[test]
     fn the_layer_restores_the_graphics_state_it_changes() {
-        let w = PlacedWord { text: "Hi".into(), origin: [10.0, 20.0], across: [30.0, 0.0], up: [0.0, 9.3], confidence: None, source: "ocrs".into() };
+        let w = PlacedWord { text: "Hi".into(), origin: [10.0, 20.0], across: [30.0, 0.0], up: [0.0, 9.3], confidence: None, source: "ppocr".into() };
         let s = String::from_utf8(text_layer(&[w], &TextPlan::default())).unwrap();
         let mut depth = 0_i32;
         for token in s.split_ascii_whitespace() {
@@ -611,7 +606,8 @@ mod tests {
         assert_eq!(ink_extent("Gallus.Ze@camtel.cm"), (CAP_HEIGHT, 0.0));
         assert_eq!(ink_extent("Corporation"), (CAP_HEIGHT, -DESCENT));
         assert_eq!(ink_extent("--"), (BOX_EM - DESCENT, -DESCENT));
-        let w = PlacedWord { text: "gap".into(), origin: [0.0, 100.0], across: [20.0, 0.0], up: [0.0, 7.3], confidence: None, source: "ocrs".into() };
+        let w =
+            PlacedWord { text: "gap".into(), origin: [0.0, 100.0], across: [20.0, 0.0], up: [0.0, 7.3], confidence: None, source: "ppocr".into() };
         let s = String::from_utf8(text_layer(&[w], &TextPlan::default())).unwrap();
         let em = 7.3 / (X_HEIGHT + DESCENT);
         assert!(s.contains(&format!(" 0 0 {} 0 {} Tm (gap) Tj", num(em), num(100.0 + em * DESCENT))), "{s}");
@@ -648,7 +644,7 @@ mod tests {
     /// percentage computed from real Helvetica metrics: `Tz` × natural advance = box width.
     #[test]
     fn visible_text_layer_scales_by_a_percentage_of_real_metrics() {
-        let w = PlacedWord { text: "Hi".into(), origin: [10.0, 20.0], across: [40.0, 0.0], up: [0.0, 9.3], confidence: None, source: "ocrs".into() };
+        let w = PlacedWord { text: "Hi".into(), origin: [10.0, 20.0], across: [40.0, 0.0], up: [0.0, 9.3], confidence: None, source: "ppocr".into() };
         let s = String::from_utf8(visible_text_layer(&[w], &TextPlan::default())).unwrap();
         assert!(s.contains("0 Tr"), "visible, not invisible: {s}");
         let size = 9.3 / BOX_EM;
@@ -668,7 +664,7 @@ mod tests {
             across,
             up,
             confidence: None,
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         let words = vec![
             word([0.0, 0.0], [0.0, 9.0], "flat"),
@@ -685,8 +681,14 @@ mod tests {
     /// infinite origin would put "NaN"/"inf" into the content stream.
     #[test]
     fn visible_text_layer_refuses_non_finite_origins() {
-        let word =
-            |origin: [f64; 2]| PlacedWord { text: "Hi".into(), origin, across: [10.0, 0.0], up: [0.0, 9.0], confidence: None, source: "ocrs".into() };
+        let word = |origin: [f64; 2]| PlacedWord {
+            text: "Hi".into(),
+            origin,
+            across: [10.0, 0.0],
+            up: [0.0, 9.0],
+            confidence: None,
+            source: "ppocr".into(),
+        };
         for (why, origin) in [("NaN x", [f64::NAN, 100.0]), ("inf y", [10.0, f64::INFINITY]), ("NaN both", [f64::NAN; 2])] {
             let s = String::from_utf8(visible_text_layer(&[word(origin)], &TextPlan::default())).unwrap();
             assert!(!s.contains("NaN") && !s.contains("inf"), "{why}: {s}");
@@ -708,7 +710,7 @@ mod tests {
             across: [60.0, 0.0],
             up: [0.0, 9.3],
             confidence: None,
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         let words = [word("Hi"), word("日本"), word("Ho")];
         let mut plan = TextPlan::for_words(["Hi", "日本", "Ho"]);
@@ -737,7 +739,7 @@ mod tests {
             return;
         }
         let w =
-            PlacedWord { text: "日本".into(), origin: [10.0, 20.0], across: [60.0, 0.0], up: [0.0, 9.3], confidence: None, source: "ocrs".into() };
+            PlacedWord { text: "日本".into(), origin: [10.0, 20.0], across: [60.0, 0.0], up: [0.0, 9.3], confidence: None, source: "ppocr".into() };
         let mut plan = TextPlan::for_words(["日本"]);
         // The names the registrar (pdfcraft_edit::add_type3_fonts) fills in — this crate
         // cannot reach it, so the test sets them where it reads them.
@@ -763,7 +765,7 @@ mod tests {
     #[test]
     fn unplanned_words_fall_back_to_win_ansi_question_marks() {
         let w =
-            PlacedWord { text: "日本".into(), origin: [10.0, 20.0], across: [60.0, 0.0], up: [0.0, 9.3], confidence: None, source: "ocrs".into() };
+            PlacedWord { text: "日本".into(), origin: [10.0, 20.0], across: [60.0, 0.0], up: [0.0, 9.3], confidence: None, source: "ppocr".into() };
         let s = String::from_utf8(text_layer(&[w], &TextPlan::default())).unwrap();
         assert!(s.contains("(??) Tj"), "{s}");
         assert!(!s.contains("PCOcr"), "{s}");
@@ -783,7 +785,7 @@ mod tests {
             across: [60.0, 0.0],
             up: [0.0, 9.3],
             confidence: None,
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         let mut plan = TextPlan::for_words(["日\u{1f4a9}語"]);
         for (i, font) in plan.fonts.iter_mut().enumerate() {
@@ -800,7 +802,7 @@ mod tests {
     fn rotated_pages_keep_the_reading_direction() {
         // A page turned 90°: image x runs up the page.
         let to_user = |x: f32, y: f32| [y as f64, x as f64];
-        let w = PlacedWord::place(&Word::new("Up", [0.0, 0.0, 50.0, 10.0], "ocrs"), to_user);
+        let w = PlacedWord::place(&Word::new("Up", [0.0, 0.0, 50.0, 10.0], "ppocr"), to_user);
         assert_eq!(w.across, [0.0, 50.0]);
         assert_eq!(w.up, [-10.0, 0.0]);
     }
@@ -826,23 +828,13 @@ mod tests {
             std::fs::create_dir_all(&models_dir).unwrap();
             let found = || Models::dirs_beside_exe(&exe_dir).iter().find_map(|d| Models::in_dir(d));
             assert_eq!(found(), None, "{name}: no models yet");
-            for file in [DETECTION_MODEL, RECOGNITION_MODEL] {
+            for file in [DETECTION_MODEL, RECOGNITION_MODEL, RECOGNITION_DICTIONARY] {
                 std::fs::write(models_dir.join(file), b"model").unwrap();
             }
             let models = found().unwrap_or_else(|| panic!("{name}: models in {} not found", models_dir.display()));
             assert_eq!(models.detection.canonicalize().unwrap(), models_dir.join(DETECTION_MODEL).canonicalize().unwrap(), "{name}");
         }
         let _ = std::fs::remove_dir_all(&base);
-    }
-
-    /// The message tells end users what to do; release builds have no cargo.
-    #[test]
-    fn the_alphabet_is_the_trained_one() {
-        let chars: Vec<char> = ALPHABET.chars().collect();
-        assert_eq!(chars.len(), 96);
-        // The euro sign follows the ASCII punctuation (class 44; 0 is the CTC blank), not a second E.
-        assert_eq!(chars.iter().position(|&c| c == '€'), Some(43));
-        assert_eq!(chars.iter().filter(|&&c| c == 'E').count(), 1);
     }
 
     #[test]
@@ -861,27 +853,29 @@ mod tests {
         let ocr = Ocr::load(&models).unwrap();
         let (w, h, px) = test_image::hello();
         let lines = ocr.recognize(&px, w, h).unwrap();
-        let text: Vec<String> = lines.iter().map(Line::text).collect();
-        assert!(text.iter().any(|t| t.contains("HELL") && t.contains("WOR")), "{text:?}");
-        let word = lines.iter().flat_map(|l| &l.words).find(|w| w.text.contains("HELL")).unwrap();
+        assert!(lines.iter().flat_map(|l| &l.words).all(|w| w.confidence.is_some()), "PP-OCR reports a confidence for every word");
+        // The blocky 5×7 letters have no lower case of their own, so the case read is not tested.
+        let text = lines.iter().map(Line::text).collect::<Vec<_>>().join(" ").to_uppercase();
+        assert!(text.contains("HELLO") && text.contains("WORLD"), "{text:?}");
+        let word = lines.iter().flat_map(|l| &l.words).find(|w| w.text.to_uppercase().contains("HELL")).unwrap();
         assert!(word.rect[0] >= 10.0 && word.rect[0] < 60.0, "{word:?}");
     }
 
     /// The recognised words name their engine.
     #[test]
-    fn ocrs_recognizer_names_its_words() {
-        let Ok(rec) = OcrsRecognizer::find() else {
+    fn ppocr_recognizer_names_its_words() {
+        let Ok(rec) = PpOcrRecognizer::find() else {
             eprintln!("skipped: OCR models not installed");
             return;
         };
-        assert_eq!(rec.id(), "ocrs");
+        assert_eq!(rec.id(), "ppocr");
         assert!(rec.languages().iter().any(|(c, n)| c == "en" && n == "English"), "{:?}", rec.languages());
         let (w, h, px) = test_image::hello();
         let image = OcrImage::new(w, h, px).unwrap();
         let lines = rec.recognize(&image, &RecognizeOptions::default()).unwrap();
         let words: Vec<&Word> = lines.iter().flat_map(|l| &l.words).collect();
         assert!(!words.is_empty());
-        assert!(words.iter().all(|w| w.source == "ocrs"), "{words:?}");
+        assert!(words.iter().all(|w| w.source == "ppocr"), "{words:?}");
     }
 
     /// Hostile images are rejected with errors, never panics: zero sides, sides over the cap,
@@ -911,17 +905,21 @@ mod tests {
     /// The web build loads the models from downloaded bytes; they read the same text.
     #[test]
     fn reads_rendered_text_with_models_from_bytes() {
-        let Some(models) = Models::find().filter(|m| m.detection.ends_with(DETECTION_MODEL)) else {
-            eprintln!("skipped: ONNX OCR models not installed");
+        let Some(models) = Models::find() else {
+            eprintln!("skipped: OCR models not installed");
             return;
         };
-        let ocr = Ocr::from_bytes(std::fs::read(&models.detection).unwrap(), std::fs::read(&models.recognition).unwrap()).unwrap();
-        let rec = OcrsRecognizer::from_ocr(ocr);
+        let (_, model, dictionary) = &models.recognition[0];
+        let ocr =
+            Ocr::from_bytes(std::fs::read(&models.detection).unwrap(), std::fs::read(model).unwrap(), std::fs::read(dictionary).unwrap()).unwrap();
+        let rec = PpOcrRecognizer::from_ocr(ocr);
+        assert_eq!(rec.languages().first().map(|l| l.0.as_str()), Some("en"), "the bytes hold the Latin recogniser");
         assert!(rec.available(), "a recogniser loaded from bytes needs no model files");
         let (w, h, px) = test_image::hello();
         let lines = rec.recognize(&OcrImage::new(w, h, px).unwrap(), &RecognizeOptions::default()).unwrap();
-        let text: Vec<String> = lines.iter().map(Line::text).collect();
-        assert!(text.iter().any(|t| t.contains("HELL") && t.contains("WOR")), "{text:?}");
+        // The blocky 5×7 letters have no lower case of their own, so the case read is not tested.
+        let text = lines.iter().map(Line::text).collect::<Vec<_>>().join(" ").to_uppercase();
+        assert!(text.contains("HELLO") && text.contains("WORLD"), "{text:?}");
     }
 
     /// The web build's workers send lines back as JSON; they arrive unchanged, credited to the
@@ -931,15 +929,15 @@ mod tests {
         let lines = vec![
             Line {
                 words: vec![
-                    Word::new("Total \"€250\"", [1.5, 2.0, 30.25, 12.0], "ocrs"),
-                    Word::new("due", [32.0, 2.0, 50.0, 12.0], "ocrs").with_confidence(87.5),
+                    Word::new("Total \"€250\"", [1.5, 2.0, 30.25, 12.0], "ppocr"),
+                    Word::new("due", [32.0, 2.0, 50.0, 12.0], "ppocr").with_confidence(87.5),
                 ],
             },
             Line::default(),
-            Line { words: vec![Word::new("日本語", [0.0, 20.0, 9.0, 30.0], "ocrs")] },
+            Line { words: vec![Word::new("日本語", [0.0, 20.0, 9.0, 30.0], "ppocr")] },
         ];
-        assert_eq!(lines_from_json(&lines_to_json(&lines), "ocrs").unwrap(), lines);
-        assert_eq!(lines_from_json(&lines_to_json(&[]), "ocrs").unwrap(), Vec::<Line>::new());
+        assert_eq!(lines_from_json(&lines_to_json(&lines), "ppocr").unwrap(), lines);
+        assert_eq!(lines_from_json(&lines_to_json(&[]), "ppocr").unwrap(), Vec::<Line>::new());
         let other = lines_from_json(&lines_to_json(&lines), "tesseract").unwrap();
         assert!(other.iter().flat_map(|l| &l.words).all(|w| w.source == "tesseract"));
     }
@@ -961,12 +959,12 @@ mod tests {
             "[[[\"a\", 1, 2, 3, 4, null]]]",
             "[[[\"a\", 1, 2, 3, 4, \"90\"]]]",
         ] {
-            assert!(matches!(lines_from_json(json, "ocrs"), Err(OcrError::Recognize(_))), "{json}");
+            assert!(matches!(lines_from_json(json, "ppocr"), Err(OcrError::Recognize(_))), "{json}");
         }
         let many = format!("[[{}]]", vec!["[\"a\",0,0,1,1]"; MAX_JSON_WORDS + 1].join(","));
-        assert!(lines_from_json(&many, "ocrs").is_err());
+        assert!(lines_from_json(&many, "ppocr").is_err());
         let deep = format!("{}{}", "[".repeat(10_000), "]".repeat(10_000));
-        assert!(lines_from_json(&deep, "ocrs").is_err());
+        assert!(lines_from_json(&deep, "ppocr").is_err());
     }
 
     /// A download that isn't a model (an HTML error page, a truncated file) is an error, not a
@@ -974,7 +972,7 @@ mod tests {
     #[test]
     fn models_from_bad_bytes_are_an_error() {
         for (detection, recognition) in [(Vec::new(), Vec::new()), (b"<!doctype html>".to_vec(), b"RTEN".to_vec()), (vec![0xff; 64], vec![0; 64])] {
-            assert!(matches!(Ocr::from_bytes(detection, recognition), Err(OcrError::Load(..))));
+            assert!(matches!(Ocr::from_bytes(detection, recognition, b"  character_dict:\n  - a\n".to_vec()), Err(OcrError::Load(..))));
         }
     }
 
@@ -982,7 +980,7 @@ mod tests {
     #[test]
     fn model_hashes_match_attribution() {
         let manifest = include_str!("../../../ATTRIBUTION.toml");
-        for (file, sha256) in [(DETECTION_MODEL, DETECTION_MODEL_SHA256), (RECOGNITION_MODEL, RECOGNITION_MODEL_SHA256)] {
+        for (file, sha256) in model_files() {
             let entry = manifest
                 .split("[[fetched]]")
                 .find(|e| e.contains(&format!("file = \"{file}\"")))

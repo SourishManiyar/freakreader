@@ -293,12 +293,12 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (boo
                     ui.label(tl!("Engine"));
                     let engine_name = match d.engine {
                         EngineChoice::Auto => tl!("Automatic"),
-                        EngineChoice::Ocrs => tl!("Built-in"),
+                        EngineChoice::PpOcr => tl!("Built-in"),
                         EngineChoice::Tesseract => tl!("Tesseract"),
                     };
                     craft_ui::ComboBox::from_id_salt("ocr-engine").selected_text(engine_name).width(220.0).show_ui(ui, |ui| {
                         let choices: [(EngineChoice, &str); 3] =
-                            [(EngineChoice::Auto, "Automatic"), (EngineChoice::Ocrs, "Built-in"), (EngineChoice::Tesseract, "Tesseract")];
+                            [(EngineChoice::Auto, "Automatic"), (EngineChoice::PpOcr, "Built-in"), (EngineChoice::Tesseract, "Tesseract")];
                         for (choice, name) in choices {
                             ui.selectable_value(&mut d.engine, choice, tl!(name));
                         }
@@ -382,7 +382,7 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (boo
     keep_asking_while_probing(ui.ctx());
     // The web build has no model files: it downloads the models the first time they're needed.
     #[cfg(target_arch = "wasm32")]
-    let downloading = d.engine != EngineChoice::Tesseract && pdfcraft_engine::ocr::engine_unavailable_reason(EngineChoice::Ocrs).is_some();
+    let downloading = d.engine != EngineChoice::Tesseract && pdfcraft_engine::ocr::engine_unavailable_reason(EngineChoice::PpOcr).is_some();
     #[cfg(not(target_arch = "wasm32"))]
     let downloading = false;
     #[cfg(target_arch = "wasm32")]
@@ -823,7 +823,7 @@ impl PdfCraftApp {
     fn pump_web_ocr(&mut self) {
         self.start_waiting_web_batch();
         if self.views.iter().any(|v| !v.auto_ocr_awaiting_models.is_empty())
-            && pdfcraft_engine::ocr::engine_unavailable_reason(EngineChoice::Ocrs).is_none()
+            && pdfcraft_engine::ocr::engine_unavailable_reason(EngineChoice::PpOcr).is_none()
         {
             self.ocr_models_loaded();
         }
@@ -1197,7 +1197,7 @@ mod tests {
             across: [60.0, 0.0],
             up: [0.0, 12.0],
             confidence: None,
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         let finished = |app: &PdfCraftApp, automatic: bool| {
             let generation = app.session.get(app.active_ids().unwrap().1).unwrap().edit_generation();
@@ -1251,7 +1251,7 @@ mod tests {
                 across: [60.0, 0.0],
                 up: [0.0, 12.0],
                 confidence: None,
-                source: "ocrs".into(),
+                source: "ppocr".into(),
             }],
             already_on_page: 0,
             skipped: None,
@@ -1535,7 +1535,7 @@ mod tests {
             across: [60.0, 0.0],
             up: [0.0, 12.0],
             confidence: Some(95.0),
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         let page = pdfcraft_engine::ocr::OcrPage {
             page: 0,
@@ -1567,7 +1567,7 @@ mod tests {
             across: [60.0, 0.0],
             up: [0.0, 12.0],
             confidence: Some(95.0),
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         let page = OcrPage { page: 0, words: vec![word], already_on_page: 0, skipped: None, notes: Vec::new() };
         let guard = app.session.ocr_guard(id).unwrap();

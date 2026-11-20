@@ -15,11 +15,13 @@ use std::sync::{Arc, Mutex};
 
 use crate::ocr_route::{Inbox, Router};
 use pdfcraft_engine::ocr::{
-    DETECTION_MODEL, FileJob, Line, Ocr, OcrImage, OcrPage, OcrSettings, OcrShot, OcrSteps, Opened, RECOGNITION_MODEL, StrategyOutcome,
+    DETECTION_MODEL, FileJob, Line, Ocr, OcrImage, OcrPage, OcrSettings, OcrShot, OcrSteps, Opened, RECOGNITION_DICTIONARY, RECOGNITION_MODEL,
+    StrategyOutcome,
 };
 use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 
-/// The models are about 12 MB together; a response far larger isn't one of them.
+/// The detector and the Latin recogniser are about 13 MB together; a response far larger isn't
+/// one of them.
 const MAX_MODEL_BYTES: u32 = 64 << 20;
 /// Each worker holds the models and needs about 600 MB while it reads a page (wasm memory never
 /// shrinks), so a few at most.
@@ -49,7 +51,7 @@ static STATE: Mutex<State> = Mutex::new(State::NotStarted);
 
 thread_local! {
     /// The downloaded model files, kept to hand to each worker.
-    static MODELS: RefCell<Option<[js_sys::Uint8Array; 2]>> = const { RefCell::new(None) };
+    static MODELS: RefCell<Option<[js_sys::Uint8Array; 3]>> = const { RefCell::new(None) };
 }
 
 pub fn state() -> State {
@@ -79,11 +81,15 @@ pub fn start(ctx: egui::Context) {
     });
 }
 
-async fn load() -> Result<(Ocr, [js_sys::Uint8Array; 2]), String> {
+/// The browser reads with the detector and the Latin recogniser (English and the accented Latin
+/// alphabets): the Greek and Chinese recognisers stay with the desktop app, to keep the download
+/// and each worker's memory down.
+async fn load() -> Result<(Ocr, [js_sys::Uint8Array; 3]), String> {
     let detection = fetch(DETECTION_MODEL).await?;
     let recognition = fetch(RECOGNITION_MODEL).await?;
-    let ocr = Ocr::from_bytes(detection.to_vec(), recognition.to_vec()).map_err(|e| e.to_string())?;
-    Ok((ocr, [detection, recognition]))
+    let dictionary = fetch(RECOGNITION_DICTIONARY).await?;
+    let ocr = Ocr::from_bytes(detection.to_vec(), recognition.to_vec(), dictionary.to_vec()).map_err(|e| e.to_string())?;
+    Ok((ocr, [detection, recognition, dictionary]))
 }
 
 /// `models/<name>`, relative to the page, so the site works under any path. The names carry no
@@ -178,7 +184,10 @@ impl Event {
             Some("ready") => Event::Ready,
             Some("loaded") => Event::Loaded,
             Some("lines") => match id {
-                Some(id) => Event::Lines(id, pdfcraft_engine::ocr::lines_from_json(&text("lines"), "ocrs").map_err(|e| e.to_string())),
+                Some(id) => Event::Lines(
+                    id,
+                    pdfcraft_engine::ocr::lines_from_json(&text("lines"), pdfcraft_engine::ocr::ENGINE_ID).map_err(|e| e.to_string()),
+                ),
                 None => Event::Failed(None, "a result without its page".into()),
             },
             Some("failed") => Event::Failed(id, text("error")),
@@ -250,8 +259,8 @@ impl Pool {
             match event {
                 Event::Ready if matches!(m.slot, Slot::Starting) => {
                     let sent = MODELS.with_borrow(|files| {
-                        let [d, r] = files.as_ref()?;
-                        m.worker.post_message(&message(&[("type", &"models".into()), ("detection", d), ("recognition", r)])).ok()
+                        let [d, r, c] = files.as_ref()?;
+                        m.worker.post_message(&message(&[("type", &"models".into()), ("detection", d), ("recognition", r), ("dictionary", c)])).ok()
                     });
                     if sent.is_some() {
                         m.slot = Slot::Loading;
@@ -436,7 +445,7 @@ impl Pages {
 }
 
 /// Place what a worker read: its one engine's reading (every strategy reads that way without a
-/// second engine, and the web build has only ocrs).
+/// second engine, and the web build has only PP-OCR).
 fn place(shot: &OcrShot, lines: Result<Vec<Line>, String>) -> OcrPage {
     shot.place(lines.map(|lines| StrategyOutcome { lines, ..Default::default() }))
 }

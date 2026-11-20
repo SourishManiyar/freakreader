@@ -22,10 +22,10 @@ impl Automation {
         }
         if let Some(e) = a.opt_str("engine")? {
             settings.engine = match e.trim().to_ascii_lowercase().as_str() {
-                "ocrs" => EngineChoice::Ocrs,
+                "ppocr" => EngineChoice::PpOcr,
                 "tesseract" => EngineChoice::Tesseract,
                 "auto" | "automatic" | "ensemble" => EngineChoice::Auto,
-                other => return Err(ToolError::InvalidArgs(format!("unsupported engine {other:?} (ocrs, tesseract or auto)"))),
+                other => return Err(ToolError::InvalidArgs(format!("unsupported engine {other:?} (ppocr, tesseract or auto)"))),
             };
         }
         settings.strategy = match a.opt_str("strategy")? {

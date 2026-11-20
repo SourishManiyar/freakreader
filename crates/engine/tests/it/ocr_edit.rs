@@ -18,7 +18,7 @@ fn scanned() -> (Session, pdfcraft_engine::DocId) {
         across: [60.0, 0.0],
         up: [0.0, 20.0],
         confidence: None,
-        source: "ocrs".into(),
+        source: "ppocr".into(),
     }])
 }
 
@@ -99,12 +99,12 @@ fn scanned_word(text: &str, x0: f64, x1: f64, baseline: f64, size: f64) -> Place
         across: [x1 - x0, 0.0],
         up: [0.0, 0.718 * size + low],
         confidence: None,
-        source: "ocrs".into(),
+        source: "ppocr".into(),
     }
 }
 
 fn word(text: &str, x0: f64, x1: f64, baseline: f64) -> PlacedWord {
-    PlacedWord { text: text.into(), origin: [x0, baseline], across: [x1 - x0, 0.0], up: [0.0, 10.0], confidence: None, source: "ocrs".into() }
+    PlacedWord { text: text.into(), origin: [x0, baseline], across: [x1 - x0, 0.0], up: [0.0, 10.0], confidence: None, source: "ppocr".into() }
 }
 
 /// OCR words keep the scan's layout: a phrase is one paragraph, a value in the next table cell and

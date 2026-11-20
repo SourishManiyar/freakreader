@@ -14,9 +14,10 @@ use std::time::{Duration, Instant};
 use pdfcraft_render::text::TextFilter;
 use pdfcraft_render::{PageInfo, PageRenderer, RenderConfig, RenderRequest, RequestKind};
 
+pub use pdfcraft_ocr::ppocr::ENGINE_ID;
 pub use pdfcraft_ocr::{
-    ConfidenceBand, DETECTION_MODEL, LANGUAGES, Line, MergeStrategy, Models, Ocr, OcrError, OcrImage, PlacedWord, RECOGNITION_MODEL, Recognizer,
-    StrategyOutcome, Word, band_for, is_suspect, lines_from_json, low_confidence,
+    ConfidenceBand, DETECTION_MODEL, LANGUAGES, Line, MergeStrategy, Models, Ocr, OcrError, OcrImage, PlacedWord, RECOGNITION_DICTIONARY,
+    RECOGNITION_MODEL, Recognizer, StrategyOutcome, Word, band_for, is_suspect, lines_from_json, low_confidence,
 };
 
 use crate::{DocId, Edit, EditError, Session};
@@ -29,14 +30,14 @@ pub fn validate_ocr_words<'a>(words: impl IntoIterator<Item = &'a PlacedWord>) -
     layer::validate_words(words).map_err(|e| e.to_string())
 }
 
-/// Which recognition engine to use. The default is ocrs, the pure-Rust engine; "Automatic" is
-/// an ensemble — ocrs reading first, Tesseract as a second opinion, merged per the strategy —
+/// Which recognition engine to use. The default is PP-OCR, the built-in engine; "Automatic" is
+/// an ensemble — PP-OCR reading first, Tesseract as a second opinion, merged per the strategy —
 /// when both are available.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum EngineChoice {
-    /// The pure-Rust ocrs engine (the default).
+    /// The built-in PP-OCR engine (the default).
     #[default]
-    Ocrs,
+    PpOcr,
     /// The installed `tesseract` binary, as an external process.
     Tesseract,
     /// Ensemble: the default engine first, the other one as a secondary when available.
@@ -44,13 +45,14 @@ pub enum EngineChoice {
 }
 
 impl EngineChoice {
-    /// Parse a choice; unknown names fall back to the default (ocrs), like Acrobat's dialogs
+    /// Parse a choice; unknown names fall back to the default (PP-OCR), like Acrobat's dialogs
     /// fall back for unknown persisted values.
     pub fn parse(s: &str) -> EngineChoice {
         match s.trim().to_ascii_lowercase().as_str() {
             "tesseract" => EngineChoice::Tesseract,
             "auto" | "automatic" | "ensemble" => EngineChoice::Auto,
-            _ => EngineChoice::Ocrs,
+            // Everything else, including the retired "ocrs" a saved setting may still name.
+            _ => EngineChoice::PpOcr,
         }
     }
 
@@ -60,14 +62,14 @@ impl EngineChoice {
     pub fn default_strategy(self) -> MergeStrategy {
         match self {
             EngineChoice::Auto => MergeStrategy::ConfidenceWeighted,
-            EngineChoice::Ocrs | EngineChoice::Tesseract => MergeStrategy::PrimaryOnly,
+            EngineChoice::PpOcr | EngineChoice::Tesseract => MergeStrategy::PrimaryOnly,
         }
     }
 
     /// The name settings and tools use for this choice.
     pub fn name(self) -> &'static str {
         match self {
-            EngineChoice::Ocrs => "ocrs",
+            EngineChoice::PpOcr => ENGINE_ID,
             EngineChoice::Tesseract => "tesseract",
             EngineChoice::Auto => "auto",
         }
@@ -108,7 +110,8 @@ impl OutputMode {
 pub struct OcrSettings {
     /// Resolution pages are rendered at for recognition (Acrobat's "Downsample to" choices).
     pub dpi: f32,
-    /// Language code from [`LANGUAGES`] (the models read the Latin alphabet, whatever this says).
+    /// Language code from [`LANGUAGES`]: it picks the PP-OCR recogniser (Latin, Greek, Chinese)
+    /// and the Tesseract language pack.
     pub language: String,
     /// Leave pages that already have text alone (Acrobat reports "page contains renderable
     /// text" and skips them). When `false`, such pages are read too (a picture on a page that
@@ -255,24 +258,24 @@ pub struct Recognizers {
 }
 
 struct EngineCache {
-    ocrs: Option<Arc<dyn Recognizer>>,
+    ppocr: Option<Arc<dyn Recognizer>>,
 }
 
 /// The engines built so far (see [`recognizers`] and [`install`]).
 static ENGINES: Mutex<Option<EngineCache>> = Mutex::new(None);
 
-/// Share an ocrs recogniser loaded some other way than from the model files [`Models::find`]
+/// Share a PP-OCR recogniser loaded some other way than from the model files [`Models::find`]
 /// looks for: the web build downloads the models and loads them with [`Ocr::from_bytes`]. From
 /// then on [`recognizers`] hands it out and the engine counts as available.
 pub fn install(ocr: Ocr) -> Arc<dyn Recognizer> {
-    let ocrs: Arc<dyn Recognizer> = Arc::new(pdfcraft_ocr::OcrsRecognizer::from_ocr(ocr));
-    ENGINES.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(|| EngineCache { ocrs: None }).ocrs = Some(ocrs.clone());
-    ocrs
+    let ppocr: Arc<dyn Recognizer> = Arc::new(pdfcraft_ocr::PpOcrRecognizer::from_ocr(ocr));
+    ENGINES.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(|| EngineCache { ppocr: None }).ppocr = Some(ppocr.clone());
+    ppocr
 }
 
-/// Whether an ocrs recogniser has been loaded (from the model files, or by [`install`]).
-fn ocrs_loaded() -> bool {
-    ENGINES.lock().unwrap_or_else(|e| e.into_inner()).as_ref().is_some_and(|c| c.ocrs.is_some())
+/// Whether a PP-OCR recogniser has been loaded (from the model files, or by [`install`]).
+fn ppocr_loaded() -> bool {
+    ENGINES.lock().unwrap_or_else(|e| e.into_inner()).as_ref().is_some_and(|c| c.ppocr.is_some())
 }
 
 /// How long a negative engine probe (no program there) is remembered. A short TTL, not
@@ -410,7 +413,7 @@ fn cache_lookup(slot: Option<&CachedTesseract>, configured: Option<&str>, now: I
     }
 }
 
-/// Whether the ocrs models are installed, remembered like the Tesseract probe (found: for the
+/// Whether the PP-OCR models are installed, remembered like the Tesseract probe (found: for the
 /// session; missing: for [`NEGATIVE_TTL`]), so per-frame UI checks do not search the disk.
 #[cfg(not(target_arch = "wasm32"))]
 fn models_installed_cached() -> bool {
@@ -430,7 +433,7 @@ fn models_installed_cached() -> bool {
 /// loaded the ones it downloaded.
 #[cfg(target_arch = "wasm32")]
 fn models_installed_cached() -> bool {
-    ocrs_loaded()
+    ppocr_loaded()
 }
 
 /// The program's `--version` line, remembered per program path for the session (`ocr_status`
@@ -478,7 +481,7 @@ pub struct EngineStatus {
     pub version: Option<String>,
 }
 
-/// The engines' status, in the order the Engine dropdown lists them: ocrs (built in), then
+/// The engines' status, in the order the Engine dropdown lists them: PP-OCR (built in), then
 /// tesseract (the external program). Tesseract's availability is judged the same way
 /// [`recognizers`] judges it under the default settings: the `PDFCRAFT_TESSERACT` environment
 /// variable when set, else the PATH. This waits for the (cached) Tesseract probe; the tools
@@ -492,8 +495,8 @@ pub fn engines_status() -> Vec<EngineStatus> {
 /// takes a location, because an agent must not choose which program runs; the tools report the
 /// default settings.)
 pub fn engines_status_for(settings: &OcrSettings) -> Vec<EngineStatus> {
-    let ocrs = ocrs_loaded() || Models::find().is_some();
-    let mut out = vec![EngineStatus { id: "ocrs", available: ocrs, why_not: (!ocrs).then(models_missing), program: None, version: None }];
+    let ppocr = ppocr_loaded() || Models::find().is_some();
+    let mut out = vec![EngineStatus { id: ENGINE_ID, available: ppocr, why_not: (!ppocr).then(models_missing), program: None, version: None }];
     #[cfg(not(target_arch = "wasm32"))]
     {
         let configured = configured_tesseract(settings);
@@ -539,21 +542,21 @@ pub fn recognizers(settings: &OcrSettings) -> Result<Recognizers, String> {
     // The Tesseract probe (a `--list-langs` process) runs before any static mutex is taken, so
     // recognition on other threads is never blocked behind someone's discovery. A job that
     // names its engines never starts it: only Tesseract and Automatic read anything from it,
-    // so an ocrs-only job pays no process and no wait.
+    // so a PP-OCR-only job pays no process and no wait.
     let configured = configured_tesseract(settings);
     let tesseract =
         if matches!(settings.engine, EngineChoice::Tesseract | EngineChoice::Auto) { tesseract_engine(configured.as_deref()) } else { None };
     let mut slot = ENGINES.lock().unwrap_or_else(|e| e.into_inner());
-    let cache = slot.get_or_insert_with(|| EngineCache { ocrs: None });
-    if cache.ocrs.is_none() {
+    let cache = slot.get_or_insert_with(|| EngineCache { ppocr: None });
+    if cache.ppocr.is_none() {
         // Cheap to re-attempt while the models are missing; expensive work is cached forever.
-        cache.ocrs = pdfcraft_ocr::OcrsRecognizer::find().ok().map(|r| Arc::new(r) as Arc<dyn Recognizer>);
+        cache.ppocr = pdfcraft_ocr::PpOcrRecognizer::find().ok().map(|r| Arc::new(r) as Arc<dyn Recognizer>);
     }
-    let ocrs = cache.ocrs.clone();
+    let ppocr = cache.ppocr.clone();
     match settings.engine {
-        EngineChoice::Ocrs => Ok(Recognizers { primary: ocrs.ok_or_else(models_missing)?, secondary: None }),
+        EngineChoice::PpOcr => Ok(Recognizers { primary: ppocr.ok_or_else(models_missing)?, secondary: None }),
         EngineChoice::Tesseract => Ok(Recognizers { primary: tesseract.ok_or_else(tesseract_unavailable)?, secondary: None }),
-        EngineChoice::Auto => match (ocrs, tesseract) {
+        EngineChoice::Auto => match (ppocr, tesseract) {
             (Some(p), s) => Ok(Recognizers { primary: p, secondary: s }),
             (None, Some(p)) => Ok(Recognizers { primary: p, secondary: None }),
             (None, None) => Err(models_missing()),
@@ -573,19 +576,19 @@ fn tesseract_unavailable() -> String {
     "the tesseract engine is not available in the web build".into()
 }
 
-/// Why the ocrs engine cannot run, in the end-user wording the UI catalogs translate (the
+/// Why the PP-OCR engine cannot run, in the end-user wording the UI catalogs translate (the
 /// same text as [`pdfcraft_ocr::OcrError::NoModels`]: no developer commands in front of users).
 fn models_missing() -> String {
     pdfcraft_ocr::OcrError::NoModels.to_string()
 }
 
-/// Whether recognition can run at all: the ocrs models are installed, or (off the web) a
+/// Whether recognition can run at all: the PP-OCR models are installed, or (off the web) a
 /// Tesseract program is found. This may run the Tesseract probe (a process, cached) and so
 /// waits for it: tools and tests call it; the UI asks [`engine_unavailable_reason`], which
 /// never waits.
 pub fn available() -> bool {
     let configured = std::env::var_os("PDFCRAFT_TESSERACT").map(|v| v.to_string_lossy().into_owned());
-    ocrs_loaded() || Models::find().is_some() || tesseract_engine(configured.as_deref()).is_some()
+    ppocr_loaded() || Models::find().is_some() || tesseract_engine(configured.as_deref()).is_some()
 }
 
 /// Why `engine` cannot run right now, named for the UI's tooltips (the Engine dropdown
@@ -599,7 +602,7 @@ pub fn available() -> bool {
 /// first Tesseract probe lands the choice reads as "still checking" (see
 /// [`engine_probe_running`], to ask for another frame meanwhile).
 pub fn engine_unavailable_reason(engine: EngineChoice) -> Option<String> {
-    let ocrs = models_installed_cached();
+    let ppocr = models_installed_cached();
     #[cfg(not(target_arch = "wasm32"))]
     let tesseract = {
         let configured = std::env::var_os("PDFCRAFT_TESSERACT").map(|v| v.to_string_lossy().into_owned());
@@ -612,9 +615,9 @@ pub fn engine_unavailable_reason(engine: EngineChoice) -> Option<String> {
     #[cfg(target_arch = "wasm32")]
     let tesseract: Result<(), String> = Err(tesseract_unavailable());
     match engine {
-        EngineChoice::Ocrs => (!ocrs).then(models_missing),
+        EngineChoice::PpOcr => (!ppocr).then(models_missing),
         EngineChoice::Tesseract => tesseract.err(),
-        EngineChoice::Auto => match (ocrs, tesseract) {
+        EngineChoice::Auto => match (ppocr, tesseract) {
             (true, _) | (false, Ok(())) => None,
             (false, Err(why)) => Some(format!("{}; {why}", models_missing())),
         },
@@ -1403,9 +1406,10 @@ mod tests {
     fn engine_choice_parsing() {
         assert_eq!(EngineChoice::parse("tesseract"), EngineChoice::Tesseract);
         assert_eq!(EngineChoice::parse(" AUTO "), EngineChoice::Auto);
-        assert_eq!(EngineChoice::parse("ocrs"), EngineChoice::Ocrs);
-        assert_eq!(EngineChoice::parse("wat"), EngineChoice::Ocrs, "unknown names fall back to the default");
-        assert_eq!(EngineChoice::default().name(), "ocrs");
+        assert_eq!(EngineChoice::parse("ocrs"), EngineChoice::PpOcr);
+        assert_eq!(EngineChoice::parse("wat"), EngineChoice::PpOcr, "unknown names fall back to the default");
+        assert_eq!(EngineChoice::parse("ppocr"), EngineChoice::PpOcr);
+        assert_eq!(EngineChoice::default().name(), "ppocr");
     }
 
     /// Automatic reads with the second engine when the first is unsure unless a strategy was
@@ -1413,15 +1417,15 @@ mod tests {
     #[test]
     fn automatic_defaults_to_the_confidence_weighted_strategy() {
         assert_eq!(EngineChoice::Auto.default_strategy(), MergeStrategy::ConfidenceWeighted);
-        assert_eq!(EngineChoice::Ocrs.default_strategy(), MergeStrategy::PrimaryOnly);
+        assert_eq!(EngineChoice::PpOcr.default_strategy(), MergeStrategy::PrimaryOnly);
         assert_eq!(EngineChoice::Tesseract.default_strategy(), MergeStrategy::PrimaryOnly);
     }
 
-    /// Settings default to today's behavior: ocrs, PrimaryOnly, no preprocessing, searchable.
+    /// Settings default to today's behavior: PP-OCR, PrimaryOnly, no preprocessing, searchable.
     #[test]
-    fn settings_default_to_the_ocrs_status_quo() {
+    fn settings_default_to_the_ppocr_status_quo() {
         let s = OcrSettings::default();
-        assert_eq!(s.engine, EngineChoice::Ocrs);
+        assert_eq!(s.engine, EngineChoice::PpOcr);
         assert_eq!(s.strategy, MergeStrategy::PrimaryOnly);
         assert_eq!(s.output_mode, OutputMode::Searchable);
         assert!(!s.auto_rotate && !s.deskew && !s.denoise && !s.binarize);
@@ -1537,7 +1541,7 @@ mod tests {
             across: [1.0, 0.0],
             up: [0.0, 1.0],
             confidence: c,
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         let page = OcrPage {
             already_on_page: 0,
@@ -1568,7 +1572,7 @@ mod tests {
     /// non-finite is ever stamped onto the page.
     #[test]
     fn non_finite_and_negative_word_boxes_are_dropped_before_placement() {
-        let word = |rect: [f32; 4]| pdfcraft_ocr::Word::new("w", rect, "ocrs");
+        let word = |rect: [f32; 4]| pdfcraft_ocr::Word::new("w", rect, "ppocr");
         for (why, rect) in [
             ("NaN width", [f32::NAN, 0.0, 10.0, 10.0]),
             ("NaN height", [0.0, 0.0, 10.0, f32::NAN]),
@@ -1677,7 +1681,7 @@ mod tests {
     }
 
     /// The selector refuses an unusable engine with its cause named, and resolves the ensemble
-    /// when both engines exist (here: whatever this machine has for ocrs and tesseract).
+    /// when both engines exist (here: whatever this machine has for PP-OCR and tesseract).
     #[test]
     fn selector_names_the_missing_engine() {
         let tesseract = OcrSettings { engine: EngineChoice::Tesseract, ..Default::default() };
@@ -1685,20 +1689,20 @@ mod tests {
             Ok(r) => assert_eq!(r.primary.id(), "tesseract"),
             Err(e) => assert!(e.contains("tesseract"), "{e}"),
         }
-        let ocrs = OcrSettings { engine: EngineChoice::Ocrs, ..Default::default() };
-        match recognizers(&ocrs) {
-            Ok(r) => assert_eq!(r.primary.id(), "ocrs"),
+        let ppocr = OcrSettings { engine: EngineChoice::PpOcr, ..Default::default() };
+        match recognizers(&ppocr) {
+            Ok(r) => assert_eq!(r.primary.id(), "ppocr"),
             Err(e) => assert!(e.contains("models"), "{e}"),
         }
     }
 
-    /// An ocrs-only choice never starts the Tesseract probe: the probe is a `--list-langs`
+    /// A PP-OCR-only choice never starts the Tesseract probe: the probe is a `--list-langs`
     /// process, and a job that names its engine needs no reading from Tesseract. The test's
     /// fake program touches a marker file when it runs, so the probe's start is observable;
     /// it needs a Unix shell, like the other process fixtures.
     #[cfg(unix)]
     #[test]
-    fn an_ocrs_only_choice_never_probes_tesseract() {
+    fn a_ppocr_only_choice_never_probes_tesseract() {
         use std::os::unix::fs::PermissionsExt;
         let probe = |name: &str| {
             let dir = std::env::temp_dir().join(format!("pdfcraft-ocr-probe-{}-{name}", std::process::id()));
@@ -1710,11 +1714,11 @@ mod tests {
             std::fs::set_permissions(&program, perms).unwrap();
             (dir.join("fake-tesseract.probed"), program.to_string_lossy().into_owned())
         };
-        // An ocrs-only job: the configured location stays untouched.
-        let (marker, program) = probe("ocrs-only");
-        let ocrs_only = OcrSettings { engine: EngineChoice::Ocrs, tesseract_path: Some(program), ..Default::default() };
-        let _ = recognizers(&ocrs_only);
-        assert!(!marker.exists(), "an ocrs-only job must not start the tesseract probe");
+        // A PP-OCR-only job: the configured location stays untouched.
+        let (marker, program) = probe("ppocr-only");
+        let ppocr_only = OcrSettings { engine: EngineChoice::PpOcr, tesseract_path: Some(program), ..Default::default() };
+        let _ = recognizers(&ppocr_only);
+        assert!(!marker.exists(), "a PP-OCR-only job must not start the tesseract probe");
         std::fs::remove_file(marker.parent().unwrap().join("fake-tesseract")).ok();
 
         // A Tesseract job does validate its program (that is how it is found usable).
@@ -1869,17 +1873,19 @@ mod tests {
     /// and from then on is the engine every job reads with.
     #[test]
     fn an_installed_recognizer_is_available_and_handed_out() {
-        let Some(models) = Models::find().filter(|m| m.detection.ends_with(DETECTION_MODEL)) else {
-            eprintln!("skipped: ONNX OCR models not installed");
+        let Some(models) = Models::find() else {
+            eprintln!("skipped: OCR models not installed");
             return;
         };
-        let ocr = Ocr::from_bytes(std::fs::read(&models.detection).unwrap(), std::fs::read(&models.recognition).unwrap()).unwrap();
+        let (_, model, dictionary) = &models.recognition[0];
+        let ocr =
+            Ocr::from_bytes(std::fs::read(&models.detection).unwrap(), std::fs::read(model).unwrap(), std::fs::read(dictionary).unwrap()).unwrap();
         let installed = install(ocr);
         assert!(installed.available());
         assert!(available());
         let r = recognizers(&OcrSettings::default()).unwrap();
         assert!(Arc::ptr_eq(&r.primary, &installed), "the installed recogniser is the one handed out");
-        assert!(engines_status().iter().any(|e| e.id == "ocrs" && e.available));
+        assert!(engines_status().iter().any(|e| e.id == "ppocr" && e.available));
     }
 
     /// The batch's halves: a file to read opens with its job, and [`FileJob::finish`] saves
@@ -1920,7 +1926,7 @@ mod tests {
             across: [1.0, 0.0],
             up: [0.0, 1.0],
             confidence: Some(c),
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         let page = |n: usize, confs: &[f32], skipped: Option<&str>| OcrPage {
             already_on_page: 0,
@@ -1961,7 +1967,7 @@ mod tests {
             across: [120.0, 0.0],
             up: [0.0, 12.0],
             confidence: Some(88.0),
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         let found = vec![
             OcrPage { already_on_page: 0, page: 0, words: vec![w], skipped: None, notes: Vec::new() },
@@ -2002,7 +2008,7 @@ mod tests {
             across: [f64::from(br[0] - o[0]), f64::from(br[1] - o[1])],
             up: [f64::from(tl[0] - o[0]), f64::from(tl[1] - o[1])],
             confidence: None,
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         let bytes = s.editable_ocr_bytes(id, &[OcrPage { already_on_page: 0, page: 0, words: vec![w], skipped: None, notes: Vec::new() }]).unwrap();
         let mut out = Session::new();
@@ -2026,7 +2032,7 @@ mod tests {
             across: [80.0, 0.0],
             up: [0.0, 10.0],
             confidence: None,
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         s.apply(id, Edit::AddOcrText { page: 0, words: vec![word] }).unwrap();
         let text = crate::tests::page_texts(&s, id)[0].clone();
@@ -2128,7 +2134,7 @@ mod tests {
             across: [80.0, 0.0],
             up: [0.0, 10.0],
             confidence: None,
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         let bytes = s.editable_ocr_bytes(id, &[OcrPage { already_on_page: 0, page: 0, words: vec![w], skipped: None, notes: Vec::new() }]).unwrap();
         let mut out = Session::new();
@@ -2159,7 +2165,7 @@ mod tests {
             across: [w, 0.0],
             up: [0.0, 10.0],
             confidence: None,
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         let words = vec![word("Привет", 250.0, 80.0), word("Hello", 100.0, 50.0)];
         let bytes = s.editable_ocr_bytes(id, &[OcrPage { already_on_page: 0, page: 0, words, skipped: None, notes: Vec::new() }]).unwrap();
@@ -2209,7 +2215,7 @@ mod tests {
             across: [80.0, 0.0],
             up: [0.0, 10.0],
             confidence: None,
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         // Different scripts, so each page's words live in different planned fonts (and page 2
         // would inherit page 1's codes under page-local indexing into the shared plan).
@@ -2238,7 +2244,7 @@ mod tests {
             across: [100.0, 0.0],
             up: [0.0, 10.0],
             confidence: None,
-            source: "ocrs".into(),
+            source: "ppocr".into(),
         };
         s.apply(id, Edit::AddOcrText { page: 0, words: vec![word] }).unwrap();
         assert!(crate::tests::page_texts(&s, id)[0].contains("日本語"));
@@ -2349,12 +2355,12 @@ mod tests {
         }
     }
 
-    /// The first and last letters of a line are read: ocrs' own 3-pixel margin clipped them at
-    /// 300 dpi ("The" read as "he", "and" as "an", full stops lost, about 4 % of the words).
+    /// The first and last letters of a line are read (#5058: the previous engine's 3-pixel
+    /// margin clipped them at 300 dpi: "The" read as "he", "and" as "an", full stops lost).
     /// Needs the OCR models (`cargo xtask models`).
     #[test]
     fn the_first_and_last_letters_of_a_line_are_read() {
-        // The default engine is ocrs: Tesseract alone makes `available()` true but cannot run it.
+        // The default engine is PP-OCR: Tesseract alone makes `available()` true but cannot run it.
         if Models::find().is_none() {
             eprintln!("skipped: OCR models not installed");
             return;
