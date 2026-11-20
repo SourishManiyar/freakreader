@@ -1,0 +1,13 @@
+\documentclass[10pt,a4paper,twocolumn]{article}
+\usepackage[margin=2cm]{geometry}
+\pagestyle{empty}
+\hyphenpenalty=10000 \exhyphenpenalty=10000
+\input{ocrbench}
+\begin{document}
+\ocrpar{Mixing times measure how long a Markov chain needs before its law is close to the stationary distribution. For the random walk on a finite group, the eigenvalues of the transition matrix give upper and lower bounds that often match.}
+\ocrpar{The cutoff phenomenon, first seen by Diaconis and Shahshahani for random transpositions, says that the distance to stationarity drops from near one to near zero in a window much shorter than the mixing time itself.}
+\ocrpar{Coupling arguments go back to Doeblin. Two copies of the chain move together once they meet, and the time until they meet bounds the total variation distance. Path coupling, introduced by Bubley and Dyer, makes the method work for many chains on colourings.}
+\ocrpar{The spectral gap and the logarithmic Sobolev constant of Gross control the decay of the variance and of the entropy. Poincar\'e inequalities give the first, and hypercontractivity, studied by Nelson and by Bonami and Beckner, gives the second.}
+\ocrpar{For the Glauber dynamics of the Ising model, the work of Martinelli and Olivieri shows rapid mixing at high temperature, and the results of Lubetzky and Sly establish cutoff on the lattice. The analysis of the Curie and Weiss model is simpler and is a good place to start.}
+\ocrpar{We close with the theorem of Perron and Frobenius, the formula of Kac for return times, and a question of Aldous about the hitting times of large sets, which remains open in this generality.}
+\end{document}

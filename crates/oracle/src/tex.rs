@@ -10,6 +10,7 @@
 pub mod bib;
 mod dvi;
 pub mod layout;
+pub mod ocr;
 pub mod refs;
 
 pub use dvi::{DviPage, Item, MAX_EVENT_BYTES, MAX_ITEMS, MAX_PAGES, Mark, Owner, parse_dvitype};

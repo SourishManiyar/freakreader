@@ -1,0 +1,12 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.5cm]{geometry}
+\pagestyle{empty}
+\hyphenpenalty=10000 \exhyphenpenalty=10000
+\input{ocrbench}
+\begin{document}
+\ocrpar{The random graph studied by Erd\H{o}s and R\'enyi keeps each of the possible edges independently with a fixed probability. When the expected degree crosses one, a giant component appears, and its size is described by the survival probability of a Poisson branching process with the same mean.}
+\ocrpar{We compare this picture with the inhomogeneous models of Chung and Lu, in which every vertex carries a weight and an edge joins two vertices with probability proportional to the product of their weights. The near-critical window of these models is wider when the weights have heavy tails, and the components inside it are no longer described by the Brownian excursions found by Aldous.}
+\ocrpar{Our main estimate is a H\"older bound for the exploration process. Write $\xi$ for the number of new vertices found at each step and $\lambda$ for the mean of the weights. A martingale argument in the spirit of L\'evy, together with the inequalities of Doob and Bernstein, shows that the process stays close to its drift on every interval of length proportional to $\lambda$ raised to two thirds.}
+\ocrpar{The proof of the lower bound uses a second moment method. Poincar\'e's recurrence argument does not apply directly, because the process is not stationary, but a coupling with a sequence of independent trials gives the same conclusion with an explicit constant.}
+\ocrpar{Section two recalls the classical results of Erd\H{o}s, R\'enyi, Bollob\'as and Janson. Section three proves the concentration estimate. Section four treats the window and the scaling limit, and section five lists open problems, including the behaviour of the diameter and the mixing time of the random walk on the largest component.}
+\end{document}

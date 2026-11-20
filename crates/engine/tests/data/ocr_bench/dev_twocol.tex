@@ -1,0 +1,15 @@
+\documentclass[10pt,a4paper,twocolumn]{article}
+\usepackage[margin=2cm]{geometry}
+\pagestyle{empty}
+\hyphenpenalty=10000 \exhyphenpenalty=10000
+\input{ocrbench}
+\begin{document}
+\ocrpar{A branching process starts with one individual. Each individual has a random number of children, independently of the others and with a common law, and the process dies out exactly when the mean is at most one, unless every individual has one child.}
+\ocrpar{The generating function of the offspring law decides everything. Its smallest fixed point in the unit interval is the extinction probability, and its derivative at one is the mean. Galton and Watson asked this question about surnames, and the answer was given many years later by Steffensen.}
+\ocrpar{For a random graph the exploration of a component is a branching process with a slowly changing law. Each step removes the explored vertex from the pool of fresh vertices, so the mean number of children falls as the exploration goes on, and the walk that counts the active vertices eventually returns to zero.}
+\ocrpar{In the critical case the walk has no drift at the start and a negative drift that grows linearly in time. Its excursions above the past minimum, rescaled in the right way, converge to the excursions of a Brownian motion with parabolic drift, as Aldous proved.}
+\ocrpar{The theorem of Cram\'er gives the probability of a large deviation of the walk, and Chernoff bounds give the same rate with simpler constants. We use both. The bounds of H\"offding and Azuma are enough when the increments are bounded, which holds after a truncation of the weights.}
+\ocrpar{The method also gives the size of the second largest component. It is of order the logarithm of the number of vertices above the critical point and of order two thirds of a power of it inside the window, as in the work of Erd\H{o}s and R\'enyi on the uniform model.}
+\ocrpar{Finally, the Fr\'echet distance between two exploration paths controls the distance between their excursion lengths. This gives a short proof of the joint convergence of the ordered component sizes, which we state in the last section together with a conjecture about the surplus.}
+\ocrpar{The authors thank the referees for careful reading, and the organisers of the workshop on random structures for their hospitality during the meeting where this work began.}
+\end{document}
