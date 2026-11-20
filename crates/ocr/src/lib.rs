@@ -22,8 +22,6 @@
 
 pub mod confidence;
 pub mod merge;
-/// The previous built-in engine, kept until PP-OCR has replaced it everywhere.
-pub mod ocrs;
 pub mod ppocr;
 pub mod preprocess;
 #[cfg(not(target_arch = "wasm32"))]

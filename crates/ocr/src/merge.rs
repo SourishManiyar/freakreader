@@ -8,7 +8,7 @@
 use crate::{Line, OcrError, OcrImage, RecognizeOptions, Recognizer, Word};
 
 /// How the chosen engines combine. The default is [`MergeStrategy::PrimaryOnly`] with the
-/// default engine (ocrs), which is today's behavior.
+/// default engine (PP-OCR), which is today's behavior.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum MergeStrategy {
     /// Only the primary engine runs.
@@ -16,7 +16,7 @@ pub enum MergeStrategy {
     PrimaryOnly,
     /// The secondary engine joins only when the primary's reading looks weak: its mean word
     /// confidence is under 70, or its confidence is unknown (words were read but none reports
-    /// a confidence — the ocrs engine). An unknown reading is never counted as 100; an empty
+    /// a confidence, as some Tesseract readings do). An unknown reading is never counted as 100; an empty
     /// primary keeps the fast path (no words, nothing to double-check).
     ConfidenceWeighted,
     /// Both engines always run and their readings merge (with no secondary engine this
@@ -25,7 +25,7 @@ pub enum MergeStrategy {
 }
 
 /// The mean of the confidences the words report, 0–100; `None` when the reading's confidence
-/// is UNKNOWN — words were read but none reports a confidence (the ocrs engine's words).
+/// is UNKNOWN — words were read but none reports a confidence (an engine that reports none).
 /// Unknown is never counted as 100: there is no low-confidence signal, but a reading whose
 /// confidence nobody knows is not therefore confident, so a confidence-weighted strategy
 /// answers it by asking the secondary engine. An empty reading is `Some(100.0)`: no words
@@ -82,7 +82,7 @@ fn over_cap(primary: &[Line], secondary: &[Line]) -> bool {
 }
 
 /// The confidence a secondary word needs to replace a primary word whose confidence is
-/// unknown (the ocrs engine reports none). It is the bar under which a reading counts as weak
+/// unknown (an engine that reports none). It is the bar under which a reading counts as weak
 /// ([`MergeStrategy::ConfidenceWeighted`] asks the second engine below it): a word the second
 /// engine itself calls weak does not displace a reading nobody scored.
 pub const UNKNOWN_CONFIDENCE_BAR: f32 = 70.0;
@@ -264,7 +264,7 @@ mod tests {
             Fake { id, lines: Vec::new(), calls: AtomicUsize::new(0), fail: false }
         }
 
-        /// An engine like ocrs: words, but no confidence reported on any of them.
+        /// An engine that reads words but reports no confidence reported on any of them.
         fn unknown(id: &'static str, n: usize) -> Fake {
             Fake {
                 id,
@@ -329,12 +329,12 @@ mod tests {
     /// Non-overlapping secondary words never displace primary words; they are appended.
     #[test]
     fn rover_appends_non_overlapping_secondary_words() {
-        let primary = vec![Line { words: vec![Word::new("kept", [0.0, 0.0, 10.0, 10.0], "ocrs").with_confidence(50.0)] }];
+        let primary = vec![Line { words: vec![Word::new("kept", [0.0, 0.0, 10.0, 10.0], "ppocr").with_confidence(50.0)] }];
         let secondary = vec![Line { words: vec![Word::new("extra", [100.0, 100.0, 120.0, 110.0], "tesseract").with_confidence(99.0)] }];
         let merged = rover_merge(primary, secondary, "tesseract");
         let w = words(&merged);
         assert_eq!(w.len(), 2);
-        assert_eq!((w[0].text.as_str(), w[0].source.as_str()), ("kept", "ocrs"), "the more confident but disjoint word does not win");
+        assert_eq!((w[0].text.as_str(), w[0].source.as_str()), ("kept", "ppocr"), "the more confident but disjoint word does not win");
         assert_eq!((w[1].text.as_str(), w[1].source.as_str()), ("extra", "tesseract"));
     }
 
@@ -342,7 +342,7 @@ mod tests {
     /// named ROVER.
     #[test]
     fn rover_higher_confidence_wins_and_is_named_rover() {
-        let primary = vec![Line { words: vec![Word::new("helo", [0.0, 0.0, 10.0, 10.0], "ocrs").with_confidence(60.0)] }];
+        let primary = vec![Line { words: vec![Word::new("helo", [0.0, 0.0, 10.0, 10.0], "ppocr").with_confidence(60.0)] }];
         let secondary = vec![Line { words: vec![Word::new("hello", [1.0, 0.0, 11.0, 10.0], "tesseract").with_confidence(95.0)] }];
         let merged = rover_merge(primary, secondary, "tesseract");
         let w = words(&merged);
@@ -356,7 +356,7 @@ mod tests {
     /// A tie keeps the primary word (still named ROVER, as an agreed reading).
     #[test]
     fn rover_tie_keeps_the_primary() {
-        let primary = vec![Line { words: vec![Word::new("primary", [0.0, 0.0, 10.0, 10.0], "ocrs").with_confidence(80.0)] }];
+        let primary = vec![Line { words: vec![Word::new("primary", [0.0, 0.0, 10.0, 10.0], "ppocr").with_confidence(80.0)] }];
         let secondary = vec![Line { words: vec![Word::new("secondary", [0.0, 0.0, 10.0, 10.0], "tesseract").with_confidence(80.0)] }];
         let merged = rover_merge(primary, secondary, "tesseract");
         let w = words(&merged);
@@ -368,20 +368,20 @@ mod tests {
     /// Boxes under the 0.5 IoU bar never merge, even when the secondary is more confident.
     #[test]
     fn rover_below_half_iou_does_not_merge() {
-        let primary = vec![Line { words: vec![Word::new("kept", [0.0, 0.0, 10.0, 10.0], "ocrs").with_confidence(50.0)] }];
+        let primary = vec![Line { words: vec![Word::new("kept", [0.0, 0.0, 10.0, 10.0], "ppocr").with_confidence(50.0)] }];
         // IoU 10·10 / (100 + 169 - 25) = 100/244 ≈ 0.41 < 0.5.
         let secondary = vec![Line { words: vec![Word::new("other", [5.0, 0.0, 23.0, 20.0], "tesseract").with_confidence(99.0)] }];
         let merged = rover_merge(primary, secondary, "tesseract");
         let w = words(&merged);
         assert_eq!(w.len(), 2);
         assert_eq!(w[0].text, "kept");
-        assert_eq!(w[0].source, "ocrs");
+        assert_eq!(w[0].source, "ppocr");
     }
 
     /// Merged words keep their line; the merge never panics on NaN boxes.
     #[test]
     fn rover_survives_nan_boxes() {
-        let primary = vec![Line { words: vec![Word::new("nan", [f32::NAN, 0.0, 10.0, 10.0], "ocrs").with_confidence(50.0)] }];
+        let primary = vec![Line { words: vec![Word::new("nan", [f32::NAN, 0.0, 10.0, 10.0], "ppocr").with_confidence(50.0)] }];
         let secondary = vec![Line { words: vec![Word::new("real", [0.0, 0.0, 10.0, 10.0], "tesseract").with_confidence(90.0)] }];
         let merged = rover_merge(primary, secondary, "tesseract");
         let w = words(&merged);
@@ -395,7 +395,7 @@ mod tests {
     #[test]
     fn mean_confidence_distinguishes_empty_from_unknown() {
         assert_eq!(mean_confidence(&[]), Some(100.0));
-        assert_eq!(mean_confidence(&[Line { words: vec![Word::new("a", [0.0; 4], "ocrs")] }]), None, "words, no confidences: unknown");
+        assert_eq!(mean_confidence(&[Line { words: vec![Word::new("a", [0.0; 4], "ppocr")] }]), None, "words, no confidences: unknown");
         let lines = vec![Line {
             words: vec![
                 Word::new("a", [0.0; 4], "e").with_confidence(40.0),
@@ -407,18 +407,18 @@ mod tests {
     }
 
     /// ROVER's preference needs a meaningful comparison: a known confidence beats an unknown
-    /// one (the ocrs primary yields to a confident tesseract reading), and None vs None keeps
+    /// one (an unscored primary yields to a confident tesseract reading), and None vs None keeps
     /// the primary.
     #[test]
     fn rover_known_confidence_beats_unknown_and_none_vs_none_keeps_the_primary() {
-        let primary = vec![Line { words: vec![Word::new("helo", [0.0, 0.0, 10.0, 10.0], "ocrs")] }];
+        let primary = vec![Line { words: vec![Word::new("helo", [0.0, 0.0, 10.0, 10.0], "ppocr")] }];
         let secondary = vec![Line { words: vec![Word::new("hello", [0.0, 0.0, 10.0, 10.0], "tesseract").with_confidence(95.0)] }];
         let merged = rover_merge(primary, secondary, "tesseract");
         assert_eq!(
             (merged[0].words[0].text.as_str(), merged[0].words[0].confidence, merged[0].words[0].source.as_str()),
             ("hello", Some(95.0), "ROVER")
         );
-        let primary = vec![Line { words: vec![Word::new("primary", [0.0, 0.0, 10.0, 10.0], "ocrs")] }];
+        let primary = vec![Line { words: vec![Word::new("primary", [0.0, 0.0, 10.0, 10.0], "ppocr")] }];
         let secondary = vec![Line { words: vec![Word::new("secondary", [0.0, 0.0, 10.0, 10.0], "tesseract")] }];
         let merged = rover_merge(primary, secondary, "tesseract");
         assert_eq!(
@@ -434,14 +434,14 @@ mod tests {
     fn rover_over_the_comparison_cap_keeps_the_primary() {
         // 11 000 × 11 000 = 121 M comparisons > the 100 M cap.
         let words = |id: &str| (0..11_000).map(|i| Word::new(format!("w{i}"), [i as f32, 0.0, i as f32 + 5.0, 10.0], id)).collect::<Vec<_>>();
-        let primary = vec![Line { words: words("ocrs") }];
+        let primary = vec![Line { words: words("ppocr") }];
         let secondary = vec![Line { words: words("tesseract") }];
         let merged = rover_merge(primary, secondary, "tesseract");
         assert_eq!(merged.len(), 1);
-        assert!(merged[0].words.iter().all(|w| w.source == "ocrs"), "every primary word stands, unmerged");
+        assert!(merged[0].words.iter().all(|w| w.source == "ppocr"), "every primary word stands, unmerged");
         assert_eq!(merged[0].words.len(), 11_000);
         // Under the cap, merging still happens (a small overlap is replaced and named ROVER).
-        let small_primary = vec![Line { words: vec![Word::new("kept", [0.0, 0.0, 10.0, 10.0], "ocrs").with_confidence(50.0)] }];
+        let small_primary = vec![Line { words: vec![Word::new("kept", [0.0, 0.0, 10.0, 10.0], "ppocr").with_confidence(50.0)] }];
         let small_secondary = vec![Line { words: vec![Word::new("wins", [0.0, 0.0, 10.0, 10.0], "tesseract").with_confidence(95.0)] }];
         let merged = rover_merge(small_primary, small_secondary, "tesseract");
         assert_eq!((merged[0].words[0].text.as_str(), merged[0].words[0].source.as_str()), ("wins", "ROVER"));
@@ -453,9 +453,9 @@ mod tests {
     /// run — its work was spent, its reading unused).
     #[test]
     fn rover_cap_hit_reports_primary_only_with_a_note_and_an_honest_flag() {
-        let mut primary = Fake::empty("ocrs");
+        let mut primary = Fake::empty("ppocr");
         primary.lines =
-            vec![Line { words: (0..11_000).map(|i| Word::new(format!("w{i}"), [i as f32, 0.0, i as f32 + 5.0, 10.0], "ocrs")).collect() }];
+            vec![Line { words: (0..11_000).map(|i| Word::new(format!("w{i}"), [i as f32, 0.0, i as f32 + 5.0, 10.0], "ppocr")).collect() }];
         let mut secondary = Fake::empty("tesseract");
         secondary.lines =
             vec![Line { words: (0..11_000).map(|i| Word::new(format!("w{i}"), [i as f32, 0.0, i as f32 + 5.0, 10.0], "tesseract")).collect() }];
@@ -463,13 +463,13 @@ mod tests {
         assert_eq!(secondary.calls.load(Ordering::SeqCst), 1, "the secondary really ran");
         assert_eq!(outcome.lines.len(), 1);
         assert_eq!(outcome.lines[0].words.len(), 11_000, "primary only");
-        assert!(outcome.lines[0].words.iter().all(|w| w.source == "ocrs"), "every primary word stands, unmerged");
+        assert!(outcome.lines[0].words.iter().all(|w| w.source == "ppocr"), "every primary word stands, unmerged");
         assert!(!outcome.secondary_ran, "the secondary's reading is not part of the result");
         assert_eq!(outcome.notes.len(), 1, "{:?}", outcome.notes);
         assert!(outcome.notes[0].contains("merge"), "{:?}", outcome.notes[0]);
         assert!(outcome.notes[0].contains("tesseract"), "{:?}", outcome.notes[0]);
         // Under the cap the same strategy merges and reports the secondary honestly.
-        let primary = Fake::new("ocrs", &[("kept", [0.0, 0.0, 10.0, 10.0], 50.0)]);
+        let primary = Fake::new("ppocr", &[("kept", [0.0, 0.0, 10.0, 10.0], 50.0)]);
         let secondary = Fake::new("tesseract", &[("wins", [0.0, 0.0, 10.0, 10.0], 95.0)]);
         let outcome = recognize_with_strategy(&primary, Some(&secondary), MergeStrategy::RoverVote, &image(), &RecognizeOptions::default()).unwrap();
         assert!(outcome.secondary_ran && outcome.notes.is_empty());
@@ -478,7 +478,7 @@ mod tests {
 
     #[test]
     fn primary_only_never_runs_the_secondary() {
-        let primary = Fake::new("ocrs", &[("w", [0.0; 4], 90.0)]);
+        let primary = Fake::new("ppocr", &[("w", [0.0; 4], 90.0)]);
         let secondary = Fake::empty("tesseract");
         let outcome =
             recognize_with_strategy(&primary, Some(&secondary), MergeStrategy::PrimaryOnly, &image(), &RecognizeOptions::default()).unwrap();
@@ -491,8 +491,8 @@ mod tests {
 
     #[test]
     fn confidence_weighted_runs_the_secondary_only_on_a_weak_primary() {
-        let weak = Fake::new("ocrs", &[("w", [0.0; 4], 40.0)]);
-        let strong = Fake::new("ocrs", &[("w", [0.0; 4], 95.0)]);
+        let weak = Fake::new("ppocr", &[("w", [0.0; 4], 40.0)]);
+        let strong = Fake::new("ppocr", &[("w", [0.0; 4], 95.0)]);
         let secondary = Fake::empty("tesseract");
         let outcome =
             recognize_with_strategy(&weak, Some(&secondary), MergeStrategy::ConfidenceWeighted, &image(), &RecognizeOptions::default()).unwrap();
@@ -501,21 +501,21 @@ mod tests {
             recognize_with_strategy(&strong, Some(&secondary), MergeStrategy::ConfidenceWeighted, &image(), &RecognizeOptions::default()).unwrap();
         assert!(!outcome.secondary_ran, "mean 95 >= 70 → primary alone");
         // An empty primary counts as 100: no signal, no secondary run.
-        let empty = Fake::empty("ocrs");
+        let empty = Fake::empty("ppocr");
         let outcome =
             recognize_with_strategy(&empty, Some(&secondary), MergeStrategy::ConfidenceWeighted, &image(), &RecognizeOptions::default()).unwrap();
         assert!(!outcome.secondary_ran);
         assert_eq!(secondary.calls.load(Ordering::SeqCst), 1, "only the weak page ran the secondary");
     }
 
-    /// The ocrs engine reports no confidences: unknown is not 100, so the secondary runs —
+    /// An engine that reports no confidences: unknown is not 100, so the secondary runs —
     /// and its known reading wins the overlapping word (the ensemble's whole point).
     #[test]
     fn confidence_weighted_runs_the_secondary_on_an_unknown_primary() {
-        let ocrs_like = Fake::unknown("ocrs", 1);
+        let unscored = Fake::unknown("ppocr", 1);
         let secondary = Fake::new("tesseract", &[("hello", [0.0, 0.0, 10.0, 10.0], 95.0)]);
         let outcome =
-            recognize_with_strategy(&ocrs_like, Some(&secondary), MergeStrategy::ConfidenceWeighted, &image(), &RecognizeOptions::default()).unwrap();
+            recognize_with_strategy(&unscored, Some(&secondary), MergeStrategy::ConfidenceWeighted, &image(), &RecognizeOptions::default()).unwrap();
         assert!(outcome.secondary_ran, "an unknown confidence asks the secondary");
         assert_eq!((outcome.lines[0].words[0].text.as_str(), outcome.lines[0].words[0].confidence), ("hello", Some(95.0)));
         assert_eq!(outcome.lines[0].words[0].source, "ROVER");
@@ -529,7 +529,7 @@ mod tests {
     fn an_unknown_primary_word_yields_only_to_a_confident_secondary() {
         let merge = |conf: f32| {
             let secondary = vec![Line { words: vec![Word::new("other", [0.0, 0.0, 10.0, 10.0], "tesseract").with_confidence(conf)] }];
-            let primary = Fake::unknown("ocrs", 1).lines;
+            let primary = Fake::unknown("ppocr", 1).lines;
             rover_merge(primary, secondary, "tesseract").remove(0).words.remove(0)
         };
         let weak = merge(5.0);
@@ -544,7 +544,7 @@ mod tests {
 
     #[test]
     fn rover_vote_always_runs_both_and_degrades_without_a_secondary() {
-        let primary = Fake::new("ocrs", &[("w", [0.0; 4], 95.0)]);
+        let primary = Fake::new("ppocr", &[("w", [0.0; 4], 95.0)]);
         let secondary = Fake::empty("tesseract");
         let outcome = recognize_with_strategy(&primary, Some(&secondary), MergeStrategy::RoverVote, &image(), &RecognizeOptions::default()).unwrap();
         assert!(outcome.secondary_ran);
@@ -561,7 +561,7 @@ mod tests {
     fn a_failing_secondary_degrades_to_the_primary_with_a_note() {
         let mut secondary = Fake::empty("tesseract");
         secondary.fail = true;
-        let primary = Fake::new("ocrs", &[("w", [0.0; 4], 95.0)]);
+        let primary = Fake::new("ppocr", &[("w", [0.0; 4], 95.0)]);
         let outcome = recognize_with_strategy(&primary, Some(&secondary), MergeStrategy::RoverVote, &image(), &RecognizeOptions::default()).unwrap();
         assert_eq!(words(&outcome.lines).len(), 1, "the primary reading stands");
         assert_eq!(outcome.lines[0].words[0].text, "w");
@@ -569,13 +569,13 @@ mod tests {
         assert_eq!(outcome.notes.len(), 1);
         assert!(outcome.notes[0].contains("tesseract"), "{:?}", outcome.notes[0]);
         // The confidence-weighted strategy degrades the same way on its weak path.
-        let weak = Fake::new("ocrs", &[("w", [0.0; 4], 40.0)]);
+        let weak = Fake::new("ppocr", &[("w", [0.0; 4], 40.0)]);
         let outcome =
             recognize_with_strategy(&weak, Some(&secondary), MergeStrategy::ConfidenceWeighted, &image(), &RecognizeOptions::default()).unwrap();
         assert_eq!(words(&outcome.lines).len(), 1);
         assert_eq!(outcome.notes.len(), 1, "{:?}", outcome.notes);
         // A failing primary is still an error: there is nothing to degrade to.
-        let mut failing_primary = Fake::new("ocrs", &[("w", [0.0; 4], 95.0)]);
+        let mut failing_primary = Fake::new("ppocr", &[("w", [0.0; 4], 95.0)]);
         failing_primary.fail = true;
         let r = recognize_with_strategy(&failing_primary, Some(&secondary), MergeStrategy::RoverVote, &image(), &RecognizeOptions::default());
         assert!(r.is_err());

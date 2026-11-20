@@ -139,7 +139,34 @@ from PaddleOCR's code:
   line; 50 000 words per page; dictionaries at most 4 MiB and 30 000 entries, plain or
   single-quoted items only; model files at most 256 MiB. One page is read at a time.
 
-BENCHMARK-PLACEHOLDER
+### Benchmark
+
+`crates/engine/tests/it/ocr_bench.rs` (`crates/engine/tests/data/ocr_bench/README.md`) typesets
+five pages of mathematical prose with pdfTeX (three development pages, two held out and never
+tuned on), takes the truth from the DVI, renders the PDF at 300 dpi and degrades it. Word and
+character error rate (WER, CER) in reading order, and the accented or Greek words read intact
+(49 on the development pages, 6 held out). Measured on 2026-11-20, Linux x86-64, language `en`:
+
+| Condition | Set | ocrs WER | ocrs CER | ocrs accented/Greek | PP-OCR WER | PP-OCR CER | PP-OCR accented/Greek |
+|---|---|---|---|---|---|---|---|
+| clean | dev | 8.1% | 2.1% | 0/49 | 0.4% | 0.1% | 46/49 |
+| clean | held out | 3.7% | 0.9% | 0/6 | 0.0% | 0.0% | 6/6 |
+| rotate 0.5° | dev | 23.1% | 18.5% | 0/49 | 0.3% | 0.0% | 47/49 |
+| rotate 0.5° | held out | 3.7% | 0.9% | 0/6 | 0.0% | 0.0% | 6/6 |
+| blur | dev | 19.0% | 12.6% | 0/49 | 0.1% | 0.0% | 48/49 |
+| blur | held out | 3.0% | 0.8% | 0/6 | 0.0% | 0.0% | 6/6 |
+| noise | dev | 11.7% | 3.5% | 0/49 | 0.6% | 0.1% | 44/49 |
+| noise | held out | 6.2% | 1.6% | 0/6 | 0.0% | 0.0% | 6/6 |
+| JPEG q40 | dev | 15.3% | 9.1% | 0/49 | 0.3% | 0.0% | 47/49 |
+| JPEG q40 | held out | 3.2% | 0.8% | 0/6 | 0.0% | 0.0% | 6/6 |
+| all four | dev | 8.3% | 2.4% | 0/49 | 0.5% | 0.1% | 46/49 |
+| all four | held out | 5.0% | 1.3% | 0/6 | 0.0% | 0.0% | 6/6 |
+
+ocrs turned every accented letter into `?` and read math-italic Greek as Latin look-alikes.
+PP-OCR's remaining errors are look-alikes on the Greek page (ν read as v, μ as the micro sign µ,
+Λ as A). It is slower: about 2.3 s a page against 0.7 s for ocrs on this machine (recognition alone,
+rten's default threads). The pages are synthetic renders of Computer Modern, so the held-out set scoring 0 % says these pages are now
+too easy to tell further improvements apart; real scans and other fonts are not measured here.
 
 Not yet: Cyrillic, Arabic, Hebrew and Indic scripts (PaddleOCR publishes recognisers for them
 that this engine could load); measured quality for Greek, Chinese and Japanese; vertical
